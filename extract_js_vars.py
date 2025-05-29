@@ -13,10 +13,9 @@ def fetch_html(url):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     try:
-        # Increased timeout to 20 seconds
         response = requests.get(url, headers=headers, timeout=20) 
-        response.raise_for_status() # Raises an HTTPError for bad responses (4XX or 5XX)
-        print(f"Successfully fetched HTML. Content length: {len(response.text)} bytes.") # Diagnostic print
+        response.raise_for_status() 
+        print(f"Successfully fetched HTML. Content length: {len(response.text)} bytes.")
         return response.text
     except requests.exceptions.HTTPError as e:
         print(f"HTTP error occurred while fetching {url}: {e}")
@@ -33,25 +32,21 @@ def extract_script_content(html_content):
     Extracts the content of an inline JavaScript block presumed to contain variable definitions.
     It tries a few patterns to find the relevant script block.
     """
-    # Pattern 1: Look for a script tag containing 'var estName ='.
     match = re.search(r"<script[^>]*>([\s\S]*?var\s+estName\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
         print("Found script block using 'var estName' pattern.")
         return match.group(1)
 
-    # Pattern 2: Look for a script tag containing 'var dapi ='.
     match = re.search(r"<script[^>]*>([\s\S]*?var\s+dapi\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
         print("Found script block using 'var dapi' pattern.")
         return match.group(1)
 
-    # Pattern 3: Fallback to a general pattern for inline scripts (no 'src' attribute).
     match = re.search(r"<script(?![^>]*src=)[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
         print("Found script block using general inline script pattern (no src attribute).")
         return match.group(1)
         
-    # Pattern 4: Last resort, find any script tag.
     match = re.search(r"<script[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
         print("Found script block using the most general script pattern.")
@@ -63,32 +58,28 @@ def extract_script_content(html_content):
 def extract_variable_value(script_content, var_name):
     """
     Extracts the value of a given JavaScript variable using regex.
-    The value is returned as a string.
+    The value is returned as a string, capturing multi-line objects/arrays.
+    It looks for var, let, or const declarations.
     """
-    # This regex attempts to capture various JS value types:
-    # - Quoted strings (double or single, handling escaped quotes)
-    # - Arrays ([...])
-    # - Objects ({...})
-    # - Boolean literals (true/false)
-    # - null / undefined
-    # - Numbers (including decimals and negative numbers)
-    # It captures everything up to the semicolon.
-    regex_str = r"(?:var|let|const)\s+" + re.escape(var_name) + r"\s*=\s*((?:\"(?:\\\"|[^\"])*\"|\'(?:\\\'|[^\'])*\'|\[[\s\S]*?\]|\{[\s\S]*?\}|true|false|null|undefined|-?\d+(?:\.\d+)?).*?);"
+    # Regex explanation:
+    # (?:var|let|const)    - Matches 'var', 'let', or 'const'. Non-capturing group.
+    # \s+                  - Matches one or more whitespace characters.
+    # re.escape(var_name)  - Matches the literal variable name, escaping any special regex chars.
+    # \s*=\s*              - Matches '=' surrounded by optional whitespace.
+    # ([\s\S]+?)           - Capturing group 1: Matches any character (including newlines)
+    #                        non-greedily. This is the variable's value.
+    # ;                    - Matches the terminating semicolon of the JavaScript statement.
+    #
+    # This regex is designed to capture everything from the '=' up to the
+    # first semicolon that terminates that specific variable declaration.
+    regex_str = r"(?:var|let|const)\s+" + re.escape(var_name) + r"\s*=\s*([\s\S]+?);"
     
-    match = re.search(regex_str, script_content, re.DOTALL)
+    match = re.search(regex_str, script_content) # Removed re.DOTALL as [\s\S] handles newlines
     
     if match:
         value = match.group(1).strip()
         return value
     
-    # Fallback for variables that might be declared with `const country = 'NZ'` (from output)
-    # where the previous regex might fail if it doesn't match the exact structure.
-    # This is a more specific fallback for a `const variableName = 'string'` type pattern.
-    if var_name == "country": # Specific example from output
-        match_const = re.search(r"const\s+" + re.escape(var_name) + r"\s*=\s*\'(.*?)\';", script_content)
-        if match_const:
-            return f"'{match_const.group(1).strip()}'" # Re-add quotes for consistency if needed
-
     return None
 
 def main():
@@ -102,45 +93,55 @@ def main():
     script_content = extract_script_content(html_content)
     if not script_content:
         print("Error: Could not find or extract a suitable inline script block from the fetched HTML.")
-        print("\n--- Start of fetched HTML (first 500 chars) for debugging ---")
-        print(html_content[:500])
-        print("--- End of fetched HTML snippet ---")
+        if html_content: # Print snippet if HTML was fetched but script block wasn't found
+            print("\n--- Start of fetched HTML (first 500 chars) for debugging ---")
+            print(html_content[:500])
+            print("--- End of fetched HTML snippet ---")
         return
 
-    print("\n--- Start of Extracted Script Content (first 500 chars) ---")
-    print(script_content[:500])
+    print("\n--- Start of Extracted Script Content (first 300 chars) ---")
+    print(script_content[:300]) # Reduced snippet size
     print("--- End of Extracted Script Content snippet ---\n")
     
     variables_to_extract = [
-        "estName", "dapi", "currSym", "country", "partyMin", "partyMax",
-        "horizon", "timeStep", "todayYear", "todayMonth", "today",
-        "preTime", "allShifts", "eventsB", "prefCountry"
+        "lng", "prefCountry", "areaMsg", "backColours", "test", "tmsVersion", "tmsRelease", 
+        "redirect", "messages", "allShifts", "always", "loyaltyOptin", "allergy", "invoice", 
+        "arSelect", "showEvents", "eventMessages", "eventsB", "dapi", "todayMonth", "today", 
+        "now", "todayYear", "preTime", "narrowWin", "wideWin", "startSun", "thankURL", 
+        "trailing", "days", "LinkPriv", "LinkTC", "estPhone", "partyMin", "partyMax", 
+        "horizon", "timeStep", "estName", "standbyOnline", "maxRequest", "estFull", 
+        "currSym", "country", "sisters", "areaAny", "options", "AvailPage", "ForLarger", 
+        "preSelected", "selected", "br", "PERHEAD", "TOTAL", "addonError", "allergyYN", 
+        "areaName", "availMonth", "cache", "calendar", "cardRequired", "charge", "count", 
+        "created", "descMenu", "estCalendarAvail", "estNot", "eventName", "eventsActive", 
+        "focusCount", "from", "to", "fullName", "invoiceRequired", "limited", "loading", 
+        "loyal", "noStandby", "portal", "monthFirst", "monthName", "shoulder", 
+        "sisterLoads", "sistersLoading", "sisterName", "sisterTimes", "telLink", 
+        "timesAvail", "onTheHour", "usrLang", "vacateMsg", "viewPrivacy", "viewTerms"
     ]
 
     print("Extracted JavaScript Variables:\n")
-    all_found = True
+    found_count = 0
     not_found_vars = []
     for var_name in variables_to_extract:
         value = extract_variable_value(script_content, var_name)
         if value is not None:
-            # Special handling for 'country' if it was captured by the specific const regex
-            # and to ensure its output format consistency.
-            # The output from previous run for country was: `const  country = 'NZ'`
-            # then `country: 'NZ'`. This seems to be an artifact of how it was printed or extracted.
-            # The goal is variable_name: value
-            if var_name == "country" and value.startswith("const"): # cleanup if needed
-                country_val_match = re.search(r"const\s+country\s*=\s*(.*?);", value, re.IGNORECASE)
-                if country_val_match:
-                    value = country_val_match.group(1).strip()
-            
             print(f"{var_name}: {value}")
+            found_count += 1
         else:
-            print(f"{var_name}: Not Found")
-            all_found = False
+            # Only print "Not Found" for a few to keep output cleaner during runs,
+            # the final list of not_found_vars is more important.
+            if len(not_found_vars) < 5: 
+                print(f"{var_name}: Not Found")
             not_found_vars.append(var_name)
     
-    if not all_found:
-        print(f"\nNote: Some variables were not found: {', '.join(not_found_vars)}. This might be expected if the target page's structure differs or variables are not present.")
+    print(f"\n--- Summary ---")
+    print(f"Found {found_count} out of {len(variables_to_extract)} variables.")
+    if not_found_vars:
+        print(f"Variables not found ({len(not_found_vars)}): {', '.join(sorted(not_found_vars))}")
+    else:
+        print("All specified variables were found.")
+
 
 if __name__ == "__main__":
     main()
