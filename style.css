@@ -1,0 +1,122 @@
+/* Body/General */
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+/* Form Container */
+.form-container {
+    max-width: 700px;
+    margin: 30px auto;
+    padding: 25px;
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Headings */
+h1 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 1.8em;
+}
+
+h2 {
+    color: #555;
+    margin-top: 25px;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+/* Labels */
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #444;
+}
+
+/* Input Fields */
+input[type="date"],
+input[type="number"] {
+    width: calc(100% - 22px); /* Account for padding and border */
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important for width calculation */
+    font-size: 1em;
+}
+
+/* Form Selectors Grouping */
+.form-selectors > div {
+    margin-bottom: 15px;
+}
+
+/* Time Slot Container */
+#timeSelectorContainer.time-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Spacing between buttons */
+    margin-top: 10px;
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+/* Time Slot Buttons */
+.time-slot-button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95em;
+    margin: 2px; /* Minimal margin, gap handles main spacing */
+    transition: background-color 0.2s ease-in-out;
+}
+
+.time-slot-button:hover {
+    background-color: #0056b3;
+}
+
+.time-slot-button.selected { /* Style for selected time slot */
+    background-color: #28a745; /* Green to indicate selection */
+    font-weight: bold;
+}
+
+
+/* Selected Details Display */
+#selectedDetails {
+    margin-top: 25px;
+    padding: 15px;
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+#selectedDetails p {
+    margin: 8px 0;
+    font-size: 1em;
+}
+
+#selectedDetails p span {
+    font-weight: bold;
+    color: #007bff;
+}
+
+/* Restaurant Name Span in H1 */
+#restaurantName {
+    color: #007bff; /* Or a different color to stand out */
+}

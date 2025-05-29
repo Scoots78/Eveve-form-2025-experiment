@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Booking Form</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="form-container">
+        <h1>Book at <span id="restaurantName">[Restaurant Name Placeholder]</span></h1>
+
+        <div class="form-selectors">
+            <div>
+                <label for="dateSelector">Select Date:</label>
+                <input type="date" id="dateSelector" name="bookingDate">
+            </div>
+
+            <div>
+                <label for="coversSelector">Number of Guests:</label>
+                <input type="number" id="coversSelector" name="numberOfGuests" min="1">
+            </div>
+
+            <div>
+                <label for="timeSelectorContainer">Select Time:</label>
+                <div id="timeSelectorContainer" class="time-slots">
+                    <!-- Time slots will be populated by form_logic.js -->
+                </div>
+            </div>
+        </div>
+
+        <div class="selection-display">
+            <h2>Your Selection:</h2>
+            <div id="selectedDetails">
+                <p>Date: <span id="selectedDateValue">-</span></p>
+                <p>Guests: <span id="selectedCoversValue">-</span></p>
+                <p>Time: <span id="selectedTimeValue">-</span></p>
+            </div>
+        </div>
+
+        <script type="application/json" id="configData">
+            <!-- JSON data from extract_js_vars.py will be embedded here -->
+        </script>
+
+        <script src="form_logic.js"></script>
+    </div>
+</body>
+</html>

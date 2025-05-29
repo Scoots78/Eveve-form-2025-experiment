@@ -1,5 +1,6 @@
 import re
 import requests # Added for fetching HTML
+import json     # Added for JSON output
 
 # Define Target URL
 target_url = "https://nz.eveve.com/web/form?est=TestNZWorkforce1"
@@ -15,16 +16,17 @@ def fetch_html(url):
     try:
         response = requests.get(url, headers=headers, timeout=20) 
         response.raise_for_status() 
-        print(f"Successfully fetched HTML. Content length: {len(response.text)} bytes.")
+        # Diagnostic print, kept for operational transparency
+        print(f"Successfully fetched HTML. Content length: {len(response.text)} bytes.", flush=True)
         return response.text
     except requests.exceptions.HTTPError as e:
-        print(f"HTTP error occurred while fetching {url}: {e}")
+        print(f"HTTP error occurred while fetching {url}: {e}", flush=True)
     except requests.exceptions.ConnectionError as e:
-        print(f"Connection error occurred while fetching {url}: {e}")
+        print(f"Connection error occurred while fetching {url}: {e}", flush=True)
     except requests.exceptions.Timeout as e:
-        print(f"Timeout occurred while fetching {url}: {e}")
+        print(f"Timeout occurred while fetching {url}: {e}", flush=True)
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred while fetching {url}: {e}")
+        print(f"An error occurred while fetching {url}: {e}", flush=True)
     return None
 
 def extract_script_content(html_content):
@@ -34,25 +36,29 @@ def extract_script_content(html_content):
     """
     match = re.search(r"<script[^>]*>([\s\S]*?var\s+estName\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
-        print("Found script block using 'var estName' pattern.")
+        # Diagnostic print
+        print("Found script block using 'var estName' pattern.", flush=True)
         return match.group(1)
 
     match = re.search(r"<script[^>]*>([\s\S]*?var\s+dapi\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
-        print("Found script block using 'var dapi' pattern.")
+        # Diagnostic print
+        print("Found script block using 'var dapi' pattern.", flush=True)
         return match.group(1)
 
     match = re.search(r"<script(?![^>]*src=)[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
-        print("Found script block using general inline script pattern (no src attribute).")
+        # Diagnostic print
+        print("Found script block using general inline script pattern (no src attribute).", flush=True)
         return match.group(1)
         
     match = re.search(r"<script[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
-        print("Found script block using the most general script pattern.")
+        # Diagnostic print
+        print("Found script block using the most general script pattern.", flush=True)
         return match.group(1)
 
-    print("Could not find a suitable script block.")
+    print("Could not find a suitable script block.", flush=True)
     return None
 
 def extract_variable_value(script_content, var_name):
@@ -61,20 +67,8 @@ def extract_variable_value(script_content, var_name):
     The value is returned as a string, capturing multi-line objects/arrays.
     It looks for var, let, or const declarations.
     """
-    # Regex explanation:
-    # (?:var|let|const)    - Matches 'var', 'let', or 'const'. Non-capturing group.
-    # \s+                  - Matches one or more whitespace characters.
-    # re.escape(var_name)  - Matches the literal variable name, escaping any special regex chars.
-    # \s*=\s*              - Matches '=' surrounded by optional whitespace.
-    # ([\s\S]+?)           - Capturing group 1: Matches any character (including newlines)
-    #                        non-greedily. This is the variable's value.
-    # ;                    - Matches the terminating semicolon of the JavaScript statement.
-    #
-    # This regex is designed to capture everything from the '=' up to the
-    # first semicolon that terminates that specific variable declaration.
     regex_str = r"(?:var|let|const)\s+" + re.escape(var_name) + r"\s*=\s*([\s\S]+?);"
-    
-    match = re.search(regex_str, script_content) # Removed re.DOTALL as [\s\S] handles newlines
+    match = re.search(regex_str, script_content)
     
     if match:
         value = match.group(1).strip()
@@ -83,25 +77,34 @@ def extract_variable_value(script_content, var_name):
     return None
 
 def main():
-    print(f"Fetching HTML content from: {target_url}\n")
+    # Diagnostic print
+    print(f"Fetching HTML content from: {target_url}\n", flush=True)
     html_content = fetch_html(target_url)
 
     if not html_content:
-        print("Failed to fetch HTML content. Exiting.")
+        # Error message already printed by fetch_html
+        print("Failed to fetch HTML content. Exiting.", flush=True)
+        # Output an empty JSON object in case of fetch failure before extraction attempt
+        print(json.dumps({}, indent=4)) 
         return
 
     script_content = extract_script_content(html_content)
     if not script_content:
-        print("Error: Could not find or extract a suitable inline script block from the fetched HTML.")
-        if html_content: # Print snippet if HTML was fetched but script block wasn't found
-            print("\n--- Start of fetched HTML (first 500 chars) for debugging ---")
-            print(html_content[:500])
-            print("--- End of fetched HTML snippet ---")
+        # Error message already printed by extract_script_content
+        print("Error: Could not find or extract a suitable inline script block.", flush=True)
+        if html_content:
+            # Diagnostic print
+            print("\n--- Start of fetched HTML (first 500 chars) for debugging ---", flush=True)
+            print(html_content[:500], flush=True)
+            print("--- End of fetched HTML snippet ---", flush=True)
+        # Output an empty JSON object if script block isn't found
+        print(json.dumps({}, indent=4))
         return
-
-    print("\n--- Start of Extracted Script Content (first 300 chars) ---")
-    print(script_content[:300]) # Reduced snippet size
-    print("--- End of Extracted Script Content snippet ---\n")
+    
+    # Diagnostic print for script content snippet
+    # print("\n--- Start of Extracted Script Content (first 300 chars) ---", flush=True)
+    # print(script_content[:300], flush=True) # Reduced snippet size
+    # print("--- End of Extracted Script Content snippet ---\n", flush=True)
     
     variables_to_extract = [
         "lng", "prefCountry", "areaMsg", "backColours", "test", "tmsVersion", "tmsRelease", 
@@ -120,30 +123,32 @@ def main():
         "timesAvail", "onTheHour", "usrLang", "vacateMsg", "viewPrivacy", "viewTerms"
     ]
 
-    print("Extracted JavaScript Variables:\n")
-    found_count = 0
-    not_found_vars = []
+    extracted_data = {} # Initialize dictionary to store found variables
+    
+    # Removed the "Extracted JavaScript Variables:" print for cleaner JSON output
+    # print("Extracted JavaScript Variables:\n", flush=True) 
+
     for var_name in variables_to_extract:
         value = extract_variable_value(script_content, var_name)
         if value is not None:
-            print(f"{var_name}: {value}")
-            found_count += 1
-        else:
-            # Only print "Not Found" for a few to keep output cleaner during runs,
-            # the final list of not_found_vars is more important.
-            if len(not_found_vars) < 5: 
-                print(f"{var_name}: Not Found")
-            not_found_vars.append(var_name)
-    
-    print(f"\n--- Summary ---")
-    print(f"Found {found_count} out of {len(variables_to_extract)} variables.")
-    if not_found_vars:
-        print(f"Variables not found ({len(not_found_vars)}): {', '.join(sorted(not_found_vars))}")
-    else:
-        print("All specified variables were found.")
+            extracted_data[var_name] = value
+            # Removed line-by-line printing: print(f"{var_name}: {value}", flush=True)
+        # "Not Found" variables are deliberately not added to extracted_data
 
+    # Removed the old summary block:
+    # print(f"\n--- Summary ---")
+    # print(f"Found {found_count} out of {len(variables_to_extract)} variables.")
+    # if not_found_vars:
+    #     print(f"Variables not found ({len(not_found_vars)}): {', '.join(sorted(not_found_vars))}")
+    # else:
+    #     print("All specified variables were found.")
+
+    # Output the collected data as a single JSON object
+    # This should be the primary output of the script if successful.
+    print(json.dumps(extracted_data, indent=4))
 
 if __name__ == "__main__":
     main()
-    print("\nScript execution finished.")
-    print("Note: The 'requests' library needs to be installed in the environment (e.g., pip install requests).")
+    # Diagnostic print, kept for operational transparency
+    # print("\nScript execution finished.", flush=True)
+    # print("Note: The 'requests' library needs to be installed in the environment (e.g., pip install requests).", flush=True)
