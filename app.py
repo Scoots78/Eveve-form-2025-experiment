@@ -1,3 +1,4 @@
+# Version: 20240507-100000
 import os
 from flask import Flask, jsonify, request, send_from_directory
 from extract_js_vars_logic import get_config_for_establishment

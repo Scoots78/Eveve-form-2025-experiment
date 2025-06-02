@@ -1,3 +1,4 @@
+# Version: 20240507-100000
 import re
 import requests
 import json # Though not directly used for output in this module, good to keep if any internal debugging needs it.
@@ -117,19 +118,19 @@ def get_config_for_establishment(est_name: str) -> dict | None:
     """
     if not est_name or not isinstance(est_name, str):
         print("Invalid est_name provided.", flush=True)
-        return None # Or {"error": "Invalid establishment name"}
+        return None
 
     target_url = f"https://nz.eveve.com/web/form?est={est_name}"
 
     html_content = fetch_html(target_url, DEFAULT_HEADERS)
     if html_content is None:
         print(f"Failed to fetch HTML for {est_name}.", flush=True)
-        return None # Or {"error": "Failed to fetch HTML"}
+        return None
 
     script_tag_content = extract_script_tag_content(html_content)
     if script_tag_content is None:
         print(f"Failed to extract script content for {est_name}.", flush=True)
-        return None # Or {"error": "Failed to extract script content"}
+        return None
 
     variables_dict = extract_all_variables(script_tag_content)
     # print(f"Extracted {len(variables_dict)} variables for {est_name}.", flush=True) # Optional logging
@@ -167,7 +168,7 @@ if __name__ == '__main__':
 
     print("\nTesting with an invalid est_name (empty string)...")
     empty_config = get_config_for_establishment("")
-    if empty_config is None: # Assuming current logic returns None for empty string
+    if empty_config is None:
         print("Correctly handled empty string est_name: returned None.")
     else:
         print(f"Incorrectly handled empty string est_name: returned {empty_config}")
