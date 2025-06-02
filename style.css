@@ -1,4 +1,4 @@
-/* Version: 20240507-100000 */
+/* Version: 20240507-120000 */
 /* Body/General */
 body {
     font-family: Arial, sans-serif;
@@ -78,50 +78,49 @@ input[type="number"] {
 /* Base Time Slot Button Styling */
 .time-slot-button {
     padding: 8px 12px;
-    margin: 4px; /* Consistent with example from task */
-    border: 1px solid #ccc; /* Added border for more definition */
+    margin: 4px;
+    border: 1px solid #ccc;
     border-radius: 4px;
-    background-color: #f0f0f0; /* Default light grey */
+    background-color: #f0f0f0;
     color: #333;
     cursor: pointer;
     text-align: center;
-    font-size: 0.9em; /* Consistent with example from task */
+    font-size: 0.9em;
     transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
 /* Available Time Slot Styling */
 .time-slot-available {
-    background-color: #007bff; /* Blue for available, as per previous default */
+    background-color: #007bff;
     color: white;
     border-color: #007bff;
 }
 
 .time-slot-available:hover {
-    background-color: #0056b3; /* Darker blue on hover */
+    background-color: #0056b3;
     border-color: #0056b3;
 }
 
 /* Unavailable Time Slot Styling */
 .time-slot-unavailable {
-    background-color: #e9ecef; /* Light grey, distinct from available */
-    color: #6c757d;       /* Muted text color */
+    background-color: #e9ecef;
+    color: #6c757d;
     cursor: not-allowed;
     border-color: #ced4da;
-    /* text-decoration: line-through; */ /* Optional, can be added if desired */
+    /* text-decoration: line-through; */
 }
 
-.time-slot-unavailable:hover { /* Ensure hover doesn't make it look active */
+.time-slot-unavailable:hover {
     background-color: #e9ecef;
     border-color: #ced4da;
 }
 
 /* Selected State for Available Time Slots */
-/* Ensure this class name matches what's used in form_logic.js for selected state */
-.time-slot-button.time-slot-button-selected, /* If base class is always present */
-.time-slot-available.time-slot-button-selected /* More specific if available class is also there */ {
-    background-color: #28a745; /* Green to indicate selection */
+.time-slot-button.time-slot-button-selected,
+.time-slot-available.time-slot-button-selected {
+    background-color: #28a745;
     color: white;
-    border-color: #1e7e34; /* Darker green border */
+    border-color: #1e7e34;
     font-weight: bold;
 }
 
@@ -147,33 +146,43 @@ input[type="number"] {
 
 /* Restaurant Name Span in H1 */
 #restaurantName {
-    color: #007bff; /* Or a different color to stand out */
+    color: #007bff;
 }
 
-/* Message Styling within Time Slot Container */
+/* General Message Styling (shared by multiple message types) */
 .loading-message,
 .error-message,
 .no-times-message,
-.api-message,
-.no-times-for-shift-message {
+.no-times-for-shift-message,
+.api-message { /* Add .api-message here for the shared properties */
     width: 100%;
-    text-align: center;
+    text-align: left; /* Default for messages, can be overridden */
     padding: 10px;
-    margin: 5px 0;
+    margin: 10px 0; /* Consistent vertical margin */
     border-radius: 4px;
+    font-size: 0.9em; /* Base font size for messages */
 }
 
+/* Base .api-message Styling (as requested) */
+.api-message {
+    border: 1px solid #e0e0e0;
+    background-color: #f9f9f9;
+    color: #333; /* Default text color for general API messages */
+}
+
+/* Specific Message Type Styling */
 .loading-message {
     color: #004085;
     background-color: #cce5ff;
     border: 1px solid #b8daff;
+    text-align: center;
 }
 
-.error-message,
-.api-message { /* Treat general API messages as errors or info, style accordingly */
+.error-message {
     color: #721c24;
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
+    text-align: center; /* Center error messages */
 }
 
 .no-times-message,
@@ -181,7 +190,32 @@ input[type="number"] {
     color: #383d41;
     background-color: #e2e3e5;
     border: 1px solid #d6d8db;
+    text-align: center;
 }
+
+/* .daily-message specific styles */
+.daily-message {
+    /* Inherits from .api-message. Add specific overrides if needed */
+    /* Example:
+    border-left: 3px solid #007bff;
+    background-color: #f8f9fa;
+    */
+    text-align: center; /* Center daily messages if they are general notices */
+}
+
+/* .shift-message specific styles */
+.shift-message {
+    /* Inherits from .api-message. Overrides below: */
+    margin-left: 20px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    font-style: italic;
+    font-size: 0.85em;
+    border-style: dashed;
+    border-color: #ccc;
+    background-color: #fafafa; /* Slightly different background for distinction */
+}
+
 
 /* Critical error message for form init failure */
 .critical-error-message {
@@ -196,7 +230,7 @@ input[type="number"] {
 
 /* Style for shift titles (h3) within the time selector */
 #timeSelectorContainer h3 {
-    width: 100%; /* Make shift titles span full width */
+    width: 100%;
     font-size: 1.1em;
     color: #333;
     margin-top: 15px;
@@ -205,14 +239,14 @@ input[type="number"] {
     border-bottom: 1px solid #ddd;
 }
 #timeSelectorContainer h3:first-of-type {
-    margin-top: 0; /* No top margin for the first shift title */
+    margin-top: 0;
 }
 
 /* Wrapper for buttons within a shift */
 .shift-times-wrapper {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px; /* Consistent gap for buttons within a shift */
-    width: 100%; /* Ensure it takes full width for alignment */
-    margin-bottom: 10px; /* Space after a group of shift times */
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 10px;
 }
