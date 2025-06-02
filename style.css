@@ -75,25 +75,53 @@ input[type="number"] {
     background-color: #f9f9f9;
 }
 
-/* Time Slot Buttons */
+/* Base Time Slot Button Styling */
 .time-slot-button {
     padding: 8px 12px;
-    background-color: #007bff;
-    color: white;
-    border: none;
+    margin: 4px; /* Consistent with example from task */
+    border: 1px solid #ccc; /* Added border for more definition */
     border-radius: 4px;
+    background-color: #f0f0f0; /* Default light grey */
+    color: #333;
     cursor: pointer;
-    font-size: 0.95em;
-    margin: 2px; /* Minimal margin, gap handles main spacing */
-    transition: background-color 0.2s ease-in-out;
+    text-align: center;
+    font-size: 0.9em; /* Consistent with example from task */
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
-.time-slot-button:hover {
-    background-color: #0056b3;
+/* Available Time Slot Styling */
+.time-slot-available {
+    background-color: #007bff; /* Blue for available, as per previous default */
+    color: white;
+    border-color: #007bff;
 }
 
-.time-slot-button.selected { /* Style for selected time slot */
+.time-slot-available:hover {
+    background-color: #0056b3; /* Darker blue on hover */
+    border-color: #0056b3;
+}
+
+/* Unavailable Time Slot Styling */
+.time-slot-unavailable {
+    background-color: #e9ecef; /* Light grey, distinct from available */
+    color: #6c757d;       /* Muted text color */
+    cursor: not-allowed;
+    border-color: #ced4da;
+    /* text-decoration: line-through; */ /* Optional, can be added if desired */
+}
+
+.time-slot-unavailable:hover { /* Ensure hover doesn't make it look active */
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+/* Selected State for Available Time Slots */
+/* Ensure this class name matches what's used in form_logic.js for selected state */
+.time-slot-button.time-slot-button-selected, /* If base class is always present */
+.time-slot-available.time-slot-button-selected /* More specific if available class is also there */ {
     background-color: #28a745; /* Green to indicate selection */
+    color: white;
+    border-color: #1e7e34; /* Darker green border */
     font-weight: bold;
 }
 
@@ -120,4 +148,71 @@ input[type="number"] {
 /* Restaurant Name Span in H1 */
 #restaurantName {
     color: #007bff; /* Or a different color to stand out */
+}
+
+/* Message Styling within Time Slot Container */
+.loading-message,
+.error-message,
+.no-times-message,
+.api-message,
+.no-times-for-shift-message {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 4px;
+}
+
+.loading-message {
+    color: #004085;
+    background-color: #cce5ff;
+    border: 1px solid #b8daff;
+}
+
+.error-message,
+.api-message { /* Treat general API messages as errors or info, style accordingly */
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.no-times-message,
+.no-times-for-shift-message {
+    color: #383d41;
+    background-color: #e2e3e5;
+    border: 1px solid #d6d8db;
+}
+
+/* Critical error message for form init failure */
+.critical-error-message {
+    padding: 15px;
+    margin: 20px;
+    border: 1px solid #d9534f;
+    background-color: #f2dede;
+    color: #a94442;
+    text-align: center;
+    border-radius: 4px;
+}
+
+/* Style for shift titles (h3) within the time selector */
+#timeSelectorContainer h3 {
+    width: 100%; /* Make shift titles span full width */
+    font-size: 1.1em;
+    color: #333;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #ddd;
+}
+#timeSelectorContainer h3:first-of-type {
+    margin-top: 0; /* No top margin for the first shift title */
+}
+
+/* Wrapper for buttons within a shift */
+.shift-times-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* Consistent gap for buttons within a shift */
+    width: 100%; /* Ensure it takes full width for alignment */
+    margin-bottom: 10px; /* Space after a group of shift times */
 }

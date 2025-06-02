@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let initialShiftsConfig = []; // For shifts data from config, if any
     let currentEstName = '';
 
+    // --- Toggle for unavailable slots ---
+    const showUnavailableSlots = true; // Set to false to hide unavailable slots
+
     // --- DOM Elements (defined early for broader access if needed) ---
     const restaurantNameSpan = document.getElementById('restaurantName');
     const dateSelector = document.getElementById('dateSelector');
@@ -186,7 +189,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            let foundAvailableTimes = false;
+            let foundAvailableTimes = false; // To track if any bookable time is found
+            let foundAnySlotsToShow = false; // To track if any slot (bookable or unavailable) is shown
+
             shiftsData.forEach(shift => {
                 // Debug log for each shift being processed
                 console.log('Processing shift:', JSON.stringify(shift, null, 2));
@@ -203,38 +208,55 @@ document.addEventListener('DOMContentLoaded', async () => {
                 timeSelectorContainer.appendChild(shiftButtonContainer);
 
                 if (Array.isArray(shift.times) && shift.times.length > 0) {
-                    // Modified loop to directly use timeValue from shift.times array
                     shift.times.forEach(timeValue => {
-                        // Debug log for each timeValue being processed
                         console.log('Attempting to process timeValue:', timeValue, 'type:', typeof timeValue);
 
-                        // timeValue is now expected to be the direct numeric value e.g., 12.0, 12.5
                         if (typeof timeValue !== 'number') {
                             console.warn('Invalid time value in shift.times array:', timeValue, 'Expected a number.');
-                            return; // Skip this time entry if it's not a number
+                            return;
                         }
-                        foundAvailableTimes = true;
-                        const button = document.createElement('button');
-                        button.className = 'time-slot-button';
-                        button.dataset.time = timeValue; // Storing the original decimal value
-                        button.textContent = formatTime(timeValue); // Using formatTime for text content
 
-                        button.addEventListener('click', function() {
-                            selectedTimeValueSpan.textContent = this.textContent; // Update with formatted time
-                            timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
-                            this.classList.add('time-slot-button-selected');
-                        });
+                        const button = document.createElement('button');
+                        button.className = 'time-slot-button'; // Common class
+
+                        if (timeValue < 0) {
+                            if (!showUnavailableSlots) {
+                                return; // Skip this iteration, effectively hiding the slot
+                            }
+                            button.textContent = 'Not Available';
+                            button.classList.add('time-slot-unavailable');
+                            button.disabled = true;
+                            foundAnySlotsToShow = true; // We are showing an "unavailable" slot
+                        } else {
+                            button.classList.add('time-slot-available');
+                            button.dataset.time = timeValue;
+                            button.textContent = formatTime(timeValue);
+                            button.addEventListener('click', function() {
+                                selectedTimeValueSpan.textContent = this.textContent;
+                                timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
+                                this.classList.add('time-slot-button-selected');
+                            });
+                            foundAvailableTimes = true; // A bookable time was found
+                            foundAnySlotsToShow = true; // We are showing a bookable slot
+                        }
                         shiftButtonContainer.appendChild(button);
                     });
-                } else {
+                } else { // No times listed for this shift
                     const noTimesMsg = document.createElement('p');
                     noTimesMsg.className = 'no-times-for-shift-message';
                     noTimesMsg.textContent = `No specific times listed for ${shift.name}.`;
                     shiftButtonContainer.appendChild(noTimesMsg);
+                    // If showUnavailableSlots is false, this message might be the only thing for a shift.
+                    // If showUnavailableSlots is true, it's possible this shift had only negative times that were then hidden.
+                    // We count this as "showing something" if the shift itself is rendered.
+                    if (shift.times.length === 0) foundAnySlotsToShow = true;
                 }
             });
-            if (!foundAvailableTimes) {
-                timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
+
+            // Update overall message if no slots of any kind were shown
+            // (e.g. all shifts were empty, or all had negative times and showUnavailableSlots was false)
+            if (!foundAnySlotsToShow) {
+                 timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
             }
         }
 
@@ -249,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             selectedCoversValueSpan.textContent = coversValue || '-';
             selectedTimeValueSpan.textContent = '-';
 
-            if (!currentEstName) { // currentEstName is from loadConfigFromServer
+            if (!currentEstName) {
                 console.error('Restaurant Name (est) is not set. Cannot fetch times.');
                 timeSelectorContainer.innerHTML = `<p class="error-message">Configuration error: Restaurant name not found.</p>`;
                 return;
@@ -266,7 +288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (availabilityData && availabilityData.shifts && availabilityData.shifts.length > 0) {
                 displayTimeSlots(availabilityData.shifts);
             } else {
-                timeSelectorContainer.innerHTML = ''; // Clear loading
+                timeSelectorContainer.innerHTML = '';
                 let messageToShow = languageStrings.noTimesAvailableDaySize || 'No time slots available for the selected date or party size.';
                 if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
                     messageToShow = availabilityData.message;
@@ -289,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log(`Performing initial load for ${currentEstName}`);
         if (currentEstName && dateSelector && dateSelector.value && coversSelector && parseInt(coversSelector.value) > 0) {
             timeSelectorContainer.innerHTML = '<p class="loading-message">Loading times...</p>';
-            await handleDateOrCoversChange(); // await to ensure it completes
+            await handleDateOrCoversChange();
         } else {
             let promptMessage = languageStrings.promptSelection || 'Please select date and guests for times.';
             if (!currentEstName) promptMessage = languageStrings.errorConfigMissing || 'Restaurant config missing.';
@@ -301,17 +323,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('Critical error during form initialization:', error);
-        if (document.body) { // Check if body exists before trying to append to it
+        if (document.body) {
             const errorDiv = document.createElement('div');
-            errorDiv.className = 'critical-error-message'; // For styling
+            errorDiv.className = 'critical-error-message';
             errorDiv.textContent = languageStrings.errorCriticalInit || 'Could not initialize booking form. Please try refreshing the page or contact support.';
-            // Append to a prominent place, or replace form-container content
             const formContainer = document.querySelector('.form-container');
             if (formContainer) {
-                formContainer.innerHTML = ''; // Clear existing content
+                formContainer.innerHTML = '';
                 formContainer.appendChild(errorDiv);
             } else {
-                document.body.innerHTML = ''; // Fallback: clear body
+                document.body.innerHTML = '';
                 document.body.appendChild(errorDiv);
             }
         }
