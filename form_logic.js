@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Updated formatTime function as per task description
     function formatTime(decimalTime) {
+        // Debug line added as per task instructions
+        console.log('formatTime received:', decimalTime, 'type:', typeof decimalTime);
+
         if (decimalTime === null || typeof decimalTime === 'undefined' || isNaN(parseFloat(decimalTime))) {
             return 'N/A'; // Or some other placeholder for invalid input
         }
@@ -170,6 +173,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 5. Time Slot Display Function
         function displayTimeSlots(shiftsData) {
+            // Debug log at the very beginning of the function
+            console.log('displayTimeSlots received shiftsData:', JSON.stringify(shiftsData, null, 2));
+
             if (!timeSelectorContainer || !selectedTimeValueSpan) return;
             timeSelectorContainer.innerHTML = '';
             selectedTimeValueSpan.textContent = '-';
@@ -181,6 +187,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             let foundAvailableTimes = false;
             shiftsData.forEach(shift => {
+                // Debug log for each shift being processed
+                console.log('Processing shift:', JSON.stringify(shift, null, 2));
+
                 if (!shift || typeof shift.name !== 'string') {
                     console.warn("Invalid shift object:", shift); return;
                 }
@@ -193,16 +202,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 timeSelectorContainer.appendChild(shiftButtonContainer);
 
                 if (Array.isArray(shift.times) && shift.times.length > 0) {
-                    shift.times.forEach(timeObj => {
-                        const timeValueFromApi = timeObj.time; // This is the decimal value like 12.0, 25.5
-                        if (typeof timeValueFromApi !== 'number') {
-                            console.warn('Invalid time value:', timeObj); return;
+                    // Modified loop to directly use timeValue from shift.times array
+                    shift.times.forEach(timeValue => {
+                        // Debug log for each timeValue being processed
+                        console.log('Attempting to process timeValue:', timeValue, 'type:', typeof timeValue);
+
+                        // timeValue is now expected to be the direct numeric value e.g., 12.0, 12.5
+                        if (typeof timeValue !== 'number') {
+                            console.warn('Invalid time value in shift.times array:', timeValue, 'Expected a number.');
+                            return; // Skip this time entry if it's not a number
                         }
                         foundAvailableTimes = true;
                         const button = document.createElement('button');
                         button.className = 'time-slot-button';
-                        button.dataset.time = timeValueFromApi; // Storing the original decimal value
-                        button.textContent = formatTime(timeValueFromApi); // Using formatTime for text content
+                        button.dataset.time = timeValue; // Storing the original decimal value
+                        button.textContent = formatTime(timeValue); // Using formatTime for text content
 
                         button.addEventListener('click', function() {
                             selectedTimeValueSpan.textContent = this.textContent; // Update with formatted time
