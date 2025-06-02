@@ -20,17 +20,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         return urlParams.get(paramName);
     }
 
+    // Updated formatTime function as per task description
     function formatTime(decimalTime) {
-        const time = parseFloat(decimalTime);
-        if (isNaN(time)) return 'N/A';
-        const hours = Math.floor(time);
-        const minutesDecimal = time - hours;
-        const minutes = Math.round(minutesDecimal * 60);
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        const displayHours = hours % 12 === 0 ? 12 : hours % 12;
-        const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
-        return `${displayHours}:${formattedMinutes} ${ampm}`;
+        if (decimalTime === null || typeof decimalTime === 'undefined' || isNaN(parseFloat(decimalTime))) {
+            return 'N/A'; // Or some other placeholder for invalid input
+        }
+
+        let hours = Math.floor(decimalTime);
+        let fraction = decimalTime - hours;
+        let minutes = Math.round(fraction * 60);
+
+        if (minutes === 60) { // Handle cases like 12.99... rounding up
+            hours++;
+            minutes = 0;
+        }
+
+        // Determine AM/PM and adjust hours for 12-hour format
+        let ampm = 'AM';
+        let displayHours = hours;
+
+        if (displayHours >= 24) {
+            displayHours -= 24; // Bring it into the 0-23 range for "next day" AM
+        }
+        // At this point, displayHours is effectively 0-23 range of the "logical" day
+
+        if (displayHours >= 12) {
+            ampm = 'PM';
+        }
+        if (displayHours === 0) { // Midnight case
+            displayHours = 12; // 12 AM
+        } else if (displayHours > 12) {
+            displayHours -= 12; // Convert 13-23 to 1-11 PM
+        }
+        // Hours from 1 to 11 AM remain as is for displayHours
+
+        const minutesStr = minutes < 10 ? '0' + minutes : String(minutes);
+
+        return `${displayHours}:${minutesStr} ${ampm}`;
     }
+
 
     function parseJsObjectString(jsString) {
         if (!jsString || typeof jsString !== 'string') {
@@ -166,17 +194,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (Array.isArray(shift.times) && shift.times.length > 0) {
                     shift.times.forEach(timeObj => {
-                        const timeValue = timeObj.time;
-                        if (typeof timeValue !== 'number') {
+                        const timeValueFromApi = timeObj.time; // This is the decimal value like 12.0, 25.5
+                        if (typeof timeValueFromApi !== 'number') {
                             console.warn('Invalid time value:', timeObj); return;
                         }
                         foundAvailableTimes = true;
                         const button = document.createElement('button');
                         button.className = 'time-slot-button';
-                        button.dataset.time = timeValue;
-                        button.textContent = formatTime(timeValue);
+                        button.dataset.time = timeValueFromApi; // Storing the original decimal value
+                        button.textContent = formatTime(timeValueFromApi); // Using formatTime for text content
+
                         button.addEventListener('click', function() {
-                            selectedTimeValueSpan.textContent = this.textContent;
+                            selectedTimeValueSpan.textContent = this.textContent; // Update with formatted time
                             timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
                             this.classList.add('time-slot-button-selected');
                         });

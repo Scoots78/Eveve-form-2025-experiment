@@ -20,12 +20,12 @@ def get_config_api():
         # This indicates a failure in fetching or critical parsing step within get_config_for_establishment
         print(f"API: Failed to retrieve or parse configuration for {est_name} from external source.", flush=True)
         return jsonify({"error": "Failed to retrieve or parse configuration from external source"}), 500
-    
+
     if not config_data: # Checks if the dictionary is empty
         # This means HTML/script was fetched, but no variables from our list were found
         print(f"API: No variables extracted for {est_name}. Check external source structure or content.", flush=True)
         return jsonify({"error": "No variables extracted, check external source structure or content"}), 404
-        
+
     print(f"API: Successfully retrieved {len(config_data)} variables for {est_name}.", flush=True)
     return jsonify(config_data)
 
