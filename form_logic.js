@@ -1,4 +1,4 @@
-// Version: 20240507-100000
+// Version: 20240507-110000
 document.addEventListener('DOMContentLoaded', async () => {
     // --- Global variables for the module scope ---
     let config = {};
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- DOM Elements (defined early for broader access if needed) ---
     const restaurantNameSpan = document.getElementById('restaurantName');
-    const dateSelector = document.getElementById('dateSelector');
+    const dateSelector = document.getElementById('dateSelector'); // dateSelector is the datePicker
     const coversSelector = document.getElementById('coversSelector');
     const timeSelectorContainer = document.getElementById('timeSelectorContainer');
     const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
@@ -22,6 +22,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     function getQueryParam(paramName) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(paramName);
+    }
+
+    function getTodayDateString() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
     // Updated formatTime function as per task description
@@ -140,40 +148,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 2. Parse language strings and initial shifts from config
         languageStrings = parseJsObjectString(config.lng) || {};
-        initialShiftsConfig = parseJsObjectString(config.allShifts) || []; // Use this if displayTimeSlots can handle its format
+        initialShiftsConfig = parseJsObjectString(config.allShifts) || [];
 
         // 3. Initialize Restaurant Name Display
-        // currentEstName is already set by loadConfigFromServer.
-        // Use config.estName as the authoritative name if available, otherwise fallback to currentEstName from URL.
         const displayName = config.estName ? config.estName.replace(/^['"](.*)['"]$/, '$1') : currentEstName;
         if (restaurantNameSpan) restaurantNameSpan.textContent = displayName;
 
-
         // 4. Initialize Selectors (Date, Covers)
+
+        // Date Picker Initialization
+        if (dateSelector) {
+            const todayStrForMin = getTodayDateString(); // Use helper for min attribute
+            dateSelector.min = todayStrForMin;
+            dateSelector.value = todayStrForMin; // Default to today
+
+            if (selectedDateValueSpan) {
+                selectedDateValueSpan.textContent = todayStrForMin; // Update display
+            }
+        } else {
+            console.error("Date selector element not found!");
+        }
+
+        // Covers Selector Initialization (using config values)
         const partyMin = parseInt(config.partyMin) || 1;
         const partyMax = parseInt(config.partyMax) || 10;
-        const todayYear = parseInt(config.todayYear);
-        const todayMonth = parseInt(config.todayMonth);
-        const todayDate = parseInt(config.today);
-
-        let defaultDateStr = new Date().toISOString().split('T')[0]; // Fallback to today
-        if (!isNaN(todayYear) && !isNaN(todayMonth) && !isNaN(todayDate)) {
-            try {
-                defaultDateStr = new Date(todayYear, todayMonth - 1, todayDate).toISOString().split('T')[0];
-            } catch (e) {
-                console.warn("Could not form date from config, using current date.", e);
-            }
-        }
-        if (dateSelector) {
-            dateSelector.value = defaultDateStr;
-            if(selectedDateValueSpan) selectedDateValueSpan.textContent = defaultDateStr;
-        }
         if (coversSelector) {
             coversSelector.min = partyMin;
             coversSelector.max = partyMax;
-            coversSelector.value = partyMin;
-            if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = coversSelector.value;
+            coversSelector.value = partyMin; // Default to min party size
+            if (selectedCoversValueSpan) {
+                selectedCoversValueSpan.textContent = coversSelector.value;
+            }
+        } else {
+            console.error("Covers selector element not found!");
         }
+
 
         // 5. Time Slot Display Function
         function displayTimeSlots(shiftsData) {
@@ -246,15 +255,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     noTimesMsg.className = 'no-times-for-shift-message';
                     noTimesMsg.textContent = `No specific times listed for ${shift.name}.`;
                     shiftButtonContainer.appendChild(noTimesMsg);
-                    // If showUnavailableSlots is false, this message might be the only thing for a shift.
-                    // If showUnavailableSlots is true, it's possible this shift had only negative times that were then hidden.
-                    // We count this as "showing something" if the shift itself is rendered.
                     if (shift.times.length === 0) foundAnySlotsToShow = true;
                 }
             });
 
-            // Update overall message if no slots of any kind were shown
-            // (e.g. all shifts were empty, or all had negative times and showUnavailableSlots was false)
             if (!foundAnySlotsToShow) {
                  timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
             }
@@ -264,26 +268,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         async function handleDateOrCoversChange() {
             if (!dateSelector || !coversSelector || !selectedDateValueSpan || !selectedCoversValueSpan || !selectedTimeValueSpan || !timeSelectorContainer) return;
 
-            const dateValue = dateSelector.value;
+            const selectedDateStr = dateSelector.value;
             const coversValue = parseInt(coversSelector.value, 10);
 
-            selectedDateValueSpan.textContent = dateValue || '-';
+            // Fallback check for past dates
+            const todayComparableString = getTodayDateString();
+            if (selectedDateStr < todayComparableString) {
+                timeSelectorContainer.innerHTML = '<p class="error-message">Selected date is in the past. Please choose a current or future date.</p>';
+                // Clear selection displays
+                selectedDateValueSpan.textContent = '-'; // Or keep selectedDateStr to show the invalid date
+                selectedCoversValueSpan.textContent = '-';
+                selectedTimeValueSpan.textContent = '-';
+                return;
+            }
+
+            // Update display for date and covers immediately (if not a past date)
+            selectedDateValueSpan.textContent = selectedDateStr || '-';
             selectedCoversValueSpan.textContent = coversValue || '-';
-            selectedTimeValueSpan.textContent = '-';
+            selectedTimeValueSpan.textContent = '-'; // Reset time selection
 
             if (!currentEstName) {
                 console.error('Restaurant Name (est) is not set. Cannot fetch times.');
                 timeSelectorContainer.innerHTML = `<p class="error-message">Configuration error: Restaurant name not found.</p>`;
                 return;
             }
-            if (!dateValue || isNaN(coversValue) || coversValue <= 0) {
+            // Validation for dateValue and coversValue (already includes selectedDateStr)
+            if (!selectedDateStr || isNaN(coversValue) || coversValue <= 0) {
                 console.log('Validation failed: Date or covers invalid.');
                 timeSelectorContainer.innerHTML = `<p class="error-message">Please select a valid date and number of guests.</p>`;
                 return;
             }
 
+            console.log(`Fetching for: est=${currentEstName}, date=${selectedDateStr}, covers=${coversValue}`);
             timeSelectorContainer.innerHTML = `<p class="loading-message">Loading times...</p>`;
-            const availabilityData = await fetchAvailableTimes(currentEstName, dateValue, coversValue);
+            const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue);
 
             if (availabilityData && availabilityData.shifts && availabilityData.shifts.length > 0) {
                 displayTimeSlots(availabilityData.shifts);
@@ -310,13 +328,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 8. Initial Time Slot Load
         console.log(`Performing initial load for ${currentEstName}`);
         if (currentEstName && dateSelector && dateSelector.value && coversSelector && parseInt(coversSelector.value) > 0) {
-            timeSelectorContainer.innerHTML = '<p class="loading-message">Loading times...</p>';
-            await handleDateOrCoversChange();
+            // Check if initial date is not in the past before initial load
+            const initialDateOnLoad = dateSelector.value;
+            const todayStrForInitialLoad = getTodayDateString();
+            if (initialDateOnLoad >= todayStrForInitialLoad) {
+                timeSelectorContainer.innerHTML = '<p class="loading-message">Loading times...</p>';
+                await handleDateOrCoversChange();
+            } else {
+                // This case should ideally not happen if dateSelector.min is set correctly
+                // and dateSelector.value defaults to today.
+                timeSelectorContainer.innerHTML = '<p class="error-message">Initial date is in the past. Please select a valid date.</p>';
+                selectedDateValueSpan.textContent = initialDateOnLoad; // Show the problematic date
+                selectedCoversValueSpan.textContent = coversSelector.value;
+                selectedTimeValueSpan.textContent = '-';
+            }
         } else {
             let promptMessage = languageStrings.promptSelection || 'Please select date and guests for times.';
             if (!currentEstName) promptMessage = languageStrings.errorConfigMissing || 'Restaurant config missing.';
             if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p>${promptMessage}</p>`;
-            console.log('Skipping initial time slot load: conditions not met.');
+            console.log('Skipping initial time slot load: conditions not met (estName, date, or covers).');
         }
 
         console.log('Form logic fully initialized.');
