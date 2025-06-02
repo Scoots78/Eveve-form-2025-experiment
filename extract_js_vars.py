@@ -14,8 +14,8 @@ def fetch_html(url):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     try:
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers, timeout=20) 
+        response.raise_for_status() 
         # Diagnostic print, kept for operational transparency
         print(f"Successfully fetched HTML. Content length: {len(response.text)} bytes.", flush=True)
         return response.text
@@ -51,7 +51,7 @@ def extract_script_content(html_content):
         # Diagnostic print
         print("Found script block using general inline script pattern (no src attribute).", flush=True)
         return match.group(1)
-
+        
     match = re.search(r"<script[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
         # Diagnostic print
@@ -69,11 +69,11 @@ def extract_variable_value(script_content, var_name):
     """
     regex_str = r"(?:var|let|const)\s+" + re.escape(var_name) + r"\s*=\s*([\s\S]+?);"
     match = re.search(regex_str, script_content)
-
+    
     if match:
         value = match.group(1).strip()
         return value
-
+    
     return None
 
 def main():
@@ -85,7 +85,7 @@ def main():
         # Error message already printed by fetch_html
         print("Failed to fetch HTML content. Exiting.", flush=True)
         # Output an empty JSON object in case of fetch failure before extraction attempt
-        print(json.dumps({}, indent=4))
+        print(json.dumps({}, indent=4)) 
         return
 
     script_content = extract_script_content(html_content)
@@ -100,33 +100,33 @@ def main():
         # Output an empty JSON object if script block isn't found
         print(json.dumps({}, indent=4))
         return
-
+    
     # Diagnostic print for script content snippet
     # print("\n--- Start of Extracted Script Content (first 300 chars) ---", flush=True)
     # print(script_content[:300], flush=True) # Reduced snippet size
     # print("--- End of Extracted Script Content snippet ---\n", flush=True)
-
+    
     variables_to_extract = [
-        "lng", "prefCountry", "areaMsg", "backColours", "test", "tmsVersion", "tmsRelease",
-        "redirect", "messages", "allShifts", "always", "loyaltyOptin", "allergy", "invoice",
-        "arSelect", "showEvents", "eventMessages", "eventsB", "dapi", "todayMonth", "today",
-        "now", "todayYear", "preTime", "narrowWin", "wideWin", "startSun", "thankURL",
-        "trailing", "days", "LinkPriv", "LinkTC", "estPhone", "partyMin", "partyMax",
-        "horizon", "timeStep", "estName", "standbyOnline", "maxRequest", "estFull",
-        "currSym", "country", "sisters", "areaAny", "options", "AvailPage", "ForLarger",
-        "preSelected", "selected", "br", "PERHEAD", "TOTAL", "addonError", "allergyYN",
-        "areaName", "availMonth", "cache", "calendar", "cardRequired", "charge", "count",
-        "created", "descMenu", "estCalendarAvail", "estNot", "eventName", "eventsActive",
-        "focusCount", "from", "to", "fullName", "invoiceRequired", "limited", "loading",
-        "loyal", "noStandby", "portal", "monthFirst", "monthName", "shoulder",
-        "sisterLoads", "sistersLoading", "sisterName", "sisterTimes", "telLink",
+        "lng", "prefCountry", "areaMsg", "backColours", "test", "tmsVersion", "tmsRelease", 
+        "redirect", "messages", "allShifts", "always", "loyaltyOptin", "allergy", "invoice", 
+        "arSelect", "showEvents", "eventMessages", "eventsB", "dapi", "todayMonth", "today", 
+        "now", "todayYear", "preTime", "narrowWin", "wideWin", "startSun", "thankURL", 
+        "trailing", "days", "LinkPriv", "LinkTC", "estPhone", "partyMin", "partyMax", 
+        "horizon", "timeStep", "estName", "standbyOnline", "maxRequest", "estFull", 
+        "currSym", "country", "sisters", "areaAny", "options", "AvailPage", "ForLarger", 
+        "preSelected", "selected", "br", "PERHEAD", "TOTAL", "addonError", "allergyYN", 
+        "areaName", "availMonth", "cache", "calendar", "cardRequired", "charge", "count", 
+        "created", "descMenu", "estCalendarAvail", "estNot", "eventName", "eventsActive", 
+        "focusCount", "from", "to", "fullName", "invoiceRequired", "limited", "loading", 
+        "loyal", "noStandby", "portal", "monthFirst", "monthName", "shoulder", 
+        "sisterLoads", "sistersLoading", "sisterName", "sisterTimes", "telLink", 
         "timesAvail", "onTheHour", "usrLang", "vacateMsg", "viewPrivacy", "viewTerms"
     ]
 
     extracted_data = {} # Initialize dictionary to store found variables
-
+    
     # Removed the "Extracted JavaScript Variables:" print for cleaner JSON output
-    # print("Extracted JavaScript Variables:\n", flush=True)
+    # print("Extracted JavaScript Variables:\n", flush=True) 
 
     for var_name in variables_to_extract:
         value = extract_variable_value(script_content, var_name)

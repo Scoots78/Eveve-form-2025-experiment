@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Version: 20240507-120000 -->
+    <!-- Version: 20240507-140000 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Booking Form</title>
@@ -16,7 +16,7 @@
                 <label for="dateSelector">Select Date:</label>
                 <input type="date" id="dateSelector" name="bookingDate">
             </div>
-            <div id="dailyRotaMessage" class="api-message daily-message"></div> <!-- New div added here -->
+            <div id="dailyRotaMessage" class="api-message daily-message"></div>
 
             <div>
                 <label for="coversSelector">Number of Guests:</label>
@@ -29,6 +29,10 @@
                     <!-- Time slots will be populated by form_logic.js -->
                 </div>
             </div>
+
+            <div id="addonsDisplayArea" class="addons-container">
+                <!-- Addons for the selected shift will be rendered here by JavaScript -->
+            </div>
         </div>
 
         <div class="selection-display">
@@ -37,6 +41,7 @@
                 <p>Date: <span id="selectedDateValue">-</span></p>
                 <p>Guests: <span id="selectedCoversValue">-</span></p>
                 <p>Time: <span id="selectedTimeValue">-</span></p>
+                <p>Addons: <span id="selectedAddonsValue">-</span></p> 
             </div>
         </div>
 

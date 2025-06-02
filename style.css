@@ -1,4 +1,4 @@
-/* Version: 20240507-120000 */
+/* Version: 20240507-140000 */
 /* Body/General */
 body {
     font-family: Arial, sans-serif;
@@ -38,7 +38,7 @@ h2 {
 }
 
 /* Labels */
-label {
+label { /* General label styling, might be overridden by more specific addon labels */
     display: block;
     margin-bottom: 8px;
     font-weight: bold;
@@ -48,12 +48,12 @@ label {
 /* Input Fields */
 input[type="date"],
 input[type="number"] {
-    width: calc(100% - 22px); /* Account for padding and border */
+    width: calc(100% - 22px); 
     padding: 10px;
     margin-bottom: 20px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    box-sizing: border-box; /* Important for width calculation */
+    box-sizing: border-box; 
     font-size: 1em;
 }
 
@@ -66,7 +66,7 @@ input[type="number"] {
 #timeSelectorContainer.time-slots {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px; /* Spacing between buttons */
+    gap: 10px; 
     margin-top: 10px;
     margin-bottom: 20px;
     padding: 10px;
@@ -78,49 +78,48 @@ input[type="number"] {
 /* Base Time Slot Button Styling */
 .time-slot-button {
     padding: 8px 12px;
-    margin: 4px;
-    border: 1px solid #ccc;
+    margin: 4px; 
+    border: 1px solid #ccc; 
     border-radius: 4px;
-    background-color: #f0f0f0;
+    background-color: #f0f0f0; 
     color: #333;
     cursor: pointer;
     text-align: center;
-    font-size: 0.9em;
+    font-size: 0.9em; 
     transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
 /* Available Time Slot Styling */
 .time-slot-available {
-    background-color: #007bff;
+    background-color: #007bff; 
     color: white;
     border-color: #007bff;
 }
 
 .time-slot-available:hover {
-    background-color: #0056b3;
+    background-color: #0056b3; 
     border-color: #0056b3;
 }
 
 /* Unavailable Time Slot Styling */
 .time-slot-unavailable {
-    background-color: #e9ecef;
-    color: #6c757d;
+    background-color: #e9ecef; 
+    color: #6c757d;       
     cursor: not-allowed;
     border-color: #ced4da;
-    /* text-decoration: line-through; */
 }
 
-.time-slot-unavailable:hover {
-    background-color: #e9ecef;
+.time-slot-unavailable:hover { 
+    background-color: #e9ecef; 
     border-color: #ced4da;
 }
 
 /* Selected State for Available Time Slots */
-.time-slot-button.time-slot-button-selected,
+.time-slot-button.time-slot-button-selected, 
 .time-slot-available.time-slot-button-selected {
-    background-color: #28a745;
+    background-color: #28a745; 
     color: white;
-    border-color: #1e7e34;
+    border-color: #1e7e34; 
     font-weight: bold;
 }
 
@@ -146,28 +145,28 @@ input[type="number"] {
 
 /* Restaurant Name Span in H1 */
 #restaurantName {
-    color: #007bff;
+    color: #007bff; 
 }
 
-/* General Message Styling (shared by multiple message types) */
+/* General Message Styling */
 .loading-message,
 .error-message,
 .no-times-message,
 .no-times-for-shift-message,
-.api-message { /* Add .api-message here for the shared properties */
+.api-message { 
     width: 100%;
-    text-align: left; /* Default for messages, can be overridden */
+    text-align: left; 
     padding: 10px;
-    margin: 10px 0; /* Consistent vertical margin */
+    margin: 10px 0; 
     border-radius: 4px;
-    font-size: 0.9em; /* Base font size for messages */
+    font-size: 0.9em; 
 }
 
-/* Base .api-message Styling (as requested) */
+/* Base .api-message Styling */
 .api-message {
     border: 1px solid #e0e0e0;
     background-color: #f9f9f9;
-    color: #333; /* Default text color for general API messages */
+    color: #333; 
 }
 
 /* Specific Message Type Styling */
@@ -182,7 +181,7 @@ input[type="number"] {
     color: #721c24;
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
-    text-align: center; /* Center error messages */
+    text-align: center; 
 }
 
 .no-times-message,
@@ -193,29 +192,20 @@ input[type="number"] {
     text-align: center;
 }
 
-/* .daily-message specific styles */
-.daily-message {
-    /* Inherits from .api-message. Add specific overrides if needed */
-    /* Example:
-    border-left: 3px solid #007bff;
-    background-color: #f8f9fa;
-    */
-    text-align: center; /* Center daily messages if they are general notices */
+.daily-message { /* Specific to #dailyRotaMessage if it has .api-message */
+    text-align: center; 
 }
 
-/* .shift-message specific styles */
-.shift-message {
-    /* Inherits from .api-message. Overrides below: */
-    margin-left: 20px;
-    margin-top: 5px;
-    margin-bottom: 10px;
+.shift-message { /* Specific to shift messages if they have .api-message */
+    margin-left: 20px; 
+    margin-top: 5px; 
+    margin-bottom: 10px; 
     font-style: italic;
     font-size: 0.85em;
-    border-style: dashed;
+    border-style: dashed; 
     border-color: #ccc;
-    background-color: #fafafa; /* Slightly different background for distinction */
+    background-color: #fafafa; 
 }
-
 
 /* Critical error message for form init failure */
 .critical-error-message {
@@ -230,7 +220,7 @@ input[type="number"] {
 
 /* Style for shift titles (h3) within the time selector */
 #timeSelectorContainer h3 {
-    width: 100%;
+    width: 100%; 
     font-size: 1.1em;
     color: #333;
     margin-top: 15px;
@@ -239,14 +229,124 @@ input[type="number"] {
     border-bottom: 1px solid #ddd;
 }
 #timeSelectorContainer h3:first-of-type {
-    margin-top: 0;
+    margin-top: 0; 
 }
 
 /* Wrapper for buttons within a shift */
 .shift-times-wrapper {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    width: 100%;
+    gap: 8px; 
+    width: 100%; 
+    margin-bottom: 10px; 
+}
+
+/* Addons Styling */
+.addons-container { 
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    background-color: #fdfdfd;
+    border-radius: 4px;
+}
+
+.addons-container h4 { 
+    margin-top: 0;
     margin-bottom: 10px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.addon-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 8px; 
+}
+
+.addon-item:last-child {
+    border-bottom: none; 
+}
+
+.addon-checkbox, 
+input[type="radio"].addon-radio-btn { 
+    margin-right: 0; 
+}
+
+.addon-item label { 
+    font-weight: normal; 
+    color: #333;      
+    flex-grow: 1;     
+    margin-bottom: 0; 
+    cursor: pointer; 
+}
+
+.addon-name {
+    font-weight: bold;
+}
+
+.addon-price {
+    color: #007bff; 
+    margin-left: 5px;
+}
+
+.addon-desc {
+    display: block; 
+    font-size: 0.85em;
+    color: #555;
+    margin-top: 3px;
+}
+
+/* Usage 1 - Radio Group Specifics */
+.addon-radio-group {
+}
+.addon-item.usage1-radio { 
+}
+
+
+/* Usage 2 - Quantity Selector Specifics */
+.addon-item.usage2-item {
+    justify-content: space-between; 
+}
+
+.addon-info {
+    flex-grow: 1; 
+    margin-right: 10px; 
+}
+
+.addon-quantity-selector {
+    display: flex;
+    align-items: center;
+}
+
+.qty-btn {
+    padding: 4px 8px;
+    font-size: 1em;
+    margin: 0 4px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    border-radius: 3px; 
+}
+
+.qty-btn:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    border-color: #ced4da;
+}
+
+.qty-input {
+    width: 40px; 
+    text-align: center;
+    border: 1px solid #ccc;
+    padding: 4px;
+    margin: 0;
+    border-radius: 3px; 
+    background-color: #fff; 
+}
+
+input[type="text"].qty-input[readonly] {
+    background-color: #f8f9fa; 
 }

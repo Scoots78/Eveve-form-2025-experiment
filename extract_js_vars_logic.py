@@ -5,19 +5,19 @@ import json # Though not directly used for output in this module, good to keep i
 
 # Global list of variables to extract
 VARIABLES_TO_EXTRACT = [
-    "lng", "prefCountry", "areaMsg", "backColours", "test", "tmsVersion", "tmsRelease",
-    "redirect", "messages", "allShifts", "always", "loyaltyOptin", "allergy", "invoice",
-    "arSelect", "showEvents", "eventMessages", "eventsB", "dapi", "todayMonth", "today",
-    "now", "todayYear", "preTime", "narrowWin", "wideWin", "startSun", "thankURL",
-    "trailing", "days", "LinkPriv", "LinkTC", "estPhone", "partyMin", "partyMax",
-    "horizon", "timeStep", "estName", "standbyOnline", "maxRequest", "estFull",
-    "currSym", "country", "sisters", "areaAny", "options", "AvailPage", "ForLarger",
-    "preSelected", "selected", "br", "PERHEAD", "TOTAL", "addonError", "allergyYN",
-    "areaName", "availMonth", "cache", "calendar", "cardRequired", "charge", "count",
-    "created", "descMenu", "estCalendarAvail", "estNot", "eventName", "eventsActive",
-    "focusCount", "from", "to", "fullName", "invoiceRequired", "limited", "loading",
-    "loyal", "noStandby", "portal", "monthFirst", "monthName", "shoulder",
-    "sisterLoads", "sistersLoading", "sisterName", "sisterTimes", "telLink",
+    "lng", "prefCountry", "areaMsg", "backColours", "test", "tmsVersion", "tmsRelease", 
+    "redirect", "messages", "allShifts", "always", "loyaltyOptin", "allergy", "invoice", 
+    "arSelect", "showEvents", "eventMessages", "eventsB", "dapi", "todayMonth", "today", 
+    "now", "todayYear", "preTime", "narrowWin", "wideWin", "startSun", "thankURL", 
+    "trailing", "days", "LinkPriv", "LinkTC", "estPhone", "partyMin", "partyMax", 
+    "horizon", "timeStep", "estName", "standbyOnline", "maxRequest", "estFull", 
+    "currSym", "country", "sisters", "areaAny", "options", "AvailPage", "ForLarger", 
+    "preSelected", "selected", "br", "PERHEAD", "TOTAL", "addonError", "allergyYN", 
+    "areaName", "availMonth", "cache", "calendar", "cardRequired", "charge", "count", 
+    "created", "descMenu", "estCalendarAvail", "estNot", "eventName", "eventsActive", 
+    "focusCount", "from", "to", "fullName", "invoiceRequired", "limited", "loading", 
+    "loyal", "noStandby", "portal", "monthFirst", "monthName", "shoulder", 
+    "sisterLoads", "sistersLoading", "sisterName", "sisterTimes", "telLink", 
     "timesAvail", "onTheHour", "usrLang", "vacateMsg", "viewPrivacy", "viewTerms"
 ]
 
@@ -30,8 +30,8 @@ def fetch_html(url: str, headers: dict) -> str | None:
     Fetches HTML content from the given URL.
     """
     try:
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers, timeout=20) 
+        response.raise_for_status() 
         # print(f"Successfully fetched HTML. Content length: {len(response.text)} bytes.", flush=True) # Optional: for server-side logging
         return response.text
     except requests.exceptions.HTTPError as e:
@@ -63,13 +63,13 @@ def extract_script_tag_content(html_content: str) -> str | None:
     if match:
         # print("Found script block using 'var dapi' pattern.", flush=True) # Optional: for server-side logging
         return match.group(1)
-
+    
     # Pattern 3: Fallback to a general pattern for inline scripts (no 'src' attribute).
     match = re.search(r"<script(?![^>]*src=)[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
         # print("Found script block using general inline script pattern (no src attribute).", flush=True) # Optional
         return match.group(1)
-
+        
     # Pattern 4: Last resort, find any script tag.
     match = re.search(r"<script[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
@@ -91,7 +91,7 @@ def _extract_single_variable(script_content: str, var_name: str) -> str | None:
     # ;                    - Matches the terminating semicolon.
     regex_str = r"(?:var|let|const)\s+" + re.escape(var_name) + r"\s*=\s*([\s\S]+?);"
     match = re.search(regex_str, script_content)
-
+    
     if match:
         value = match.group(1).strip()
         return value
@@ -105,7 +105,7 @@ def extract_all_variables(script_content: str) -> dict:
     extracted_data = {}
     if not script_content:
         return extracted_data
-
+        
     for var_name in VARIABLES_TO_EXTRACT:
         value = _extract_single_variable(script_content, var_name)
         if value is not None:
@@ -118,33 +118,33 @@ def get_config_for_establishment(est_name: str) -> dict | None:
     """
     if not est_name or not isinstance(est_name, str):
         print("Invalid est_name provided.", flush=True)
-        return None
+        return None 
 
     target_url = f"https://nz.eveve.com/web/form?est={est_name}"
-
+    
     html_content = fetch_html(target_url, DEFAULT_HEADERS)
     if html_content is None:
         print(f"Failed to fetch HTML for {est_name}.", flush=True)
-        return None
+        return None 
 
     script_tag_content = extract_script_tag_content(html_content)
     if script_tag_content is None:
         print(f"Failed to extract script content for {est_name}.", flush=True)
-        return None
+        return None 
 
     variables_dict = extract_all_variables(script_tag_content)
     # print(f"Extracted {len(variables_dict)} variables for {est_name}.", flush=True) # Optional logging
-
+    
     return variables_dict
 
 # Example usage (for testing this module directly, not for Flask app)
 if __name__ == '__main__':
     print("Testing extract_js_vars_logic.py...")
-    test_est_name = "TestNZWorkforce1"
+    test_est_name = "TestNZWorkforce1" 
     # test_est_name = "NONEXISTENTEST" # For testing failure
-
+    
     config_data = get_config_for_establishment(test_est_name)
-
+    
     if config_data is not None:
         print(f"\n--- Successfully retrieved config for {test_est_name} ---")
         # Print a summary or part of the data
@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     print("\nTesting with an invalid est_name (empty string)...")
     empty_config = get_config_for_establishment("")
-    if empty_config is None:
+    if empty_config is None: 
         print("Correctly handled empty string est_name: returned None.")
     else:
         print(f"Incorrectly handled empty string est_name: returned {empty_config}")
