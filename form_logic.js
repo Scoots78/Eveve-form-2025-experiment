@@ -868,67 +868,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     currentSelectedAreaUID = null;
                 }
                 // currentSelectedAreaUID will be updated after this block by getSelectedRadioValue
-
-                if (config.areaAny === "true") {
-                    const radioId = "area-any";
-                    const radioItemContainer = document.createElement('div');
-                    radioItemContainer.className = 'area-radio-item';
-                    const radio = document.createElement('input');
-                    radio.type = 'radio';
-                    radio.name = 'areaSelection';
-                    radio.id = radioId;
-                    radio.value = 'any';
-                    if (targetSelectedUID === 'any') {
-                        radioToActuallyCheck = radio;
-                    }
-                    const label = document.createElement('label');
-                    label.htmlFor = radioId;
-                    label.textContent = languageStrings.anyAreaText || "Any Area";
-                    radioItemContainer.appendChild(radio);
-                    radioItemContainer.appendChild(label);
-                    areaRadioGroupContainer.appendChild(radioItemContainer);
-                    radiosPopulated = true;
-                }
-
-                if (areas && Array.isArray(areas) && areas.length > 0) {
-                    areas.forEach((area) => {
-                        const radioId = `area-${area.uid}`;
-                        const radioItemContainer = document.createElement('div');
-                        radioItemContainer.className = 'area-radio-item';
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = 'areaSelection';
-                        radio.id = radioId;
-                        radio.value = area.uid.toString();
-                        if (targetSelectedUID === area.uid.toString()) {
-                           radioToActuallyCheck = radio;
-                        }
-                        const label = document.createElement('label');
-                        label.htmlFor = radioId;
-                        label.textContent = area.name;
-                        radioItemContainer.appendChild(radio);
-                        radioItemContainer.appendChild(label);
-                        areaRadioGroupContainer.appendChild(radioItemContainer);
-                        radiosPopulated = true;
-                    });
-                }
-
-                if (!radiosPopulated) {
-                    // This means config.areaAny is false AND areas array is empty/null
-                    // areaRadioGroupContainer will remain empty.
-                    currentSelectedAreaUID = null;
-                } else {
-                    if (radioToActuallyCheck) {
-                        radioToActuallyCheck.checked = true;
-                    } else {
-                        // Fallback if targetSelectedUID didn't match any created radio (e.g. data changed)
-                        // Check the first available radio in the container
-                        const firstRadioInGroup = areaRadioGroupContainer.querySelector('input[type="radio"]');
-                        if (firstRadioInGroup) {
-                            firstRadioInGroup.checked = true;
-                        }
-                    }
-                }
+                // The duplicated block that referenced targetSelectedUID and radioToActuallyCheck has been removed.
+                // The logic above this (starting with let uidToSelect = currentSelectedAreaUID;)
+                // now correctly determines which radio button is checked.
             }
             // If config.arSelect is false, areaSelectorContainer and its contents are handled at the start of displayTimeSlots
 
@@ -1106,8 +1048,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         async function handleDateOrCoversChange() {
-            const previouslySelectedAreaOnEntry = currentSelectedAreaUID;
-            const previouslySelectedTimeOnEntry = currentSelectedDecimalTime;
+            // const previouslySelectedAreaOnEntry = currentSelectedAreaUID; // REMOVED - Area stickiness simplified
+            const previouslySelectedTimeOnEntry = currentSelectedDecimalTime; // Preserve time intent
 
             if (!dateSelector || !coversSelector || !selectedDateValueSpan || !selectedCoversValueSpan || !selectedTimeValueSpan || !timeSelectorContainer || !dailyRotaMessageDiv) return;
             const selectedDateStr = dateSelector.value;
@@ -1136,10 +1078,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             selectedTimeValueSpan.textContent = '-'; // Visual reset for time display
             currentSelectedDecimalTime = null; // Reset actual stored decimal time; displayTimeSlots will attempt re-selection based on previouslySelectedTimeOnEntry
 
-            // currentSelectedAreaUID is NOT reset to null here.
-            // Its value (captured as previouslySelectedAreaOnEntry) is used by displayTimeSlots
-            // to attempt re-selection of the area radio button.
-            // The selectedAreaValueSpan is also updated by updateSelectedAreaDisplay within displayTimeSlots.
+            currentSelectedAreaUID = null; // Reset area selection; displayTimeSlots will apply defaults
             if (selectedAreaValueSpan) {
                  selectedAreaValueSpan.textContent = '-'; // Temporarily clear display; will be updated by displayTimeSlots
             }
