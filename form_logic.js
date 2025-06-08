@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentEstName = '';
     let currentShiftUsagePolicy = null; // Added for Next button logic
     let currentSelectedAreaUID = null; // Added for area selection state
+    let currentAvailabilityData = null; // To store fetched availability data
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -112,12 +113,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    async function fetchAvailableTimes(estNameForApi, date, covers, areaUID = null) {
-        let apiUrl = `https://nz.eveve.com/web/day-avail?est=${estNameForApi}&covers=${covers}&date=${date}`;
-        if (areaUID && areaUID !== "any" && areaUID !== "") { // Assuming "any" or "" is the value for "Any Area"
-            apiUrl += `&area=${areaUID}`;
-        }
-        // console.log(`Fetching available times from: ${apiUrl}`); // Removed general operational log
+    // Fetches general availability, not area-specific
+    async function fetchAvailableTimes(estNameForApi, date, covers) {
+        const apiUrl = `https://nz.eveve.com/web/day-avail?est=${estNameForApi}&covers=${covers}&date=${date}`;
+        // console.log(`Fetching available times from: ${apiUrl}`);
         try {
             const response = await fetch(apiUrl);
             if (!response.ok) {
@@ -1022,12 +1021,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // fetchAvailableTimes handles null as default/any.
                 // displayTimeSlots then populates areaSelector and updates currentSelectedAreaUID.
 
-                const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue, currentSelectedAreaUID);
+                const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue);
+                currentAvailabilityData = availabilityData; // Store globally
 
                 // The area population and currentSelectedAreaUID update happens in displayTimeSlots using the *returned* availabilityData.
                 // So, the call to displayTimeSlots below will handle it.
 
-                if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
+                if (currentAvailabilityData && currentAvailabilityData.message && currentAvailabilityData.message.trim() !== '') {
                     dailyRotaMessageDiv.textContent = availabilityData.message;
                     dailyRotaMessageDiv.style.display = 'block';
                 } else {
@@ -1036,8 +1036,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 // Pass the whole availabilityData to displayTimeSlots
-                if (availabilityData) { // Ensure availabilityData is not null
-                    displayTimeSlots(availabilityData); // This will populate areas and then shifts
+                if (currentAvailabilityData) { // Ensure currentAvailabilityData is not null
+                    displayTimeSlots(currentAvailabilityData); // This will populate areas and then shifts
                 } else {
                     // Handle case where fetchAvailableTimes returned null (e.g., network error through its own catch)
                     // This specific 'else' might be hit if fetchAvailableTimes returns null without throwing an error that the outer try/catch would get.
@@ -1087,7 +1087,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 areaAvailabilityMessage.textContent = '';
                 areaAvailabilityMessage.style.display = 'none';
             }
-            await handleDateOrCoversChange();
+            // Instead of re-fetching, use the stored global availability data
+            if (currentAvailabilityData) {
+                displayTimeSlots(currentAvailabilityData);
+            } else {
+                // Fallback if data hasn't been fetched yet (e.g. initial load error or race condition)
+                console.warn("handleAreaChange called but currentAvailabilityData is null. Attempting to fetch.");
+                // Display a general loading/error or try to trigger a full fetch if appropriate
+                // For now, just indicate that times can't be displayed without data.
+                if (timeSelectorContainer) {
+                     timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Data not loaded. Please select date/covers again.'}</p>`;
+                }
+                // Optionally, could call: await handleDateOrCoversChange();
+                // But the instruction is client-side re-render. If data isn't there, nothing to render for area change.
+            }
         }
 
         function setupEventListeners() {
