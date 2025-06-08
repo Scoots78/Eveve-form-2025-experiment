@@ -8,6 +8,7 @@ import {
     getCurrentSelectedAreaUID,
     setCurrentSelectedDecimalTime,
     setCurrentShiftUsagePolicy,
+    getIsInitialRenderCycle // Added import
     // No direct state setters for addons here, event handlers will manage state via state_manager
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
