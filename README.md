@@ -8,10 +8,12 @@ The backend is powered by Flask (Python), and the frontend interactivity is mana
 -   **Date & Guest Selection:** Users can select their desired date and number of guests for the booking.
 -   **Real-Time Availability:** Checks and displays available time slots by querying an external API in real-time.
 -   **Shift-Based Time Slots:** Available times are presented grouped by shifts (e.g., Lunch, Dinner).
--   **Flexible Addon Selection:** Supports different types of addons:
-    *   Single choice addons (e.g., a special offer).
-    *   Addons with quantity selection (e.g., equipment rental).
-    *   Multiple choice addons (e.g., optional extras).
+-   **Flexible Addon Selection:** Supports different addon behaviors based on the shift's configuration (`usage` policy):
+    *   **No Menu Selection (`usage: 0`):** Shifts where no specific menu selection is enforced or primarily offered.
+    *   **All Guests Same Menu (`usage: 1`):** All guests receive the same selected menu/addon (typically presented as a single checkbox for one option, or radio buttons for multiple options).
+    *   **Each Guest Any Menu (`usage: 2`):** Each guest can select different menus/addons, or multiples of the same, often managed with quantity selectors.
+    *   **Optional Menus (`usage: 3`):** Guests can choose from a list of optional addons (typically presented as checkboxes), where the selection is not tied to the number of guests for its core logic.
+    *   Addons can also be configured to be charged **per guest** or **per party**.
 -   **Custom Messages:** Displays messages from the establishment, either for the day or specific to a shift.
 
 ## File Structure
@@ -105,9 +107,13 @@ The application relies on both an internal backend API (for configuration) and a
             *   `name` (string): Name of the addon.
             *   `price` (number): Price of the addon (often in cents).
             *   `desc` (string): Description of the addon.
-            *   `per` (string): Basis of the addon (e.g., "person", "booking").
+            *   `per` (string): Basis of the addon charge, typically "person" (charged per guest) or "booking" (charged once per party/booking).
             *   `min` (number), `max` (number): Min/max covers for which the addon is valid.
-        *   `usage` (number, optional): An integer (e.g., 1, 2, or 3) indicating the UI policy for how addons in this shift should be selected (e.g., single choice, quantity selection, multiple choice).
+        *   `usage` (number, optional): An integer indicating the UI policy and behavior for addons in this shift:
+            *   `0`: "No Menu Selection" - No specific menu selection is enforced.
+            *   `1`: "All guests same menu" - Typically a single choice (radio button/single checkbox) applying to all guests.
+            *   `2`: "Each guest any menu" - Allows quantity-based selection for addons, potentially different for each guest.
+            *   `3`: "Optional Menus" - Multiple optional addons can be selected (checkboxes), selection logic not primarily dependent on guest count.
 *   **Data Flow:**
     1.  `form_logic.js` (frontend) makes a `fetch` request to the Eveve API whenever the user changes the date or number of covers.
     2.  The Eveve API returns the availability data directly to `form_logic.js`.
