@@ -787,43 +787,44 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (config.arSelect === "true" && areaRadioGroupContainer) {
-                const previousSelectedAreaUID = currentSelectedAreaUID;
                 areaRadioGroupContainer.innerHTML = '';
 
                 const areas = availabilityData.areas;
                 let radiosPopulated = false;
-                let radioToActuallyCheck = null;
-                let checkedViaCurrentSelectedUID = false;
 
-                // 1. Attempt to check radio based on currentSelectedAreaUID (module-scoped, potentially sticky from date/cover change)
-                if (currentSelectedAreaUID) {
-                    if (config.areaAny === "true") {
-                        const anyRadio = document.createElement('input'); // Create to check its properties
-                        anyRadio.type = 'radio'; anyRadio.name = 'areaSelection'; anyRadio.value = 'any';
-                        if (anyRadio.value === currentSelectedAreaUID) radioToActuallyCheck = anyRadio; // Placeholder, will be replaced by actual DOM radio
-                    }
-                    if (!radioToActuallyCheck && areas && Array.isArray(areas)) {
-                        areas.forEach(area => {
-                            if (area.uid.toString() === currentSelectedAreaUID) {
-                                const specificRadio = document.createElement('input'); // Create to check
-                                specificRadio.type = 'radio'; specificRadio.name = 'areaSelection'; specificRadio.value = area.uid.toString();
-                                radioToActuallyCheck = specificRadio; // Placeholder
-                            }
-                        });
+                // Determine uidToSelect:
+                // Start with current module-scoped currentSelectedAreaUID (which would be the sticky one if called from handleDateOrCoversChange)
+                let uidToSelect = currentSelectedAreaUID;
+
+                // Validate uidToSelect against the new availabilityData.areas
+                let SPUIDIsValidInNewData = false;
+                if (uidToSelect) {
+                    if (uidToSelect === "any" && config.areaAny === "true") {
+                        SPUIDIsValidInNewData = true;
+                    } else if (uidToSelect !== "any" && areas && Array.isArray(areas)) {
+                        SPUIDIsValidInNewData = areas.some(area => area.uid.toString() === uidToSelect);
                     }
                 }
 
-                // Build all radio buttons
+                if (!SPUIDIsValidInNewData) { // If no valid current/sticky selection, apply defaults
+                    if (config.areaAny === "true") {
+                        uidToSelect = "any";
+                    } else if (areas && Array.isArray(areas) && areas.length > 0) {
+                        uidToSelect = areas[0].uid.toString();
+                    } else {
+                        uidToSelect = null; // No possible selection
+                    }
+                }
+                // 'uidToSelect' now holds the definitive UID that should be checked, or null.
+
+                // Build "Any Area" radio button
                 if (config.areaAny === "true") {
                     const radioId = "area-any";
                     const radioItemContainer = document.createElement('div');
                     radioItemContainer.className = 'area-radio-item';
                     const radio = document.createElement('input');
                     radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = 'any';
-                    if (radioToActuallyCheck && radio.value === radioToActuallyCheck.value) {
-                        radio.checked = true;
-                        checkedViaCurrentSelectedUID = true;
-                    }
+                    radio.checked = (uidToSelect === 'any');
                     const label = document.createElement('label');
                     label.htmlFor = radioId; label.textContent = languageStrings.anyAreaText || "Any Area";
                     radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
@@ -831,6 +832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     radiosPopulated = true;
                 }
 
+                // Build specific area radio buttons
                 if (areas && Array.isArray(areas) && areas.length > 0) {
                     areas.forEach((area) => {
                         const radioId = `area-${area.uid}`;
@@ -838,10 +840,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         radioItemContainer.className = 'area-radio-item';
                         const radio = document.createElement('input');
                         radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = area.uid.toString();
-                        if (radioToActuallyCheck && radio.value === radioToActuallyCheck.value && !checkedViaCurrentSelectedUID) {
-                             radio.checked = true; // Only check if not already checked by "any" or another specific
-                             checkedViaCurrentSelectedUID = true;
-                        }
+                        radio.checked = (uidToSelect === area.uid.toString());
                         const label = document.createElement('label');
                         label.htmlFor = radioId; label.textContent = area.name;
                         radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
