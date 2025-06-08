@@ -133,6 +133,17 @@ def get_config_for_establishment(est_name: str) -> dict | None:
         return None 
 
     variables_dict = extract_all_variables(script_tag_content)
+
+    if variables_dict:  # Ensure variables_dict is not empty
+        country_val = variables_dict.get("country")
+        # Extracted values might have quotes, e.g., "'NZ'" or "\"NZ\""
+        if country_val and isinstance(country_val, str):
+            # Remove typical surrounding quotes and whitespace
+            cleaned_country_val = country_val.strip().strip("'\"")
+            if cleaned_country_val == "NZ":
+                # Force currSym to '$' for NZ establishments
+                variables_dict["currSym"] = "$"  # Store as a clean '$'
+
     # print(f"Extracted {len(variables_dict)} variables for {est_name}.", flush=True) # Optional logging
     
     return variables_dict
