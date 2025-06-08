@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let languageStrings = {};
     let initialShiftsConfig = []; 
     let currentEstName = '';
+    let currentShiftUsagePolicy = null; // Added for Next button logic
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -155,6 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSelectedAddons.usage1 = { uid: addonData.uid, name: addonData.name, price: addonData.price };
         }
         updateSelectedAddonsDisplay();
+        updateNextButtonState(); // Added call
     }
 
     function handleAddonUsage2Selection(addonData, quantity) {
@@ -165,6 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSelectedAddons.usage2.push({ uid: addonUid, name: addonData.name, price: addonData.price, quantity: quantity });
         }
         updateSelectedAddonsDisplay();
+        updateNextButtonState(); // Added call
     }
 
     function handleAddonUsage3Selection(event) {
@@ -181,9 +184,59 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSelectedAddons.usage3 = currentSelectedAddons.usage3.filter(addon => addon.uid !== addonUid);
         }
         updateSelectedAddonsDisplay();
+        updateNextButtonState(); // Added call
     }
 
     // --- Addon Rendering Functions ---
+
+    function updateNextButtonState() {
+        const nextButton = document.getElementById('nextButton');
+        if (!nextButton) return;
+
+        nextButton.disabled = true; // Default to disabled
+
+        const selectedTimeValueEl = document.getElementById('selectedTimeValue');
+        const selectedTimeText = selectedTimeValueEl ? selectedTimeValueEl.textContent : '-';
+
+        if (!selectedTimeText || selectedTimeText === '-' || selectedTimeText.includes('N/A')) {
+            return;
+        }
+
+        const coversSelectorEl = document.getElementById('coversSelector');
+        const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
+
+        if (currentShiftUsagePolicy === null || typeof currentShiftUsagePolicy === 'undefined') {
+            // If time is selected and no specific addon policy is active, enable Next.
+            nextButton.disabled = false;
+            return;
+        }
+
+        switch (parseInt(currentShiftUsagePolicy)) {
+            case 0: // No Menu Selection
+                nextButton.disabled = false;
+                break;
+            case 1: // All Guests Same Menu (usage1 addons)
+                if (currentSelectedAddons.usage1 && currentSelectedAddons.usage1.uid) {
+                    nextButton.disabled = false;
+                } else {
+                    nextButton.disabled = true;
+                }
+                break;
+            case 2: // Each Guest Any Menu (usage2 addons)
+                if (guestCount > 0 && getTotalUsage2AddonQuantity() === guestCount) {
+                    nextButton.disabled = false;
+                } else {
+                    nextButton.disabled = true;
+                }
+                break;
+            case 3: // Optional Menus (usage3 addons)
+                nextButton.disabled = false;
+                break;
+            default: // Unknown policy or no addon gating
+                nextButton.disabled = false;
+                break;
+        }
+    }
 
     function getTotalUsage2AddonQuantity() {
         let total = 0;
@@ -493,6 +546,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentGuestCountForReset = parseInt(coversElement.value) || 0;
             }
             updateAllUsage2ButtonStates(currentGuestCountForReset);
+            updateNextButtonState(); // Added call
         }
 
         function displayTimeSlots(shiftsData) {
@@ -500,6 +554,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!timeSelectorContainer || !selectedTimeValueSpan) return;
             timeSelectorContainer.innerHTML = '';
             selectedTimeValueSpan.textContent = '-';
+            currentShiftUsagePolicy = null; // Reset policy
+            updateNextButtonState(); // Update button state
+
             const addonsDisplay = document.getElementById('addonsDisplayArea');
             if (addonsDisplay) addonsDisplay.innerHTML = '';
             resetCurrentSelectedAddons(); 
@@ -545,20 +602,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                             button.dataset.time = timeValue; 
                             button.textContent = formatTime(timeValue);
                             button.addEventListener('click', function() {
-                                selectedTimeValueSpan.textContent = this.textContent; 
+                                selectedTimeValueSpan.textContent = this.textContent;
                                 timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
                                 this.classList.add('time-slot-button-selected');
+
+                                currentShiftUsagePolicy = (shift && typeof shift.usage !== 'undefined') ? shift.usage : null; // Set policy
+
                                 const currentAddonsDisplayArea = document.getElementById('addonsDisplayArea');
                                 if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = ''; 
                                 resetCurrentSelectedAddons(); 
                                 const guestCount = parseInt(coversSelector.value); 
                                 if (shift.addons && Array.isArray(shift.addons) && shift.addons.length > 0) {
-                                    // console.log('Calling renderAddons for shift:', shift.name, ...); // Removed
                                     renderAddons(shift.addons, shift.usage, guestCount, shift.name); 
                                 } else {
-                                    // console.log('No addons for shift:', shift.name); // Removed
                                     if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = `<p>${languageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
                                 }
+                                updateNextButtonState(); // Update button state
                             });
                         }
                         shiftButtonContainer.appendChild(button);
@@ -586,17 +645,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             dailyRotaMessageDiv.style.display = 'none';
             const addonsDisplayArea = document.getElementById('addonsDisplayArea');
             if (addonsDisplayArea) addonsDisplayArea.innerHTML = ''; 
-            resetCurrentSelectedAddons(); 
+            resetCurrentSelectedAddons(); // This already calls updateNextButtonState
+
+            currentShiftUsagePolicy = null; // Reset policy
+            // updateNextButtonState will be called by resetCurrentSelectedAddons or if time selection changes
+
             if (selectedDateStr < todayComparableString) {
                 timeSelectorContainer.innerHTML = '<p class="error-message">Selected date is in the past. Please choose a current or future date.</p>';
                 selectedDateValueSpan.textContent = '-'; 
                 selectedCoversValueSpan.textContent = '-';
                 selectedTimeValueSpan.textContent = '-';
+                currentShiftUsagePolicy = null; updateNextButtonState(); // Explicitly update here
                 return;
             }
             selectedDateValueSpan.textContent = selectedDateStr || '-';
             selectedCoversValueSpan.textContent = coversValue || '-';
             selectedTimeValueSpan.textContent = '-'; 
+            currentShiftUsagePolicy = null; updateNextButtonState(); // Explicitly update here
+
             if (!currentEstName) { 
                 console.error('Restaurant Name (est) is not set. Cannot fetch times.'); // Kept as error
                 timeSelectorContainer.innerHTML = `<p class="error-message">Configuration error: Restaurant name not found.</p>`;
@@ -605,10 +671,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!selectedDateStr || isNaN(coversValue) || coversValue <= 0) {
                 // console.log('Validation failed: Date or covers invalid.'); // Removed
                 timeSelectorContainer.innerHTML = `<p class="error-message">Please select a valid date and number of guests.</p>`;
+                currentShiftUsagePolicy = null; updateNextButtonState(); // Explicitly update here
                 return;
             }
             // console.log(`Fetching for: est=${currentEstName}, date=${selectedDateStr}, covers=${coversValue}`); // Removed
             timeSelectorContainer.innerHTML = `<p class="loading-message">Loading times...</p>`; 
+            // currentShiftUsagePolicy will be null here, button should be disabled until times load and one is selected.
+            // updateNextButtonState(); // Already called above
+
             const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue);
             if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
                 dailyRotaMessageDiv.textContent = availabilityData.message;
@@ -631,6 +701,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                      timeSelectorContainer.innerHTML = `<p class="error-message">${messageToShow}</p>`;
                 }
                 selectedTimeValueSpan.textContent = '-';
+                currentShiftUsagePolicy = null; // Reset policy
+                updateNextButtonState(); // Update button state
             }
         }
 
@@ -652,6 +724,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (selectedDateValueSpan) selectedDateValueSpan.textContent = initialDateOnLoad; 
                 if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = coversSelector.value;
                 if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+                currentShiftUsagePolicy = null; updateNextButtonState(); // Initial state
             }
         } else {
             let promptMessage = languageStrings.promptSelection || 'Please select date and guests for times.';
@@ -659,6 +732,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p>${promptMessage}</p>`;
             // console.log('Skipping initial time slot load: conditions not met (estName, date, or covers).'); // Removed
         }
+        updateNextButtonState(); // Final safety call for initial state
         // console.log('Form logic fully initialized.'); // Removed
 
     } catch (error) {
