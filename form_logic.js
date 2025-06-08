@@ -145,9 +145,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Process usage2 addons
         currentSelectedAddons.usage2.forEach(addon => {
             const basePrice = (addon.price || 0) / 100; // price is in cents
-            const itemCost = basePrice * addon.quantity;
+            let itemCost = 0;
+            let itemDisplayString = "";
+
+            if (addon.per === "Party") {
+                itemCost = basePrice;  // Cost is flat basePrice for "Per Party"
+                // Display quantity for informational purposes, but use basePrice for itemCost
+                itemDisplayString = `${addon.name} x${addon.quantity} (${currencySymbol}${basePrice.toFixed(2)} - Per Party)`;
+            } else { // Default to "Per Guest" or other types if not "Party"
+                itemCost = basePrice * addon.quantity;
+                itemDisplayString = `${addon.name} x${addon.quantity} (${currencySymbol}${itemCost.toFixed(2)})`;
+            }
             grandTotal += itemCost;
-            displayItems.push(`${addon.name} x${addon.quantity} (${currencySymbol}${itemCost.toFixed(2)})`);
+            displayItems.push(itemDisplayString);
         });
 
         // Process usage3 addons
