@@ -184,6 +184,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- Addon Rendering Functions ---
+
+    function getTotalUsage2AddonQuantity() {
+        let total = 0;
+        if (currentSelectedAddons && currentSelectedAddons.usage2) {
+            currentSelectedAddons.usage2.forEach(addon => {
+                total += addon.quantity;
+            });
+        }
+        return total;
+    }
+
+    function updateAllUsage2ButtonStates(currentGuestCount) {
+        const totalCurrentUsage2Quantity = getTotalUsage2AddonQuantity();
+
+        document.querySelectorAll('.usage2-item .addon-quantity-selector').forEach(qtySelector => {
+            const qtyInput = qtySelector.querySelector('.qty-input');
+            const minusButton = qtySelector.querySelector('.minus-btn');
+            const plusButton = qtySelector.querySelector('.plus-btn');
+
+            if (!qtyInput || !minusButton || !plusButton) return; // Safety check
+
+            const itemSpecificCurrentValue = parseInt(qtyInput.value);
+
+            minusButton.disabled = (itemSpecificCurrentValue === 0);
+
+            if (currentGuestCount === 0) {
+                plusButton.disabled = true;
+            } else {
+                plusButton.disabled = (totalCurrentUsage2Quantity >= currentGuestCount);
+            }
+        });
+    }
+
     function renderUsage1Addons(filteredAddons, guestCount, shiftName) {
         // console.log(`renderUsage1Addons for "${shiftName}" ...`); // Removed
         const addonsDisplayArea = document.getElementById('addonsDisplayArea');
@@ -279,27 +312,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             const plusButton = document.createElement('button');
             plusButton.type = 'button'; plusButton.textContent = '+';
             plusButton.className = 'qty-btn plus-btn';
-            if (guestCount === 0) plusButton.disabled = true; 
+
+            // Determine initial state for plusButton:
+            if (guestCount === 0 || (getTotalUsage2AddonQuantity() >= guestCount && parseInt(qtyInput.value) === 0) ) {
+                plusButton.disabled = true;
+            } else {
+                plusButton.disabled = false;
+            }
+
             minusButton.addEventListener('click', () => {
-                let currentValue = parseInt(qtyInput.value);
-                currentValue = Math.max(0, currentValue - 1);
-                qtyInput.value = currentValue;
-                minusButton.disabled = (currentValue === 0);
-                plusButton.disabled = (currentValue === guestCount);
-                handleAddonUsage2Selection(addon, currentValue);
+                let currentSpecificValue = parseInt(qtyInput.value);
+                if (currentSpecificValue > 0) {
+                    currentSpecificValue--;
+                    qtyInput.value = currentSpecificValue;
+                    handleAddonUsage2Selection(addon, currentSpecificValue);
+                    updateAllUsage2ButtonStates(guestCount);
+                }
             });
             plusButton.addEventListener('click', () => {
-                let currentValue = parseInt(qtyInput.value);
-                currentValue = Math.min(guestCount, currentValue + 1);
-                qtyInput.value = currentValue;
-                minusButton.disabled = (currentValue === 0);
-                plusButton.disabled = (currentValue === guestCount);
-                handleAddonUsage2Selection(addon, currentValue);
+                let currentSpecificValue = parseInt(qtyInput.value);
+                const totalBeforeIncrement = getTotalUsage2AddonQuantity();
+
+                if (totalBeforeIncrement < guestCount) {
+                    currentSpecificValue++;
+                    qtyInput.value = currentSpecificValue;
+                    handleAddonUsage2Selection(addon, currentSpecificValue);
+                    updateAllUsage2ButtonStates(guestCount);
+                }
             });
             qtyContainer.appendChild(minusButton); qtyContainer.appendChild(qtyInput); qtyContainer.appendChild(plusButton);
             addonItemDiv.appendChild(qtyContainer);
             addonsDisplayArea.appendChild(addonItemDiv);
         });
+        updateAllUsage2ButtonStates(guestCount);
     }
 
     function renderUsage3Addons(filteredAddons, guestCount, shiftName) {
@@ -441,6 +486,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSelectedAddons = { usage1: null, usage2: [], usage3: [] };
             const selectedAddonsValueSpan = document.getElementById('selectedAddonsValue');
             if (selectedAddonsValueSpan) selectedAddonsValueSpan.textContent = '-';
+
+            const coversElement = document.getElementById('coversSelector');
+            let currentGuestCountForReset = 0;
+            if (coversElement) {
+                currentGuestCountForReset = parseInt(coversElement.value) || 0;
+            }
+            updateAllUsage2ButtonStates(currentGuestCountForReset);
         }
 
         function displayTimeSlots(shiftsData) {
