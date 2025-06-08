@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentSelectedAreaUID = null; // Added for area selection state
     let currentAvailabilityData = null; // To store fetched availability data
     let isInitialRenderCycle = true; // Flag for initial load special behavior
+    let currentSelectedDecimalTime = null; // To store the selected time as a decimal value
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -702,6 +703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Add click listener ONLY for truly active buttons
                     button.addEventListener('click', function() {
                         selectedTimeValueSpan.textContent = this.textContent;
+                        currentSelectedDecimalTime = parseFloat(this.dataset.time); // Store decimal time
                         timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
                         this.classList.add('time-slot-button-selected');
 
@@ -746,6 +748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             timeSelectorContainer.innerHTML = '';
             selectedTimeValueSpan.textContent = '-';
+            currentSelectedDecimalTime = null; // Reset stored decimal time
             currentShiftUsagePolicy = null;
             updateNextButtonState();
 
@@ -1025,7 +1028,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             selectedDateValueSpan.textContent = selectedDateStr || '-';
             selectedCoversValueSpan.textContent = coversValue || '-';
-            selectedTimeValueSpan.textContent = '-'; 
+            selectedTimeValueSpan.textContent = '-';
+            currentSelectedDecimalTime = null; // Reset stored decimal time
             if (selectedAreaValueSpan) { // Reset selected area display on date/covers change
                 selectedAreaValueSpan.textContent = '-';
             }
@@ -1117,6 +1121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetCurrentSelectedAddons();
 
             if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+            currentSelectedDecimalTime = null; // Reset stored decimal time
 
             if (areaAvailabilityMessage) {
                 areaAvailabilityMessage.textContent = '';
@@ -1142,8 +1147,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (dateSelector) dateSelector.addEventListener('change', handleDateOrCoversChange);
             if (coversSelector) coversSelector.addEventListener('change', handleDateOrCoversChange);
             if (areaRadioGroupContainer) areaRadioGroupContainer.addEventListener('change', handleAreaChange); // Changed to areaRadioGroupContainer
+
+            const nextButton = document.getElementById('nextButton');
+            if (nextButton) {
+                nextButton.addEventListener('click', handleNextButtonClick);
+            }
         }
         setupEventListeners();
+
+        async function handleNextButtonClick() {
+            const est = currentEstName;
+            const language = (config && config.usrLang) ? config.usrLang.replace(/['"]/g, '') : 'en'; // Remove potential quotes
+            const numCovers = coversSelector ? coversSelector.value : null;
+            const selectedDate = dateSelector ? dateSelector.value : null;
+            const decimalTime = currentSelectedDecimalTime; // Already a float or null
+
+            let areaToSubmit = null;
+            if (config.arSelect === "true" && currentSelectedAreaUID && currentSelectedAreaUID !== "any") {
+                areaToSubmit = currentSelectedAreaUID;
+            }
+
+            if (!selectedDate || decimalTime === null || !numCovers || !est) { // Check decimalTime against null explicitly
+                console.error("Missing required data for hold call:", { selectedDate, decimalTime, numCovers, est });
+                // Optionally, display a user-friendly message to the user here
+                return;
+            }
+
+            const holdApiData = {
+                est: est,
+                lng: language,
+                covers: parseInt(numCovers, 10), // Ensure covers is an integer
+                date: selectedDate,
+                time: decimalTime,
+                area: areaToSubmit // Will be null if not applicable
+            };
+            console.log("Hold API Call Data:", holdApiData);
+
+            // Construct the example URL for logging (filtering out null/undefined params)
+            let holdUrl = `https://nz.eveve.com/web/hold?est=${holdApiData.est}&lng=${holdApiData.lng}&covers=${holdApiData.covers}&date=${holdApiData.date}&time=${holdApiData.time}`;
+            if (holdApiData.area) { // Only add area if it's not null
+                holdUrl += `&area=${holdApiData.area}`;
+            }
+            console.log("Example Hold API URL:", holdUrl);
+
+            // Actual fetch call will be added in a subsequent step.
+        }
 
         // console.log(`Performing initial load for ${currentEstName}`); // Removed
         if (currentEstName && dateSelector && dateSelector.value && coversSelector && parseInt(coversSelector.value) > 0) {
