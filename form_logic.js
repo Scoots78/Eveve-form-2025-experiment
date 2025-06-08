@@ -72,6 +72,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${displayHours}:${minutesStr} ${ampm}`;
     }
 
+    function formatSelectedAddons(selectedAddons) {
+        let addonParts = [];
+        if (selectedAddons.usage1 && selectedAddons.usage1.uid) {
+            addonParts.push(`${selectedAddons.usage1.uid}:1`);
+        }
+        if (selectedAddons.usage2 && selectedAddons.usage2.length > 0) {
+            selectedAddons.usage2.forEach(addon => {
+                if (addon.uid && addon.quantity > 0) { // Ensure quantity is positive
+                    addonParts.push(`${addon.uid}:${addon.quantity}`);
+                }
+            });
+        }
+        if (selectedAddons.usage3 && selectedAddons.usage3.length > 0) {
+            selectedAddons.usage3.forEach(addon => {
+                if (addon.uid) {
+                    addonParts.push(`${addon.uid}:1`);
+                }
+            });
+        }
+        return addonParts.join(',');
+    }
+
     function parseJsObjectString(jsString) {
         if (!jsString || typeof jsString !== 'string') {
             // console.warn('Invalid input for parseJsObjectString:', jsString); // Kept as it's a warning for invalid input
@@ -1167,6 +1189,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 areaToSubmit = currentSelectedAreaUID;
             }
 
+            const addonsString = formatSelectedAddons(currentSelectedAddons);
+
             if (!selectedDate || decimalTime === null || !numCovers || !est) { // Check decimalTime against null explicitly
                 console.error("Missing required data for hold call:", { selectedDate, decimalTime, numCovers, est });
                 // Optionally, display a user-friendly message to the user here
@@ -1179,7 +1203,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 covers: parseInt(numCovers, 10), // Ensure covers is an integer
                 date: selectedDate,
                 time: decimalTime,
-                area: areaToSubmit // Will be null if not applicable
+                area: areaToSubmit, // Will be null if not applicable
+                addons: addonsString // Add formatted addons string
             };
             console.log("Hold API Call Data:", holdApiData);
 
@@ -1187,6 +1212,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             let holdUrl = `https://nz.eveve.com/web/hold?est=${holdApiData.est}&lng=${holdApiData.lng}&covers=${holdApiData.covers}&date=${holdApiData.date}&time=${holdApiData.time}`;
             if (holdApiData.area) { // Only add area if it's not null
                 holdUrl += `&area=${holdApiData.area}`;
+            }
+            if (holdApiData.addons && holdApiData.addons !== "") { // Check if addons string is not empty
+                holdUrl += `&addons=${holdApiData.addons}`;
             }
             console.log("Example Hold API URL:", holdUrl);
 
