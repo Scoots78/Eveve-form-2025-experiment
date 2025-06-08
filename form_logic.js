@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentAvailabilityData = null; // To store fetched availability data
     let isInitialRenderCycle = true; // Flag for initial load special behavior
     let currentSelectedDecimalTime = null; // To store the selected time as a decimal value
+    let desiredStickyAreaUID = null; // To remember area selection across date/cover changes
+    let desiredStickyTime = null; // To remember time selection across date/cover changes
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -792,15 +794,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 let radiosPopulated = false;
                 let radioToActuallyCheck = null;
 
-                // Determine the target UID for selection (preserve previous, or default)
-                let targetSelectedUID = previousSelectedAreaUID;
-                if (!targetSelectedUID) {
-                    if (config.areaAny === "true") {
+                // Determine the target UID for selection (prioritize sticky, then previous, then defaults)
+                let targetSelectedUID = desiredStickyAreaUID; // Prioritize sticky
+                if (!targetSelectedUID) { // If no sticky area, try previous selection from current render cycle
+                    if (previousSelectedAreaUID) {
+                        targetSelectedUID = previousSelectedAreaUID;
+                    } else if (config.areaAny === "true") { // Fallback to default: "any" if allowed
                         targetSelectedUID = "any";
-                    } else if (areas && Array.isArray(areas) && areas.length > 0) {
+                    } else if (areas && Array.isArray(areas) && areas.length > 0) { // Fallback to first specific area
                         targetSelectedUID = areas[0].uid.toString();
                     }
                 }
+                // If after all this, targetSelectedUID is still null (e.g. no areas, no sticky, no previous),
+                // then no radio will be checked by default, which is acceptable.
 
                 if (config.areaAny === "true") {
                     const radioId = "area-any";
@@ -1022,10 +1028,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                  timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
                  // No specific area message needed here, as it's "Any Area" or area selection is off
             }
-             updateNextButtonState(); // Final update
+            updateNextButtonState(); // Update button state based on what was actually rendered and selected
+
+            // Attempt to re-select a sticky time if one was desired and is available
+            if (desiredStickyTime !== null) {
+                const allTimeSlotButtons = timeSelectorContainer.querySelectorAll('.time-slot-button');
+                allTimeSlotButtons.forEach(button => {
+                    // Check if button is not disabled (i.e., it's an available slot)
+                    // and its time matches the desired sticky time.
+                    if (!button.disabled && parseFloat(button.dataset.time) === desiredStickyTime) {
+                        button.click(); // Programmatically click the button to select it
+                        // The click handler will update currentSelectedDecimalTime and other UI parts.
+                        // We assume only one such button should exist or the first one found is sufficient.
+                        // No need to break loop, forEach will continue but subsequent clicks on same time (if any) are harmless.
+                    }
+                });
+            }
+            // After attempting to click sticky time, ensure desiredSticky values are cleared for the next fresh interaction
+            // desiredStickyAreaUID = null; // Cleared by explicit area change or implicitly used then can be "forgotten"
+            // desiredStickyTime = null; // Cleared by explicit area change or implicitly used then can be "forgotten"
+            // Actually, these are better managed by the functions that *set* them or indicate a context change.
+            // handleDateOrCoversChange *sets* them. handleAreaChange *clears* desiredStickyTime.
+            // displayTimeSlots *uses* them.
+            desiredStickyTime = null; // Clear after use in this rendering pass.
         }
 
         async function handleDateOrCoversChange() {
+            desiredStickyAreaUID = currentSelectedAreaUID;
+            desiredStickyTime = currentSelectedDecimalTime;
+
             if (!dateSelector || !coversSelector || !selectedDateValueSpan || !selectedCoversValueSpan || !selectedTimeValueSpan || !timeSelectorContainer || !dailyRotaMessageDiv) return;
             const selectedDateStr = dateSelector.value;
             const coversValue = parseInt(coversSelector.value, 10);
@@ -1127,6 +1158,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
         async function handleAreaChange(event) { // Added event parameter
+            desiredStickyTime = null; // Clear sticky time when area is explicitly changed
+
             // Ensure the event target is an input element, part of the radio group
             if (!event || !event.target || event.target.name !== 'areaSelection') {
                 return;
