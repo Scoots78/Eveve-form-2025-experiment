@@ -447,7 +447,7 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
     setCurrentShiftUsagePolicy(null);
 
     if (addonsDisplay) addonsDisplay.innerHTML = '';
-    resetCurrentSelectedAddonsUICallback();
+    resetCurrentAddonsUICallback(); // Corrected typo
 
     if (areaAvailabilityMessage) {
         areaAvailabilityMessage.textContent = '';
