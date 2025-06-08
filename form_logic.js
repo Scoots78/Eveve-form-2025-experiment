@@ -932,12 +932,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const shiftTitle = document.createElement('h3');
                     shiftTitle.textContent = shift.name;
                     timeSelectorContainer.appendChild(shiftTitle);
-                     if (shift.message && shift.message.trim() !== '') { /* ... shift message ... */
+                     if (shift.message && shift.message.trim() !== '') {
                         const shiftMessageDiv = document.createElement('div');
                         shiftMessageDiv.className = 'api-message shift-message';
                         shiftMessageDiv.textContent = shift.message;
                         timeSelectorContainer.appendChild(shiftMessageDiv);
                     }
+                    // sessionMessageDiv should not be created or managed here for "Any Area"
                     const shiftButtonContainer = document.createElement('div');
                     shiftButtonContainer.className = 'shift-times-wrapper';
                     timeSelectorContainer.appendChild(shiftButtonContainer);
