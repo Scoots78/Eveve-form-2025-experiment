@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Core Logic / Application Initialization ---
     try {
-        await ensureConfigLoaded();
+        await ensureConfigLoaded; // Corrected: Await the promise directly, don't call it.
 
         if (!isConfigLoaded()) {
             const error = getConfigLoadError();
