@@ -657,7 +657,7 @@ export function resetTimeRelatedUI() {
     if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
     if (addonsDisplay) addonsDisplay.innerHTML = '';
 
-    resetCurrentSelectedAddonsUICallback();
+    resetCurrentAddonsUICallback(); // Corrected: Removed "Selected" from variable name
     updateNextButtonState();
 }
 
