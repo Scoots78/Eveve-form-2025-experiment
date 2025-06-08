@@ -1,6 +1,6 @@
 // --- Event Handlers ---
 
-import { getConfig, getLanguageStrings, getCurrentEstName } from './config_manager.js'; // Added getCurrentEstName
+import { getConfig, getLanguageStrings, getCurrentEstName } from './config_manager.js';
 import { fetchAvailableTimes, holdBooking } from './api_service.js';
 import {
     setCurrentShiftUsagePolicy,
@@ -57,7 +57,7 @@ function handleAddonUsage1Selection(eventTarget, addonData, isSingleCheckboxMode
 }
 
 function handleAddonUsage2Selection(addonData, quantity) {
-    const addonUid = parseInt(addonData.uid, 10); // Ensure UID is number for comparison if needed
+    const addonUid = parseInt(addonData.uid, 10);
     let currentAddons = getSelectedAddons();
     currentAddons.usage2 = currentAddons.usage2.filter(a => a.uid !== addonUid);
     if (quantity > 0) {
@@ -96,18 +96,16 @@ function handleUsage2ButtonClick(event, addonDataset, change) {
     let totalUsage2QuantityBeforeChange = 0;
     const currentSelected = getSelectedAddons();
     currentSelected.usage2.forEach(addon => {
-        // Use string comparison for dataset UID initially
         if (addon.uid.toString() !== addonDataset.addonUid) {
             totalUsage2QuantityBeforeChange += addon.quantity;
         } else {
-            totalUsage2QuantityBeforeChange += currentValue; // Use the current value from input for the item being changed
+            totalUsage2QuantityBeforeChange += currentValue;
         }
     });
 
     if (change === -1 && currentValue > 0) {
          // Allow decrement
     } else if (change === 1) {
-        // Only consider other items for total when checking if we can increment current item
         let otherItemsTotal = 0;
          currentSelected.usage2.forEach(addon => {
             if (addon.uid.toString() !== addonDataset.addonUid) {
@@ -115,12 +113,12 @@ function handleUsage2ButtonClick(event, addonDataset, change) {
             }
         });
         if (guestCount === 0 || (otherItemsTotal + (currentValue + 1) > guestCount) ) {
-             return; // Cannot add more than guestCount
+             return;
         }
     } else if(change === -1 && currentValue === 0) {
-        return; // Cannot decrement below 0
+        return;
     } else {
-        return; // No valid change
+        return;
     }
 
     if (change === -1) currentValue--;
@@ -137,7 +135,6 @@ function handleUsage2ButtonClick(event, addonDataset, change) {
         desc: addonDataset.addonDesc,
     };
     handleAddonUsage2Selection(fullAddonData, currentValue);
-    // updateAllUsage2ButtonStatesUI is called within handleAddonUsage2Selection
 }
 
 export async function handleDateOrCoversChange() {
@@ -152,7 +149,7 @@ export async function handleDateOrCoversChange() {
     const localLanguageStrings = getLanguageStrings();
     const localCurrentEstName = getCurrentEstName();
 
-    resetTimeRelatedUI(); // This will also call the addon reset UI callback
+    resetTimeRelatedUI();
     setCurrentShiftUsagePolicy(null);
     updateDailyRotaMessage('');
 
@@ -214,7 +211,7 @@ export async function handleAreaChange() {
     setIsInitialRenderCycle(false);
     updateAreaDisplayUI();
     showLoadingTimes();
-    resetTimeRelatedUI(); // This will also call the addon reset UI callback
+    resetTimeRelatedUI();
     const currentAvailData = getCurrentAvailabilityData();
     if (currentAvailData) {
         displayTimeSlots(currentAvailData);
@@ -272,9 +269,18 @@ function timeSlotDelegatedListener(event) {
         button.classList.add('time-slot-button-selected');
 
         const timeValue = parseFloat(button.dataset.time);
-        const shiftUid = button.dataset.shiftUid;
+        const shiftUidFromDataset = button.dataset.shiftUid;
+        const shiftNameFromDataset = button.dataset.shiftName; // Get shiftName from dataset
         const availabilityData = getCurrentAvailabilityData();
-        const shiftObject = availabilityData?.shifts?.find(s => s && s.uid != null && s.uid.toString() === shiftUid);
+        let shiftObject = null;
+
+        if (shiftUidFromDataset && shiftUidFromDataset !== 'undefined') {
+            shiftObject = availabilityData?.shifts?.find(s => s && s.uid != null && s.uid.toString() === shiftUidFromDataset);
+        }
+
+        if (!shiftObject && shiftNameFromDataset) { // If not found by UID, try by name
+            shiftObject = availabilityData?.shifts?.find(s => s && s.name != null && String(s.name).trim() !== '' && s.name === shiftNameFromDataset);
+        }
 
         if (shiftObject) {
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
@@ -300,7 +306,7 @@ function timeSlotDelegatedListener(event) {
             }
             updateNextBtnUI();
         } else {
-            console.warn("Shift object not found for time slot button. UID:", shiftUid);
+            console.warn(`Shift object not found for time slot button. Attempted UID: ${shiftUidFromDataset}, Attempted Name: ${shiftNameFromDataset}`, button);
         }
     }
 }
@@ -326,7 +332,6 @@ function addonsDelegatedListener(event) {
         const qtyInput = target.closest('.addon-quantity-selector').querySelector('.qty-input');
         const itemDataset = qtyInput.dataset;
         const change = target.matches('.minus-btn') ? -1 : 1;
-        // Pass itemDataset (which has all data attributes from qtyInput)
         handleUsage2ButtonClick(event, itemDataset, change);
         return;
     }

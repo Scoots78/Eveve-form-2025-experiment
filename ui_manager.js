@@ -8,8 +8,7 @@ import {
     getCurrentSelectedAreaUID,
     setCurrentSelectedDecimalTime,
     setCurrentShiftUsagePolicy,
-    getIsInitialRenderCycle // Added import
-    // No direct state setters for addons here, event handlers will manage state via state_manager
+    getIsInitialRenderCycle
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
 
@@ -27,7 +26,6 @@ const getSelectedAddonsValueSpan = () => document.getElementById('selectedAddons
 const getDailyRotaMessageDiv = () => document.getElementById('dailyRotaMessage');
 
 let resetCurrentAddonsUICallback = () => {
-    // Default implementation, can be overridden by main.js
     const addonsDisplayArea = getAddonsDisplayArea();
     if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
     const selectedAddonsValueSpan = getSelectedAddonsValueSpan();
@@ -41,13 +39,12 @@ export function _setResetAddonsUICallback(callback) {
     resetCurrentAddonsUICallback = callback;
 }
 
-// Internal helper function
 function getTotalUsage2AddonQuantity() {
     let total = 0;
     const currentAddons = getSelectedAddons();
     if (currentAddons && currentAddons.usage2) {
         currentAddons.usage2.forEach(addon => {
-            total += (addon.quantity || 0); // Ensure quantity is a number
+            total += (addon.quantity || 0);
         });
     }
     return total;
@@ -59,12 +56,9 @@ export function updateAllUsage2ButtonStatesUI(currentGuestCount) {
         const qtyInput = qtySelector.querySelector('.qty-input');
         const minusButton = qtySelector.querySelector('.minus-btn');
         const plusButton = qtySelector.querySelector('.plus-btn');
-
         if (!qtyInput || !minusButton || !plusButton) return;
-
         const itemSpecificCurrentValue = parseInt(qtyInput.value);
         minusButton.disabled = (itemSpecificCurrentValue === 0);
-
         if (currentGuestCount === 0) {
             plusButton.disabled = true;
         } else {
@@ -76,16 +70,13 @@ export function updateAllUsage2ButtonStatesUI(currentGuestCount) {
 export function updateSelectedAddonsDisplay() {
     const selectedAddonsValueSpan = getSelectedAddonsValueSpan();
     if (!selectedAddonsValueSpan) return;
-
     const coversSelectorEl = getCoversSelector();
     const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) || 0 : 0;
     const localConfig = getConfig();
     const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
     const currentAddons = getSelectedAddons();
-
     let displayItems = [];
     let grandTotal = 0;
-
     if (currentAddons.usage1) {
         const addon = currentAddons.usage1;
         const basePrice = (addon.price || 0) / 100;
@@ -93,7 +84,6 @@ export function updateSelectedAddonsDisplay() {
         grandTotal += itemCost;
         displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
     }
-
     currentAddons.usage2.forEach(addon => {
         const basePrice = (addon.price || 0) / 100;
         let itemCost = 0;
@@ -108,14 +98,12 @@ export function updateSelectedAddonsDisplay() {
         grandTotal += itemCost;
         displayItems.push(itemDisplayString);
     });
-
     currentAddons.usage3.forEach(addon => {
         const basePrice = (addon.price || 0) / 100;
         const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
         grandTotal += itemCost;
         displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
     });
-
     if (displayItems.length > 0) {
         let displayText = displayItems.join(', ');
         displayText += ` --- Total Addons: ${currencySymbol}${grandTotal.toFixed(2)}`;
@@ -129,16 +117,13 @@ export function updateNextButtonState() {
     const nextButton = getNextButton();
     if (!nextButton) return;
     nextButton.disabled = true;
-
     const selectedTimeValueEl = getSelectedTimeValueSpan();
     const selectedTimeText = selectedTimeValueEl ? selectedTimeValueEl.textContent : '-';
     if (!selectedTimeText || selectedTimeText === '-' || selectedTimeText.includes('N/A')) return;
-
     const coversSelectorEl = getCoversSelector();
     const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
     const policy = getCurrentShiftUsagePolicy();
     const currentAddons = getSelectedAddons();
-
     if (policy === null || typeof policy === 'undefined') {
         nextButton.disabled = false;
         return;
@@ -157,7 +142,6 @@ export function updateSelectedAreaDisplay() {
     const localConfig = getConfig();
     const localLanguageStrings = getLanguageStrings();
     const areaRadioGroupContainer = getAreaRadioGroupContainer();
-
     if (selectedAreaValueSpan) {
         if (localConfig.arSelect === "true" && areaRadioGroupContainer && areaRadioGroupContainer.style.display !== 'none') {
             const checkedRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"]:checked');
@@ -177,7 +161,7 @@ function setAllAddonDataAttributes(element, addon) {
     element.dataset.addonUid = addon.uid;
     element.dataset.addonName = addon.name;
     element.dataset.addonPrice = addon.price;
-    element.dataset.addonDesc = addon.desc || ''; // Ensure desc is not undefined
+    element.dataset.addonDesc = addon.desc || '';
     element.dataset.addonPer = addon.per;
     element.dataset.addonType = addon.type;
 }
@@ -186,12 +170,11 @@ function renderUsage1Addons(filteredAddons, guestCount, shiftName) {
     const addonsDisplayArea = getAddonsDisplayArea();
     const localConfig = getConfig();
     if (!filteredAddons || filteredAddons.length === 0) return;
-
     if (filteredAddons.length === 1) {
         const addon = filteredAddons[0];
         if (!addon.uid || !addon.name) {
             console.warn('Skipping addon due to missing uid or name:', addon);
-            return; // For a single addon, if it's invalid, we don't render anything.
+            return;
         }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item usage1-single';
@@ -221,7 +204,7 @@ function renderUsage1Addons(filteredAddons, guestCount, shiftName) {
         filteredAddons.forEach(addon => {
             if (!addon.uid || !addon.name) {
                 console.warn('Skipping addon due to missing uid or name:', addon);
-                return; // Skips this iteration of forEach
+                return;
             }
             const addonItemDiv = document.createElement('div');
             addonItemDiv.className = 'addon-item usage1-radio';
@@ -254,12 +237,11 @@ function renderUsage2Addons(filteredAddons, guestCount, shiftName) {
     const addonsDisplayArea = getAddonsDisplayArea();
     const localConfig = getConfig();
     if (!filteredAddons || filteredAddons.length === 0) return;
-
     const currentAddons = getSelectedAddons();
     filteredAddons.forEach(addon => {
         if (!addon.uid || !addon.name) {
             console.warn('Skipping addon due to missing uid or name:', addon);
-            return; // Skips this iteration of forEach
+            return;
         }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item usage2-item';
@@ -274,7 +256,6 @@ function renderUsage2Addons(filteredAddons, guestCount, shiftName) {
         if (addon.desc) infoHTML += `<br><small class="addon-desc">${addon.desc}</small>`;
         infoDiv.innerHTML = infoHTML;
         addonItemDiv.appendChild(infoDiv);
-
         const qtyContainer = document.createElement('div');
         qtyContainer.className = 'addon-quantity-selector';
         const minusButton = document.createElement('button');
@@ -286,16 +267,13 @@ function renderUsage2Addons(filteredAddons, guestCount, shiftName) {
         qtyInput.value = existingAddon ? existingAddon.quantity.toString() : '0';
         qtyInput.readOnly = true;
         setAllAddonDataAttributes(qtyInput, addon);
-
         const plusButton = document.createElement('button');
         plusButton.type = 'button'; plusButton.textContent = '+';
         plusButton.className = 'qty-btn plus-btn';
-
         minusButton.disabled = (!existingAddon || existingAddon.quantity === 0);
-        const totalUsage2Quantity = getTotalUsage2AddonQuantity(); // Use helper
+        const totalUsage2Quantity = getTotalUsage2AddonQuantity();
         plusButton.disabled = (guestCount > 0 && totalUsage2Quantity >= guestCount && (!existingAddon || existingAddon.quantity === 0));
         if (guestCount === 0) plusButton.disabled = true;
-
         qtyContainer.appendChild(minusButton); qtyContainer.appendChild(qtyInput); qtyContainer.appendChild(plusButton);
         addonItemDiv.appendChild(qtyContainer);
         addonsDisplayArea.appendChild(addonItemDiv);
@@ -309,7 +287,7 @@ function renderUsage3Addons(filteredAddons, guestCount, shiftName) {
     filteredAddons.forEach(addon => {
         if (!addon.uid || !addon.name) {
             console.warn('Skipping addon due to missing uid or name:', addon);
-            return; // Skips this iteration of forEach
+            return;
         }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item usage3-item';
@@ -341,7 +319,7 @@ function renderGenericAddons(addonsArray, guestCount, shiftName, usagePolicy) {
     addonsArray.forEach(addon => {
         if (!addon.uid || !addon.name) {
             console.warn('Skipping addon due to missing uid or name:', addon);
-            return; // Skips this iteration of forEach
+            return;
         }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item generic-addon-item';
@@ -414,16 +392,23 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
     const button = document.createElement('button');
     button.className = 'time-slot-button';
     const localLanguageStrings = getLanguageStrings();
+    let hasValidIdentifier = false;
 
-    // Check for valid shiftObject and shiftObject.uid
     if (shiftObject && shiftObject.uid != null && String(shiftObject.uid).trim() !== '') {
         button.dataset.shiftUid = String(shiftObject.uid);
-    } else {
-        console.warn("Time slot button created without a valid shift UID:", shiftObject);
-        button.classList.add('time-slot-no-uid');
-        // isActive might still be true if the time itself is valid, but shift-specific actions won't work.
-        // Forcing disabled if UID is missing, as it's crucial for interactions.
-        isActive = false; // Override isActive if essential UID is missing
+        hasValidIdentifier = true;
+    } else if (shiftObject && shiftObject.name != null && String(shiftObject.name).trim() !== '') {
+        // Fallback to using name if UID is not available/valid
+        button.dataset.shiftName = String(shiftObject.name); // Event handler would need to be adapted for this
+        hasValidIdentifier = true;
+        // Note: Current event_handler.js timeSlotDelegatedListener only uses shiftUid.
+        // This change is made as per instruction, but would require event_handler adjustment to be useful.
+    }
+
+    if (!hasValidIdentifier) {
+        console.warn("Time slot button created without a valid shift identifier (UID or Name):", shiftObject);
+        button.classList.add('time-slot-no-identifier'); // New class name
+        isActive = false; // Override isActive if essential identifier is missing
     }
 
     if (timeValue < 0) {
@@ -435,11 +420,11 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
         button.textContent = formatTime(timeValue);
         button.dataset.time = timeValue;
 
-        if (isActive) { // isActive might have been overridden to false if UID was missing
+        if (isActive) {
             button.classList.add('time-slot-available');
             button.disabled = false;
         } else {
-            button.classList.add('time-slot-inactive'); // Or 'time-slot-no-uid' might also imply inactive
+            button.classList.add('time-slot-inactive');
             button.disabled = true;
         }
     }
@@ -478,7 +463,7 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
     setCurrentShiftUsagePolicy(null);
 
     if (addonsDisplay) addonsDisplay.innerHTML = '';
-    resetCurrentAddonsUICallback(); // Corrected typo
+    resetCurrentAddonsUICallback();
 
     if (areaAvailabilityMessage) {
         areaAvailabilityMessage.textContent = '';
@@ -688,7 +673,7 @@ export function resetTimeRelatedUI() {
     if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
     if (addonsDisplay) addonsDisplay.innerHTML = '';
 
-    resetCurrentAddonsUICallback(); // Corrected: Removed "Selected" from variable name
+    resetCurrentAddonsUICallback();
     updateNextButtonState();
 }
 
