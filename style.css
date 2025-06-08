@@ -304,6 +304,17 @@ input[type="radio"].addon-radio-btn {
 .addon-item.usage1-radio { 
 }
 
+.area-radio-item {
+    display: flex;
+    gap: 20px;
+    /* flex-direction: row; */
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.area-radio-item label {
+    margin: 0;
+}
 
 /* Usage 2 - Quantity Selector Specifics */
 .addon-item.usage2-item {
