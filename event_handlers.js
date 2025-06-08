@@ -19,16 +19,16 @@ import {
     displayTimeSlots,
     renderAddons,
     updateSelectedAddonsDisplay as updateAddonsDisplayUI,
-    updateNextButtonState as updateNextBtnUI, // Alias for consistency
-    updateSelectedAreaDisplay as updateAreaDisplayUI, // Alias for consistency
+    updateNextButtonState as updateNextBtnUI,
+    updateSelectedAreaDisplay as updateAreaDisplayUI,
     updateDailyRotaMessage,
     showLoadingTimes,
     displayErrorMessageInTimesContainer,
     resetTimeRelatedUI,
-    _setResetAddonsUICallback,
+    // _setResetAddonsUICallback, // This is set in main.js, not used directly by event_handlers
     updateAllUsage2ButtonStatesUI
 } from './ui_manager.js';
-import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js'; // Added formatTime
+import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
 // --- Helper Functions ---
 function getTodayDateString() {
@@ -38,8 +38,6 @@ function getTodayDateString() {
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
-
-// getTotalUsage2AddonQuantity is now internal to ui_manager.js
 
 // --- Addon Selection Handlers ---
 function handleAddonUsage1Selection(eventTarget, addonData, isSingleCheckboxMode) {
@@ -59,11 +57,11 @@ function handleAddonUsage1Selection(eventTarget, addonData, isSingleCheckboxMode
 }
 
 function handleAddonUsage2Selection(addonData, quantity) {
-    const addonUid = addonData.uid;
+    const addonUid = parseInt(addonData.uid, 10); // Ensure UID is number for comparison if needed
     let currentAddons = getSelectedAddons();
     currentAddons.usage2 = currentAddons.usage2.filter(a => a.uid !== addonUid);
     if (quantity > 0) {
-        currentAddons.usage2.push({ ...addonData, quantity });
+        currentAddons.usage2.push({ ...addonData, uid: addonUid, quantity });
     }
     setSelectedAddons(currentAddons);
     updateAddonsDisplayUI();
@@ -75,10 +73,10 @@ function handleAddonUsage2Selection(addonData, quantity) {
 
 function handleAddonUsage3Selection(eventTarget, addonData) {
     let currentAddons = getSelectedAddons();
-    const addonUid = addonData.uid;
+    const addonUid = parseInt(addonData.uid, 10);
     if (eventTarget.checked) {
         if (!currentAddons.usage3.some(a => a.uid === addonUid)) {
-            currentAddons.usage3.push({ ...addonData });
+            currentAddons.usage3.push({ ...addonData, uid: addonUid });
         }
     } else {
         currentAddons.usage3 = currentAddons.usage3.filter(addon => addon.uid !== addonUid);
@@ -96,32 +94,42 @@ function handleUsage2ButtonClick(event, addonDataset, change) {
     const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
 
     let totalUsage2QuantityBeforeChange = 0;
-    getSelectedAddons().usage2.forEach(addon => {
+    const currentSelected = getSelectedAddons();
+    currentSelected.usage2.forEach(addon => {
+        // Use string comparison for dataset UID initially
         if (addon.uid.toString() !== addonDataset.addonUid) {
             totalUsage2QuantityBeforeChange += addon.quantity;
         } else {
-            totalUsage2QuantityBeforeChange += currentValue;
+            totalUsage2QuantityBeforeChange += currentValue; // Use the current value from input for the item being changed
         }
     });
-    if (change === -1 && currentValue > 0) {
-         totalUsage2QuantityBeforeChange -=1;
-    }
 
     if (change === -1 && currentValue > 0) {
-        currentValue--;
+         // Allow decrement
     } else if (change === 1) {
-        if (guestCount === 0 || (totalUsage2QuantityBeforeChange < guestCount) ) { // Check if current item can be incremented
-             currentValue++;
-        } else {
-            return;
+        // Only consider other items for total when checking if we can increment current item
+        let otherItemsTotal = 0;
+         currentSelected.usage2.forEach(addon => {
+            if (addon.uid.toString() !== addonDataset.addonUid) {
+                otherItemsTotal += addon.quantity;
+            }
+        });
+        if (guestCount === 0 || (otherItemsTotal + (currentValue + 1) > guestCount) ) {
+             return; // Cannot add more than guestCount
         }
+    } else if(change === -1 && currentValue === 0) {
+        return; // Cannot decrement below 0
     } else {
-        return;
+        return; // No valid change
     }
+
+    if (change === -1) currentValue--;
+    else if (change === 1) currentValue++;
 
     qtyInput.value = currentValue;
+
     const fullAddonData = {
-        uid: parseInt(addonDataset.addonUid, 10), // Ensure UID is int if needed
+        uid: parseInt(addonDataset.addonUid, 10),
         name: addonDataset.addonName,
         price: parseFloat(addonDataset.addonPrice),
         per: addonDataset.addonPer,
@@ -129,9 +137,9 @@ function handleUsage2ButtonClick(event, addonDataset, change) {
         desc: addonDataset.addonDesc,
     };
     handleAddonUsage2Selection(fullAddonData, currentValue);
+    // updateAllUsage2ButtonStatesUI is called within handleAddonUsage2Selection
 }
 
-// --- Main Event Handlers ---
 export async function handleDateOrCoversChange() {
     const dateSelector = document.getElementById('dateSelector');
     const coversSelector = document.getElementById('coversSelector');
@@ -144,7 +152,7 @@ export async function handleDateOrCoversChange() {
     const localLanguageStrings = getLanguageStrings();
     const localCurrentEstName = getCurrentEstName();
 
-    resetTimeRelatedUI();
+    resetTimeRelatedUI(); // This will also call the addon reset UI callback
     setCurrentShiftUsagePolicy(null);
     updateDailyRotaMessage('');
 
@@ -206,7 +214,7 @@ export async function handleAreaChange() {
     setIsInitialRenderCycle(false);
     updateAreaDisplayUI();
     showLoadingTimes();
-    resetTimeRelatedUI();
+    resetTimeRelatedUI(); // This will also call the addon reset UI callback
     const currentAvailData = getCurrentAvailabilityData();
     if (currentAvailData) {
         displayTimeSlots(currentAvailData);
@@ -276,21 +284,18 @@ function timeSlotDelegatedListener(event) {
             setCurrentShiftUsagePolicy((shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null);
 
             resetStateAddons();
-            // The callback set by main.js will handle the UI part of addon reset
-            // _setResetAddonsUICallback is called in main.js, ui_manager uses the set callback
-            // We need to ensure the callback is actually invoked here or by a UI function.
-            // For now, let's assume resetTimeRelatedUI (called earlier in some flows) or direct UI calls handle it.
-            // The most direct way is to call a specific UI reset for addons here.
-            updateAddonsDisplayUI(); // Clear the display
+            updateAddonsDisplayUI();
             const coversSelector = document.getElementById('coversSelector');
             const guestCount = parseInt(coversSelector.value);
-            updateAllUsage2ButtonStatesUI(guestCount); // Update button states
+            updateAllUsage2ButtonStatesUI(guestCount);
+
+            const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+            if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
 
             if (shiftObject.addons && Array.isArray(shiftObject.addons) && shiftObject.addons.length > 0) {
                 renderAddons(shiftObject.addons, shiftObject.usage, guestCount, shiftObject.name);
             } else {
                 const lang = getLanguageStrings();
-                const addonsDisplayArea = document.getElementById('addonsDisplayArea');
                 if (addonsDisplayArea) addonsDisplayArea.innerHTML = `<p>${lang.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
             }
             updateNextBtnUI();
@@ -310,17 +315,19 @@ function addonsDelegatedListener(event) {
             price: addonDataset.addonPrice, desc: addonDataset.addonDesc,
             per: addonDataset.addonPer, type: addonDataset.addonType
         };
-        const isSingleCheckboxMode = target.closest('#addonsDisplayArea').querySelectorAll('.addon-checkbox.usage1-checkbox').length === 1 &&
-                                   target.closest('#addonsDisplayArea').querySelectorAll('.addon-radio.usage1-radio-btn').length === 0;
+        const addonsDisplayArea = target.closest('#addonsDisplayArea');
+        const isSingleCheckboxMode = addonsDisplayArea.querySelectorAll('.addon-checkbox.usage1-checkbox').length === 1 &&
+                                   addonsDisplayArea.querySelectorAll('.addon-radio.usage1-radio-btn').length === 0;
         handleAddonUsage1Selection(target, addonData, isSingleCheckboxMode);
         return;
     }
 
     if (target.matches('.qty-btn.minus-btn') || target.matches('.qty-btn.plus-btn')) {
         const qtyInput = target.closest('.addon-quantity-selector').querySelector('.qty-input');
-        const itemDataset = qtyInput.dataset; // Use qtyInput's dataset as it has all addon attributes
+        const itemDataset = qtyInput.dataset;
         const change = target.matches('.minus-btn') ? -1 : 1;
-        handleUsage2ButtonClick(event, itemDataset, change); // Pass itemDataset
+        // Pass itemDataset (which has all data attributes from qtyInput)
+        handleUsage2ButtonClick(event, itemDataset, change);
         return;
     }
 
@@ -361,7 +368,6 @@ export function initializeEventHandlers() {
         timeSelectorContainer.addEventListener('click', timeSlotDelegatedListener);
     }
     if (addonsDisplayArea) {
-        // One listener for both change (checkbox/radio) and click (buttons)
         addonsDisplayArea.addEventListener('change', addonsDelegatedListener);
         addonsDisplayArea.addEventListener('click', addonsDelegatedListener);
     }
