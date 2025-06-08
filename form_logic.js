@@ -622,6 +622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!languageStrings.errorGeneric) languageStrings.errorGeneric = "An error occurred. Please try again.";
         if (!languageStrings.areaNotAvailableForSession) languageStrings.areaNotAvailableForSession = "{areaName} is not available for the {shiftName} session.";
         if (!languageStrings.noAreaTimesForAnySession) languageStrings.noAreaTimesForAnySession = "No available times in {areaName} for any session on this date.";
+        if (!languageStrings.noAreasDefined) languageStrings.noAreasDefined = "No areas are defined for selection.";
 
 
         initialShiftsConfig = parseJsObjectString(config.allShifts) || []; 
@@ -715,6 +716,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         function displayTimeSlots(availabilityData) {
             if (!timeSelectorContainer || !selectedTimeValueSpan) return;
+
+            // Centralized visibility for areaSelectorContainer based on config
+            if (areaSelectorContainer) {
+                if (config.arSelect === "true") {
+                    areaSelectorContainer.style.display = 'block'; // Or appropriate visible style
+                } else {
+                    areaSelectorContainer.style.display = 'none';
+                    if (areaRadioGroupContainer) areaRadioGroupContainer.innerHTML = ''; // Clear radios if section is hidden
+                    if (areaAvailabilityMessage) {
+                        areaAvailabilityMessage.textContent = '';
+                        areaAvailabilityMessage.style.display = 'none';
+                    }
+                }
+            }
+
             timeSelectorContainer.innerHTML = '';
             selectedTimeValueSpan.textContent = '-';
             currentShiftUsagePolicy = null;
@@ -725,16 +741,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetCurrentSelectedAddons();
 
             // Populate Area Selector with Radio Buttons
+            // Ensure global areaAvailabilityMessage is cleared before new display logic
+            if (areaAvailabilityMessage) {
+                areaAvailabilityMessage.textContent = '';
+                areaAvailabilityMessage.style.display = 'none';
+            }
+
             if (config.arSelect === "true" && areaRadioGroupContainer) {
-                const previousSelectedAreaUID = currentSelectedAreaUID; // Preserve selection intent
+                const previousSelectedAreaUID = currentSelectedAreaUID;
                 areaRadioGroupContainer.innerHTML = '';
-                if(areaAvailabilityMessage) {
-                    areaAvailabilityMessage.textContent = '';
-                    areaAvailabilityMessage.style.display = 'none';
-                }
+                // Specific area messages are now handled per shift or if area.times itself is empty.
+                // So, global areaAvailabilityMessage is generally cleared above.
 
                 const areas = availabilityData.areas;
-                let firstRadioId = null; // To focus the first radio for accessibility if needed
+                let firstRadioId = null;
                 let radioToCheckByDefault = null;
 
                 if (areas && Array.isArray(areas) && areas.length > 0) {
@@ -802,19 +822,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
 
-                    if (areaSelectorContainer) areaSelectorContainer.style.display = 'block';
-                } else { // No areas available from API
-                    if (config.arSelect === "true" && areaAvailabilityMessage) {
-                        areaAvailabilityMessage.textContent = languageStrings.noAreasAvailable || "No specific areas available for this date/time.";
-                        areaAvailabilityMessage.style.display = 'block';
-                    }
-                    if (areaSelectorContainer) areaSelectorContainer.style.display = 'none';
+                    if (areaSelectorContainer) areaSelectorContainer.style.display = 'block'; // This is redundant due to earlier logic but harmless
+                } else { // No areas available from API, but arSelect is true
+                    areaRadioGroupContainer.innerHTML = `<p class="no-areas-defined-message">${languageStrings.noAreasDefined || 'No areas are defined for selection.'}</p>`;
+                    // areaSelectorContainer remains visible as per new rule
                 }
-            } else if (areaSelectorContainer) { // Area selection not enabled
-                areaSelectorContainer.style.display = 'none';
             }
+            // If config.arSelect is false, areaSelectorContainer is already hidden by the logic at the function start.
 
-            currentSelectedAreaUID = getSelectedRadioValue("areaSelection"); // Sync with actual DOM state
+            currentSelectedAreaUID = getSelectedRadioValue("areaSelection");
             updateSelectedAreaDisplay(); // Update after area radio group is populated/changed
 
             const allShifts = availabilityData.shifts;
@@ -838,23 +854,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (!selectedAreaObject) {
                     console.error(`Selected area UID ${currentSelectedAreaUID} not found in availabilityData.areas.`);
-                    if (areaAvailabilityMessage) {
-                        areaAvailabilityMessage.textContent = languageStrings.errorGeneric || "An error occurred displaying area times.";
-                        areaAvailabilityMessage.style.display = 'block';
-                    }
-                    timeSelectorContainer.innerHTML = '';
+                    // Use main timeSelectorContainer for this critical error, as areaAvailabilityMessage is now for less critical info.
+                    timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorGeneric || "An error occurred displaying area times."}</p>`;
                     updateNextButtonState();
                     return;
                 }
 
-                const areaSpecificTimes = selectedAreaObject.times; // Area's own general times
+                const areaSpecificTimes = selectedAreaObject.times;
                 if (!areaSpecificTimes || areaSpecificTimes.length === 0) {
-                    // This means the area itself has no bookable times at all for the day.
-                    if (areaAvailabilityMessage) { // Use the global area message for this.
-                        areaAvailabilityMessage.textContent = languageStrings.noTimesForArea?.replace('{areaName}', selectedAreaObject.name) || `The selected area (${selectedAreaObject.name}) has no available times on this date.`;
-                        areaAvailabilityMessage.style.display = 'block';
+                    // Area has no bookable times at all for this day.
+                    // This message now goes into areaRadioGroupContainer if it's empty, or could be a more prominent message.
+                    // For now, let's use areaAvailabilityMessage as it's about the selected area's general lack of times for the day.
+                    if (areaAvailabilityMessage) {
+                         areaAvailabilityMessage.textContent = (languageStrings.noTimesForArea || "This area has no available times on this date.").replace('{areaName}', selectedAreaObject.name);
+                         areaAvailabilityMessage.style.display = 'block';
                     }
-                    timeSelectorContainer.innerHTML = '';
+                    timeSelectorContainer.innerHTML = ''; // No shifts or times to show
                     updateNextButtonState();
                     return;
                 }
@@ -865,33 +880,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const shiftTitle = document.createElement('h3');
                     shiftTitle.textContent = shift.name;
                     timeSelectorContainer.appendChild(shiftTitle);
+
                     if (shift.message && shift.message.trim() !== '') {
                         const shiftMessageDiv = document.createElement('div');
                         shiftMessageDiv.className = 'api-message shift-message';
                         shiftMessageDiv.textContent = shift.message;
                         timeSelectorContainer.appendChild(shiftMessageDiv);
                     }
+
+                    // Dedicated placeholder for session-specific area message for this shift
+                    const sessionAreaMessageDiv = document.createElement('div');
+                    sessionAreaMessageDiv.className = 'session-area-availability-message';
+                    // sessionAreaMessageDiv will be appended before shiftButtonContainer by convention if needed.
+                    // For direct DOM manipulation, ensure it's placed correctly relative to shiftButtonContainer.
+                    // Let's create shiftButtonContainer first, then insert sessionAreaMessageDiv before it.
+
                     const shiftButtonContainer = document.createElement('div');
                     shiftButtonContainer.className = 'shift-times-wrapper';
-                    timeSelectorContainer.appendChild(shiftButtonContainer);
 
-                    const currentShiftSessionHours = shift.hours; // Assumed to be an array of decimal times for the session
+                    const currentShiftSessionHours = shift.hours;
                     if (!currentShiftSessionHours || !Array.isArray(currentShiftSessionHours)) {
-                        console.warn(`Shift '${shift.name}' (UID: ${shift.uid}) is missing 'hours' data or it's not an array. Cannot determine session-specific availability for area '${selectedAreaObject.name}'.`);
-                        // Optionally, display a message in shiftButtonContainer or skip this shift for this area.
-                        // For now, this shift will show no times for the selected area if 'hours' are missing.
+                        console.warn(`Shift '${shift.name}' (UID: ${shift.uid}) is missing 'hours' data or it's not an array for area '${selectedAreaObject.name}'.`);
                     }
 
-                    // Times that are both within the area's general availability AND the shift's specific session hours
                     const displayableTimesForShiftInArea = areaSpecificTimes.filter(
                         timeVal => timeVal >= 0 && currentShiftSessionHours && currentShiftSessionHours.includes(timeVal)
                     );
-
-                    // Further filter these by what the shift generally offers (shift.times)
-                    // This ensures we only show times that are valid for the shift, for the area, and for the session.
                     const finalTimesToShow = shift.times.filter(timeVal => displayableTimesForShiftInArea.includes(timeVal));
 
                     if (finalTimesToShow.length > 0) {
+                        sessionAreaMessageDiv.style.display = 'none'; // Hide if times are available for this session
                         finalTimesToShow.forEach(timeValue => {
                             const button = createTimeSlotButton(timeValue, shift);
                             if (button) {
@@ -900,26 +918,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         });
                     } else {
-                        const noTimesMsgP = document.createElement('p');
-                        noTimesMsgP.className = 'no-times-for-shift-in-area-message';
                         let msg = languageStrings.areaNotAvailableForSession || "{areaName} is not available for the {shiftName} session.";
                         msg = msg.replace('{areaName}', selectedAreaObject.name).replace('{shiftName}', shift.name);
-                        noTimesMsgP.textContent = msg;
-                        shiftButtonContainer.appendChild(noTimesMsgP);
+                        sessionAreaMessageDiv.textContent = msg;
+                        sessionAreaMessageDiv.style.display = 'block';
+                        // No buttons in shiftButtonContainer as it's empty by default
                     }
+                    // Insert the session message div then the button container for this shift
+                    timeSelectorContainer.appendChild(sessionAreaMessageDiv);
+                    timeSelectorContainer.appendChild(shiftButtonContainer);
                 });
 
-                if (!foundAnySlotsToShowOverall && areaAvailabilityMessage) {
-                    // This message is if no shift had any valid times for this area.
-                    // areaAvailabilityMessage might already be set if areaSpecificTimes was empty.
-                    // This provides a more specific message if areaSpecificTimes had values but none matched any shift session.
-                    if (!areaAvailabilityMessage.textContent) { // Only set if not already set by a more primary condition
-                        let msg = languageStrings.noAreaTimesForAnySession || "No available times in {areaName} for any session on this date.";
-                        msg = msg.replace('{areaName}', selectedAreaObject.name);
-                        areaAvailabilityMessage.textContent = msg;
-                        areaAvailabilityMessage.style.display = 'block';
-                    }
-                }
+                // If after checking all shifts, no times were found for this specific area in any valid session.
+                // This message is less critical now as per-shift messages are more specific.
+                // The global areaAvailabilityMessage is better used if areaSpecificTimes itself is empty.
+                // Consider removing this 'noAreaTimesForAnySession' or making it a fallback for timeSelectorContainer.
+                // For now, let's rely on the per-session messages and the final check on foundAnySlotsToShowOverall for timeSelectorContainer.
+                // The previous logic for 'noAreaTimesForAnySession' in areaAvailabilityMessage is removed.
 
             } else { // "Any Area" selected or area selection not active
                 allShifts.forEach(shift => {
@@ -1037,9 +1052,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // This specific 'else' might be hit if fetchAvailableTimes returns null without throwing an error that the outer try/catch would get.
                     if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please try again.'}</p>`;
                     if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
-                    if (config.arSelect === "true" && areaSelectorContainer) {
-                        areaSelectorContainer.style.display = 'none';
-                    }
+                    // Do not hide areaSelectorContainer here if config.arSelect is true
                     if (areaAvailabilityMessage) {
                         areaAvailabilityMessage.textContent = '';
                         areaAvailabilityMessage.style.display = 'none';
@@ -1051,6 +1064,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error('Error during availability fetch/processing in handleDateOrCoversChange:', error);
                 if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please try again.'}</p>`;
                 if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+                // Do not hide areaSelectorContainer here if config.arSelect is true
                 if (areaAvailabilityMessage) {
                     areaAvailabilityMessage.textContent = '';
                     areaAvailabilityMessage.style.display = 'none';
