@@ -1,6 +1,6 @@
 // --- Event Handlers ---
 
-import { getConfig, getLanguageStrings } from './config_manager.js';
+import { getConfig, getLanguageStrings, getCurrentEstName } from './config_manager.js'; // Added getCurrentEstName
 import { fetchAvailableTimes, holdBooking } from './api_service.js';
 import {
     setCurrentShiftUsagePolicy,
