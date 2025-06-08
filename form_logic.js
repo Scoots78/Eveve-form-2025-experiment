@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentShiftUsagePolicy = null; // Added for Next button logic
     let currentSelectedAreaUID = null; // Added for area selection state
     let currentAvailabilityData = null; // To store fetched availability data
+    let isInitialRenderCycle = true; // Flag for initial load special behavior
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -619,8 +620,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!languageStrings.noTimesForArea) languageStrings.noTimesForArea = "This area is not available at this time. Please choose another area.";
         if (!languageStrings.notAvailableText) languageStrings.notAvailableText = "Not Available";
         if (!languageStrings.errorGeneric) languageStrings.errorGeneric = "An error occurred. Please try again.";
-        if (!languageStrings.areaNotAvailableForSession) languageStrings.areaNotAvailableForSession = "{areaName} is not available for the {shiftName} session.";
-        if (!languageStrings.noAreaTimesForAnySession) languageStrings.noAreaTimesForAnySession = "No available times in {areaName} for any session on this date.";
+        // languageStrings.areaNotAvailableForSession has been removed.
+        // languageStrings.noAreaTimesForAnySession has been removed.
         if (!languageStrings.noAreasDefined) languageStrings.noAreasDefined = "No areas are defined for selection.";
 
 
@@ -679,36 +680,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        function createTimeSlotButton(timeValue, shiftObject) {
+        function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
             const button = document.createElement('button');
             button.className = 'time-slot-button';
-            if (timeValue < 0) { // Negative timeValue indicates unavailable slot
-                if (!showUnavailableSlots) return null; // Skip if not showing unavailable
+
+            let effectiveIsActive = isActive;
+
+            if (timeValue < 0) { // API-defined unavailable slot
+                if (!showUnavailableSlots) return null;
                 button.textContent = languageStrings.notAvailableText || 'Not Available';
                 button.classList.add('time-slot-unavailable');
                 button.disabled = true;
-            } else {
-                button.classList.add('time-slot-available');
+                // No click listener for API-defined unavailable slots
+            } else { // Potentially bookable slot (timeValue is positive)
+                button.textContent = formatTime(timeValue); // Always show the formatted time
                 button.dataset.time = timeValue;
-                button.textContent = formatTime(timeValue);
-                button.addEventListener('click', function() {
-                    selectedTimeValueSpan.textContent = this.textContent;
-                    timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
-                    this.classList.add('time-slot-button-selected');
 
-                    currentShiftUsagePolicy = (shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null;
+                if (effectiveIsActive) {
+                    button.classList.add('time-slot-available');
+                    button.disabled = false;
+                    // Add click listener ONLY for truly active buttons
+                    button.addEventListener('click', function() {
+                        selectedTimeValueSpan.textContent = this.textContent;
+                        timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
+                        this.classList.add('time-slot-button-selected');
 
-                    const currentAddonsDisplayArea = document.getElementById('addonsDisplayArea');
-                    if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = '';
-                    resetCurrentSelectedAddons();
-                    const guestCount = parseInt(coversSelector.value);
-                    if (shiftObject.addons && Array.isArray(shiftObject.addons) && shiftObject.addons.length > 0) {
-                        renderAddons(shiftObject.addons, shiftObject.usage, guestCount, shiftObject.name);
-                    } else {
-                        if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = `<p>${languageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
-                    }
-                    updateNextButtonState();
-                });
+                        currentShiftUsagePolicy = (shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null;
+
+                        const currentAddonsDisplayArea = document.getElementById('addonsDisplayArea');
+                        if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = '';
+                        resetCurrentSelectedAddons();
+                        const guestCount = parseInt(coversSelector.value);
+                        if (shiftObject.addons && Array.isArray(shiftObject.addons) && shiftObject.addons.length > 0) {
+                            renderAddons(shiftObject.addons, shiftObject.usage, guestCount, shiftObject.name);
+                        } else {
+                            if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = `<p>${languageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+                        }
+                        updateNextButtonState();
+                    });
+                } else { // Not active due to other logic (e.g. area/session mismatch, isActive was passed as false)
+                    button.classList.add('time-slot-inactive'); // New class for styling
+                    button.disabled = true;
+                    // No click listener for inactive slots
+                }
             }
             return button;
         }
@@ -880,42 +894,59 @@ document.addEventListener('DOMContentLoaded', async () => {
                         timeSelectorContainer.appendChild(shiftMessageDiv);
                     }
 
-                    const sessionMessageDiv = document.createElement('div');
-                    sessionMessageDiv.className = 'session-area-availability-message';
+                    // const sessionMessageDiv = document.createElement('div'); // REMOVED
+                    // sessionMessageDiv.className = 'session-area-availability-message'; // REMOVED
 
                     const shiftButtonContainer = document.createElement('div');
                     shiftButtonContainer.className = 'shift-times-wrapper';
 
-                    const currentShiftSessionTimes = shift.times; // Use shift.times as per user feedback
+                    const currentShiftSessionTimes = shift.times;
 
                     if (!currentShiftSessionTimes || !Array.isArray(currentShiftSessionTimes)) {
                         console.warn(`Shift '${shift.name}' (UID: ${shift.uid}) is missing 'times' (session times) data or it's not an array, for area '${selectedAreaObject.name}'.`);
                     }
 
-                    // Calculate bookableTimesInAreaForSession: intersection of area's general times and shift's specific session times.
-                    const bookableTimesInAreaForSession = selectedAreaGeneralTimes.filter(
+                    // Determine actual bookable times for messaging (true intersection)
+                    const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
                         areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
                     );
 
-                    if (bookableTimesInAreaForSession.length > 0) {
-                        sessionMessageDiv.textContent = '';
-                        sessionMessageDiv.style.display = 'none';
-                        bookableTimesInAreaForSession.forEach(timeValue => {
-                            const button = createTimeSlotButton(timeValue, shift);
+                    if (actualBookableTimesForShiftInArea.length > 0) {
+                        // sessionMessageDiv.textContent = ''; // REMOVED
+                        // sessionMessageDiv.style.display = 'none'; // REMOVED
+                        // Iterate over all of the shift's defined times to show all potential slots
+                        currentShiftSessionTimes.forEach(timeValueFromShift => {
+                            if (timeValueFromShift < 0 && !showUnavailableSlots) return; // Skip negative times if not showing unavailable
+
+                            let buttonIsActive;
+                            if (isInitialRenderCycle && config.areaAny === "false") {
+                                // On initial load where an area is auto-selected because areaAny is false, show all its shift's times as active
+                                buttonIsActive = true;
+                            } else {
+                                // Normal operation: active only if the time is in the selected area's general times
+                                buttonIsActive = selectedAreaGeneralTimes.includes(timeValueFromShift);
+                            }
+                            // However, if the time itself is negative (API unavailable), it's never active for clicking.
+                            // createTimeSlotButton handles the display for timeValue < 0.
+                            // We only pass isActive based on area/session matching for positive times.
+                            if (timeValueFromShift < 0) buttonIsActive = false;
+
+                            const button = createTimeSlotButton(timeValueFromShift, shift, buttonIsActive);
                             if (button) {
                                 shiftButtonContainer.appendChild(button);
                                 foundAnySlotsToShowOverall = true;
                             }
                         });
                     } else {
-                        let msg = languageStrings.areaNotAvailableForSession || "{areaName} is not available for the {shiftName} session.";
-                        msg = msg.replace('{areaName}', selectedAreaObject.name).replace('{shiftName}', shift.name);
-                        sessionAreaMessageDiv.textContent = msg;
-                        sessionAreaMessageDiv.style.display = 'block';
+                        // let msg = languageStrings.areaNotAvailableForSession || "{areaName} is not available for the {shiftName} session."; // REMOVED
+                        // msg = msg.replace('{areaName}', selectedAreaObject.name).replace('{shiftName}', shift.name); // REMOVED
+                        // sessionAreaMessageDiv.textContent = msg; // REMOVED - This was likely a typo for sessionMessageDiv
+                        // sessionMessageDiv.textContent = msg; // REMOVED
+                        // sessionMessageDiv.style.display = 'block'; // REMOVED
                         // No buttons in shiftButtonContainer as it's empty by default
                     }
-                    // Insert the session message div then the button container for this shift
-                    timeSelectorContainer.appendChild(sessionAreaMessageDiv);
+                    // Insert the button container for this shift. The session message div is no longer appended.
+                    // timeSelectorContainer.appendChild(sessionAreaMessageDiv); // REMOVED - This was sessionMessageDiv before, also removed.
                     timeSelectorContainer.appendChild(shiftButtonContainer);
                 });
 
@@ -945,7 +976,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     if (Array.isArray(shift.times) && shift.times.length > 0) {
                         shift.times.forEach(timeValue => {
-                            const button = createTimeSlotButton(timeValue, shift);
+                            // For "Any Area" or when area selection is off, all defined shift times are active (unless < 0)
+                            const button = createTimeSlotButton(timeValue, shift, true);
                             if (button) {
                                 shiftButtonContainer.appendChild(button);
                                 foundAnySlotsToShowOverall = true;
@@ -1024,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue);
                 currentAvailabilityData = availabilityData; // Store globally
+                isInitialRenderCycle = true; // Reset flag for the new data
 
                 // The area population and currentSelectedAreaUID update happens in displayTimeSlots using the *returned* availabilityData.
                 // So, the call to displayTimeSlots below will handle it.
@@ -1072,6 +1105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!event || !event.target || event.target.name !== 'areaSelection') {
                 return;
             }
+            isInitialRenderCycle = false; // User has interacted with area selection
             currentSelectedAreaUID = event.target.value;
             updateSelectedAreaDisplay(); // Update display when area changes
 
