@@ -413,8 +413,18 @@ export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shift
 export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
     const button = document.createElement('button');
     button.className = 'time-slot-button';
-    button.dataset.shiftUid = shiftObject.uid;
     const localLanguageStrings = getLanguageStrings();
+
+    // Check for valid shiftObject and shiftObject.uid
+    if (shiftObject && shiftObject.uid != null && String(shiftObject.uid).trim() !== '') {
+        button.dataset.shiftUid = String(shiftObject.uid);
+    } else {
+        console.warn("Time slot button created without a valid shift UID:", shiftObject);
+        button.classList.add('time-slot-no-uid');
+        // isActive might still be true if the time itself is valid, but shift-specific actions won't work.
+        // Forcing disabled if UID is missing, as it's crucial for interactions.
+        isActive = false; // Override isActive if essential UID is missing
+    }
 
     if (timeValue < 0) {
         if (!getShowUnavailableSlots()) return null;
@@ -425,11 +435,11 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
         button.textContent = formatTime(timeValue);
         button.dataset.time = timeValue;
 
-        if (isActive) {
+        if (isActive) { // isActive might have been overridden to false if UID was missing
             button.classList.add('time-slot-available');
             button.disabled = false;
         } else {
-            button.classList.add('time-slot-inactive');
+            button.classList.add('time-slot-inactive'); // Or 'time-slot-no-uid' might also imply inactive
             button.disabled = true;
         }
     }
