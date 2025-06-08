@@ -189,6 +189,10 @@ function renderUsage1Addons(filteredAddons, guestCount, shiftName) {
 
     if (filteredAddons.length === 1) {
         const addon = filteredAddons[0];
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return; // For a single addon, if it's invalid, we don't render anything.
+        }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item usage1-single';
         const checkbox = document.createElement('input');
@@ -215,6 +219,10 @@ function renderUsage1Addons(filteredAddons, guestCount, shiftName) {
         radioGroupContainer.className = 'addon-radio-group';
         const radioGroupName = `shift_${shiftName.replace(/\s+/g, '_')}_usage1_addons`;
         filteredAddons.forEach(addon => {
+            if (!addon.uid || !addon.name) {
+                console.warn('Skipping addon due to missing uid or name:', addon);
+                return; // Skips this iteration of forEach
+            }
             const addonItemDiv = document.createElement('div');
             addonItemDiv.className = 'addon-item usage1-radio';
             const radioButton = document.createElement('input');
@@ -249,6 +257,10 @@ function renderUsage2Addons(filteredAddons, guestCount, shiftName) {
 
     const currentAddons = getSelectedAddons();
     filteredAddons.forEach(addon => {
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return; // Skips this iteration of forEach
+        }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item usage2-item';
         const infoDiv = document.createElement('div');
@@ -295,6 +307,10 @@ function renderUsage3Addons(filteredAddons, guestCount, shiftName) {
     const localConfig = getConfig();
     if (!filteredAddons || filteredAddons.length === 0) return;
     filteredAddons.forEach(addon => {
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return; // Skips this iteration of forEach
+        }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item usage3-item';
         const checkbox = document.createElement('input');
@@ -323,6 +339,10 @@ function renderGenericAddons(addonsArray, guestCount, shiftName, usagePolicy) {
     const addonsDisplayArea = getAddonsDisplayArea();
     const localConfig = getConfig();
     addonsArray.forEach(addon => {
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return; // Skips this iteration of forEach
+        }
         const addonItemDiv = document.createElement('div');
         addonItemDiv.className = 'addon-item generic-addon-item';
         const checkbox = document.createElement('input');
