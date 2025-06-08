@@ -946,45 +946,57 @@ document.addEventListener('DOMContentLoaded', async () => {
             // currentShiftUsagePolicy will be null here, button should be disabled until times load and one is selected.
             // updateNextButtonState(); // Already called above
 
-            // currentSelectedAreaUID is used directly by fetchAvailableTimes.
-            // It's updated by handleAreaChange or by displayTimeSlots after initial load.
-            // The initial currentSelectedAreaUID on page load will be null, which is fine.
-            // fetchAvailableTimes handles null as default/any.
-            // displayTimeSlots then populates areaSelector and updates currentSelectedAreaUID.
+            try {
+                // currentSelectedAreaUID is used directly by fetchAvailableTimes.
+                // It's updated by handleAreaChange or by displayTimeSlots after initial load.
+                // The initial currentSelectedAreaUID on page load will be null, which is fine.
+                // fetchAvailableTimes handles null as default/any.
+                // displayTimeSlots then populates areaSelector and updates currentSelectedAreaUID.
 
-            const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue, currentSelectedAreaUID);
+                const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue, currentSelectedAreaUID);
 
-            // The area population and currentSelectedAreaUID update happens in displayTimeSlots using the *returned* availabilityData.
-            // So, the call to displayTimeSlots below will handle it.
+                // The area population and currentSelectedAreaUID update happens in displayTimeSlots using the *returned* availabilityData.
+                // So, the call to displayTimeSlots below will handle it.
 
-            if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
-                dailyRotaMessageDiv.textContent = availabilityData.message;
-                dailyRotaMessageDiv.style.display = 'block';
-            } else {
-                dailyRotaMessageDiv.textContent = ''; 
-                dailyRotaMessageDiv.style.display = 'none';
-            }
-
-            // Pass the whole availabilityData to displayTimeSlots
-            if (availabilityData) { // Ensure availabilityData is not null
-                displayTimeSlots(availabilityData); // This will populate areas and then shifts
-            } else {
-                // Handle case where fetchAvailableTimes returned null (e.g., network error)
-                timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please check connection or try again.'}</p>`;
-                if (config.arSelect === "true" && areaSelectorContainer) {
-                     areaSelectorContainer.style.display = 'none'; // Hide area selector on error too
+                if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
+                    dailyRotaMessageDiv.textContent = availabilityData.message;
+                    dailyRotaMessageDiv.style.display = 'block';
+                } else {
+                    dailyRotaMessageDiv.textContent = '';
+                    dailyRotaMessageDiv.style.display = 'none';
                 }
+
+                // Pass the whole availabilityData to displayTimeSlots
+                if (availabilityData) { // Ensure availabilityData is not null
+                    displayTimeSlots(availabilityData); // This will populate areas and then shifts
+                } else {
+                    // Handle case where fetchAvailableTimes returned null (e.g., network error through its own catch)
+                    // This specific 'else' might be hit if fetchAvailableTimes returns null without throwing an error that the outer try/catch would get.
+                    if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please try again.'}</p>`;
+                    if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+                    if (config.arSelect === "true" && areaSelectorContainer) {
+                        areaSelectorContainer.style.display = 'none';
+                    }
+                    if (areaAvailabilityMessage) {
+                        areaAvailabilityMessage.textContent = '';
+                        areaAvailabilityMessage.style.display = 'none';
+                    }
+                    currentShiftUsagePolicy = null;
+                    updateNextButtonState();
+                }
+            } catch (error) {
+                console.error('Error during availability fetch/processing in handleDateOrCoversChange:', error);
+                if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please try again.'}</p>`;
+                if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
                 if (areaAvailabilityMessage) {
                     areaAvailabilityMessage.textContent = '';
                     areaAvailabilityMessage.style.display = 'none';
                 }
-                selectedTimeValueSpan.textContent = '-';
                 currentShiftUsagePolicy = null;
                 updateNextButtonState();
             }
         }
 
-        }
 
         async function handleAreaChange() {
             if (!areaSelector) return;
