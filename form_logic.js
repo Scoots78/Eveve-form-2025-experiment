@@ -10,8 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentAvailabilityData = null; // To store fetched availability data
     let isInitialRenderCycle = true; // Flag for initial load special behavior
     let currentSelectedDecimalTime = null; // To store the selected time as a decimal value
-    let desiredStickyAreaUID = null; // To remember area selection across date/cover changes
-    let desiredStickyTime = null; // To remember time selection across date/cover changes
+    // desiredStickyAreaUID has been removed
+    // desiredStickyTime has been removed
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -753,7 +753,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return button;
         }
 
-        function displayTimeSlots(availabilityData) {
+        function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
             if (!timeSelectorContainer || !selectedTimeValueSpan) return;
 
             // Centralized visibility for areaSelectorContainer based on config
@@ -793,20 +793,82 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const areas = availabilityData.areas;
                 let radiosPopulated = false;
                 let radioToActuallyCheck = null;
+                let checkedViaCurrentSelectedUID = false;
 
-                // Determine the target UID for selection (prioritize sticky, then previous, then defaults)
-                let targetSelectedUID = desiredStickyAreaUID; // Prioritize sticky
-                if (!targetSelectedUID) { // If no sticky area, try previous selection from current render cycle
-                    if (previousSelectedAreaUID) {
-                        targetSelectedUID = previousSelectedAreaUID;
-                    } else if (config.areaAny === "true") { // Fallback to default: "any" if allowed
-                        targetSelectedUID = "any";
-                    } else if (areas && Array.isArray(areas) && areas.length > 0) { // Fallback to first specific area
-                        targetSelectedUID = areas[0].uid.toString();
+                // 1. Attempt to check radio based on currentSelectedAreaUID (module-scoped, potentially sticky from date/cover change)
+                if (currentSelectedAreaUID) {
+                    if (config.areaAny === "true") {
+                        const anyRadio = document.createElement('input'); // Create to check its properties
+                        anyRadio.type = 'radio'; anyRadio.name = 'areaSelection'; anyRadio.value = 'any';
+                        if (anyRadio.value === currentSelectedAreaUID) radioToActuallyCheck = anyRadio; // Placeholder, will be replaced by actual DOM radio
+                    }
+                    if (!radioToActuallyCheck && areas && Array.isArray(areas)) {
+                        areas.forEach(area => {
+                            if (area.uid.toString() === currentSelectedAreaUID) {
+                                const specificRadio = document.createElement('input'); // Create to check
+                                specificRadio.type = 'radio'; specificRadio.name = 'areaSelection'; specificRadio.value = area.uid.toString();
+                                radioToActuallyCheck = specificRadio; // Placeholder
+                            }
+                        });
                     }
                 }
-                // If after all this, targetSelectedUID is still null (e.g. no areas, no sticky, no previous),
-                // then no radio will be checked by default, which is acceptable.
+
+                // Build all radio buttons
+                if (config.areaAny === "true") {
+                    const radioId = "area-any";
+                    const radioItemContainer = document.createElement('div');
+                    radioItemContainer.className = 'area-radio-item';
+                    const radio = document.createElement('input');
+                    radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = 'any';
+                    if (radioToActuallyCheck && radio.value === radioToActuallyCheck.value) {
+                        radio.checked = true;
+                        checkedViaCurrentSelectedUID = true;
+                    }
+                    const label = document.createElement('label');
+                    label.htmlFor = radioId; label.textContent = languageStrings.anyAreaText || "Any Area";
+                    radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
+                    areaRadioGroupContainer.appendChild(radioItemContainer);
+                    radiosPopulated = true;
+                }
+
+                if (areas && Array.isArray(areas) && areas.length > 0) {
+                    areas.forEach((area) => {
+                        const radioId = `area-${area.uid}`;
+                        const radioItemContainer = document.createElement('div');
+                        radioItemContainer.className = 'area-radio-item';
+                        const radio = document.createElement('input');
+                        radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = area.uid.toString();
+                        if (radioToActuallyCheck && radio.value === radioToActuallyCheck.value && !checkedViaCurrentSelectedUID) {
+                             radio.checked = true; // Only check if not already checked by "any" or another specific
+                             checkedViaCurrentSelectedUID = true;
+                        }
+                        const label = document.createElement('label');
+                        label.htmlFor = radioId; label.textContent = area.name;
+                        radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
+                        areaRadioGroupContainer.appendChild(radioItemContainer);
+                        radiosPopulated = true;
+                    });
+                }
+
+                // 2. If no radio was checked based on currentSelectedAreaUID, apply defaults
+                if (radiosPopulated && !getSelectedRadioValue("areaSelection")) {
+                    let defaultRadioToSelect = null;
+                    if (config.areaAny === "true") {
+                        defaultRadioToSelect = areaRadioGroupContainer.querySelector('input[type="radio"][value="any"]');
+                    }
+                    if (!defaultRadioToSelect && areas && Array.isArray(areas) && areas.length > 0) {
+                        const firstSpecificAreaValue = areas[0].uid.toString();
+                        defaultRadioToSelect = areaRadioGroupContainer.querySelector(`input[type="radio"][value="${firstSpecificAreaValue}"]`);
+                    }
+                    if (defaultRadioToSelect) {
+                        defaultRadioToSelect.checked = true;
+                    }
+                }
+
+                if (!radiosPopulated) {
+                    currentSelectedAreaUID = null;
+                }
+                // currentSelectedAreaUID will be updated after this block by getSelectedRadioValue
 
                 if (config.areaAny === "true") {
                     const radioId = "area-any";
@@ -1031,31 +1093,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateNextButtonState(); // Update button state based on what was actually rendered and selected
 
             // Attempt to re-select a sticky time if one was desired and is available
-            if (desiredStickyTime !== null) {
+            if (stickyTimeAttempt !== null) {
                 const allTimeSlotButtons = timeSelectorContainer.querySelectorAll('.time-slot-button');
+                let foundAndClickedStickyTime = false;
                 allTimeSlotButtons.forEach(button => {
-                    // Check if button is not disabled (i.e., it's an available slot)
-                    // and its time matches the desired sticky time.
-                    if (!button.disabled && parseFloat(button.dataset.time) === desiredStickyTime) {
-                        button.click(); // Programmatically click the button to select it
-                        // The click handler will update currentSelectedDecimalTime and other UI parts.
-                        // We assume only one such button should exist or the first one found is sufficient.
-                        // No need to break loop, forEach will continue but subsequent clicks on same time (if any) are harmless.
+                    if (!button.disabled && parseFloat(button.dataset.time) === stickyTimeAttempt && !foundAndClickedStickyTime) {
+                        button.click();
+                        foundAndClickedStickyTime = true;
                     }
                 });
             }
-            // After attempting to click sticky time, ensure desiredSticky values are cleared for the next fresh interaction
-            // desiredStickyAreaUID = null; // Cleared by explicit area change or implicitly used then can be "forgotten"
-            // desiredStickyTime = null; // Cleared by explicit area change or implicitly used then can be "forgotten"
-            // Actually, these are better managed by the functions that *set* them or indicate a context change.
-            // handleDateOrCoversChange *sets* them. handleAreaChange *clears* desiredStickyTime.
-            // displayTimeSlots *uses* them.
-            desiredStickyTime = null; // Clear after use in this rendering pass.
+            // The stickyTimeAttempt is a local parameter, so it's naturally "reset" on the next call.
         }
 
         async function handleDateOrCoversChange() {
-            desiredStickyAreaUID = currentSelectedAreaUID;
-            desiredStickyTime = currentSelectedDecimalTime;
+            const previouslySelectedAreaOnEntry = currentSelectedAreaUID;
+            const previouslySelectedTimeOnEntry = currentSelectedDecimalTime;
 
             if (!dateSelector || !coversSelector || !selectedDateValueSpan || !selectedCoversValueSpan || !selectedTimeValueSpan || !timeSelectorContainer || !dailyRotaMessageDiv) return;
             const selectedDateStr = dateSelector.value;
@@ -1081,10 +1134,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             selectedDateValueSpan.textContent = selectedDateStr || '-';
             selectedCoversValueSpan.textContent = coversValue || '-';
-            selectedTimeValueSpan.textContent = '-';
-            currentSelectedDecimalTime = null; // Reset stored decimal time
-            if (selectedAreaValueSpan) { // Reset selected area display on date/covers change
-                selectedAreaValueSpan.textContent = '-';
+            selectedTimeValueSpan.textContent = '-'; // Visual reset for time display
+            currentSelectedDecimalTime = null; // Reset actual stored decimal time; displayTimeSlots will attempt re-selection based on previouslySelectedTimeOnEntry
+
+            // currentSelectedAreaUID is NOT reset to null here.
+            // Its value (captured as previouslySelectedAreaOnEntry) is used by displayTimeSlots
+            // to attempt re-selection of the area radio button.
+            // The selectedAreaValueSpan is also updated by updateSelectedAreaDisplay within displayTimeSlots.
+            if (selectedAreaValueSpan) {
+                 selectedAreaValueSpan.textContent = '-'; // Temporarily clear display; will be updated by displayTimeSlots
             }
             currentShiftUsagePolicy = null; updateNextButtonState(); // Explicitly update here
 
@@ -1128,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Pass the whole availabilityData to displayTimeSlots
                 if (currentAvailabilityData) { // Ensure currentAvailabilityData is not null
-                    displayTimeSlots(currentAvailabilityData); // This will populate areas and then shifts
+                    displayTimeSlots(currentAvailabilityData, previouslySelectedTimeOnEntry); // Pass sticky time attempt
                 } else {
                     // Handle case where fetchAvailableTimes returned null (e.g., network error through its own catch)
                     // This specific 'else' might be hit if fetchAvailableTimes returns null without throwing an error that the outer try/catch would get.
@@ -1158,7 +1216,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
         async function handleAreaChange(event) { // Added event parameter
-            desiredStickyTime = null; // Clear sticky time when area is explicitly changed
+            // desiredStickyTime (module-scoped) has been removed.
+            // When an area is explicitly changed, any time stickiness is implicitly cleared
+            // because currentSelectedDecimalTime is reset below, and displayTimeSlots is called without a stickyTimeAttempt.
 
             // Ensure the event target is an input element, part of the radio group
             if (!event || !event.target || event.target.name !== 'areaSelection') {
