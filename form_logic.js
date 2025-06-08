@@ -741,8 +741,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetCurrentSelectedAddons();
 
             // Populate Area Selector with Radio Buttons
-            // Ensure global areaAvailabilityMessage is cleared before new display logic
-            if (areaAvailabilityMessage) {
+            if (areaAvailabilityMessage) { // Clear any previous global area messages
                 areaAvailabilityMessage.textContent = '';
                 areaAvailabilityMessage.style.display = 'none';
             }
@@ -750,88 +749,85 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (config.arSelect === "true" && areaRadioGroupContainer) {
                 const previousSelectedAreaUID = currentSelectedAreaUID;
                 areaRadioGroupContainer.innerHTML = '';
-                // Specific area messages are now handled per shift or if area.times itself is empty.
-                // So, global areaAvailabilityMessage is generally cleared above.
 
                 const areas = availabilityData.areas;
-                let firstRadioId = null;
-                let radioToCheckByDefault = null;
+                let radiosPopulated = false;
+                let radioToActuallyCheck = null;
+
+                // Determine the target UID for selection (preserve previous, or default)
+                let targetSelectedUID = previousSelectedAreaUID;
+                if (!targetSelectedUID) {
+                    if (config.areaAny === "true") {
+                        targetSelectedUID = "any";
+                    } else if (areas && Array.isArray(areas) && areas.length > 0) {
+                        targetSelectedUID = areas[0].uid.toString();
+                    }
+                }
+
+                if (config.areaAny === "true") {
+                    const radioId = "area-any";
+                    const radioItemContainer = document.createElement('div');
+                    radioItemContainer.className = 'area-radio-item';
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'areaSelection';
+                    radio.id = radioId;
+                    radio.value = 'any';
+                    if (targetSelectedUID === 'any') {
+                        radioToActuallyCheck = radio;
+                    }
+                    const label = document.createElement('label');
+                    label.htmlFor = radioId;
+                    label.textContent = languageStrings.anyAreaText || "Any Area";
+                    radioItemContainer.appendChild(radio);
+                    radioItemContainer.appendChild(label);
+                    areaRadioGroupContainer.appendChild(radioItemContainer);
+                    radiosPopulated = true;
+                }
 
                 if (areas && Array.isArray(areas) && areas.length > 0) {
-                    if (config.areaAny === "true") {
-                        const radioId = "area-any";
-                        if (!firstRadioId) firstRadioId = radioId;
-                        const radioItemContainer = document.createElement('div');
-                        radioItemContainer.className = 'area-radio-item';
-
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = 'areaSelection';
-                        radio.id = radioId;
-                        radio.value = 'any';
-                        if (previousSelectedAreaUID === 'any' || (!previousSelectedAreaUID && !radioToCheckByDefault)) {
-                            radio.checked = true;
-                            radioToCheckByDefault = radio;
-                        }
-
-                        const label = document.createElement('label');
-                        label.htmlFor = radioId;
-                        label.textContent = languageStrings.anyAreaText || "Any Area";
-
-                        radioItemContainer.appendChild(radio);
-                        radioItemContainer.appendChild(label);
-                        areaRadioGroupContainer.appendChild(radioItemContainer);
-                    }
-
-                    areas.forEach((area, index) => {
+                    areas.forEach((area) => {
                         const radioId = `area-${area.uid}`;
-                        if (!firstRadioId) firstRadioId = radioId;
                         const radioItemContainer = document.createElement('div');
                         radioItemContainer.className = 'area-radio-item';
-
                         const radio = document.createElement('input');
                         radio.type = 'radio';
                         radio.name = 'areaSelection';
                         radio.id = radioId;
                         radio.value = area.uid.toString();
-
-                        if (previousSelectedAreaUID === area.uid.toString()) {
-                            radio.checked = true;
-                            radioToCheckByDefault = radio;
-                        } else if (!previousSelectedAreaUID && !config.areaAny && index === 0 && !radioToCheckByDefault) {
-                            // If "Any Area" is not allowed, and no previous selection, check the first actual area.
-                            radio.checked = true;
-                            radioToCheckByDefault = radio;
+                        if (targetSelectedUID === area.uid.toString()) {
+                           radioToActuallyCheck = radio;
                         }
-
                         const label = document.createElement('label');
                         label.htmlFor = radioId;
                         label.textContent = area.name;
-
                         radioItemContainer.appendChild(radio);
                         radioItemContainer.appendChild(label);
                         areaRadioGroupContainer.appendChild(radioItemContainer);
+                        radiosPopulated = true;
                     });
+                }
 
-                    // Ensure something is checked if nothing matched previous or default logic
-                    if (!getSelectedRadioValue("areaSelection") && areaRadioGroupContainer.querySelector('input[type="radio"]')) {
-                        if (config.areaAny === "true" && areaRadioGroupContainer.querySelector('input[value="any"]')) {
-                            areaRadioGroupContainer.querySelector('input[value="any"]').checked = true;
-                        } else {
-                            areaRadioGroupContainer.querySelector('input[type="radio"]').checked = true;
+                if (!radiosPopulated) {
+                    // This means config.areaAny is false AND areas array is empty/null
+                    // areaRadioGroupContainer will remain empty.
+                    currentSelectedAreaUID = null;
+                } else {
+                    if (radioToActuallyCheck) {
+                        radioToActuallyCheck.checked = true;
+                    } else {
+                        // Fallback if targetSelectedUID didn't match any created radio (e.g. data changed)
+                        // Check the first available radio in the container
+                        const firstRadioInGroup = areaRadioGroupContainer.querySelector('input[type="radio"]');
+                        if (firstRadioInGroup) {
+                            firstRadioInGroup.checked = true;
                         }
                     }
-
-                    if (areaSelectorContainer) areaSelectorContainer.style.display = 'block'; // This is redundant due to earlier logic but harmless
-                } else { // No areas available from API, but arSelect is true
-                    areaRadioGroupContainer.innerHTML = `<p class="no-areas-defined-message">${languageStrings.noAreasDefined || 'No areas are defined for selection.'}</p>`;
-                    currentSelectedAreaUID = null; // No area can be selected
-                    // areaSelectorContainer remains visible as per new rule
                 }
             }
-            // If config.arSelect is false, areaSelectorContainer is already hidden by the logic at the function start.
+            // If config.arSelect is false, areaSelectorContainer and its contents are handled at the start of displayTimeSlots
 
-            currentSelectedAreaUID = getSelectedRadioValue("areaSelection"); // This will be null if the above message was set
+            currentSelectedAreaUID = getSelectedRadioValue("areaSelection");
             updateSelectedAreaDisplay(); // Update after area radio group is populated/changed
 
             const allShifts = availabilityData.shifts;
@@ -855,22 +851,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (!selectedAreaObject) {
                     console.error(`Selected area UID ${currentSelectedAreaUID} not found in availabilityData.areas.`);
-                    // Use main timeSelectorContainer for this critical error, as areaAvailabilityMessage is now for less critical info.
                     timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorGeneric || "An error occurred displaying area times."}</p>`;
                     updateNextButtonState();
                     return;
                 }
 
-                const areaSpecificTimes = selectedAreaObject.times;
-                if (!areaSpecificTimes || areaSpecificTimes.length === 0) {
-                    // Area has no bookable times at all for this day.
-                    // This message now goes into areaRadioGroupContainer if it's empty, or could be a more prominent message.
-                    // For now, let's use areaAvailabilityMessage as it's about the selected area's general lack of times for the day.
+                const selectedAreaGeneralTimes = selectedAreaObject.times;
+                if (!selectedAreaGeneralTimes || selectedAreaGeneralTimes.length === 0) {
                     if (areaAvailabilityMessage) {
                          areaAvailabilityMessage.textContent = (languageStrings.noTimesForArea || "This area has no available times on this date.").replace('{areaName}', selectedAreaObject.name);
                          areaAvailabilityMessage.style.display = 'block';
                     }
-                    timeSelectorContainer.innerHTML = ''; // No shifts or times to show
+                    timeSelectorContainer.innerHTML = '';
                     updateNextButtonState();
                     return;
                 }
@@ -889,29 +881,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                         timeSelectorContainer.appendChild(shiftMessageDiv);
                     }
 
-                    // Dedicated placeholder for session-specific area message for this shift
-                    const sessionAreaMessageDiv = document.createElement('div');
-                    sessionAreaMessageDiv.className = 'session-area-availability-message';
-                    // sessionAreaMessageDiv will be appended before shiftButtonContainer by convention if needed.
-                    // For direct DOM manipulation, ensure it's placed correctly relative to shiftButtonContainer.
-                    // Let's create shiftButtonContainer first, then insert sessionAreaMessageDiv before it.
+                    const sessionMessageDiv = document.createElement('div');
+                    sessionMessageDiv.className = 'session-area-availability-message';
 
                     const shiftButtonContainer = document.createElement('div');
                     shiftButtonContainer.className = 'shift-times-wrapper';
 
-                    const currentShiftSessionHours = shift.hours;
-                    if (!currentShiftSessionHours || !Array.isArray(currentShiftSessionHours)) {
-                        console.warn(`Shift '${shift.name}' (UID: ${shift.uid}) is missing 'hours' data or it's not an array for area '${selectedAreaObject.name}'.`);
+                    const currentShiftSessionTimes = shift.times; // Use shift.times as per user feedback
+
+                    if (!currentShiftSessionTimes || !Array.isArray(currentShiftSessionTimes)) {
+                        console.warn(`Shift '${shift.name}' (UID: ${shift.uid}) is missing 'times' (session times) data or it's not an array, for area '${selectedAreaObject.name}'.`);
                     }
 
-                    const displayableTimesForShiftInArea = areaSpecificTimes.filter(
-                        timeVal => timeVal >= 0 && currentShiftSessionHours && currentShiftSessionHours.includes(timeVal)
+                    // Calculate bookableTimesInAreaForSession: intersection of area's general times and shift's specific session times.
+                    const bookableTimesInAreaForSession = selectedAreaGeneralTimes.filter(
+                        areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
                     );
-                    const finalTimesToShow = shift.times.filter(timeVal => displayableTimesForShiftInArea.includes(timeVal));
 
-                    if (finalTimesToShow.length > 0) {
-                        sessionAreaMessageDiv.style.display = 'none'; // Hide if times are available for this session
-                        finalTimesToShow.forEach(timeValue => {
+                    if (bookableTimesInAreaForSession.length > 0) {
+                        sessionMessageDiv.textContent = '';
+                        sessionMessageDiv.style.display = 'none';
+                        bookableTimesInAreaForSession.forEach(timeValue => {
                             const button = createTimeSlotButton(timeValue, shift);
                             if (button) {
                                 shiftButtonContainer.appendChild(button);
