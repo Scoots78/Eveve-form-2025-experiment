@@ -125,22 +125,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateSelectedAddonsDisplay() {
         const selectedAddonsValueSpan = document.getElementById('selectedAddonsValue');
         if (!selectedAddonsValueSpan) return;
+
+        const coversSelectorEl = document.getElementById('coversSelector');
+        const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) || 0 : 0;
+        const currencySymbol = config.currSym ? config.currSym.replace(/&[^;]+;/g, '') : '$';
+
         let displayItems = [];
+        let grandTotal = 0;
+
+        // Process usage1 addons
         if (currentSelectedAddons.usage1) {
-            displayItems.push(currentSelectedAddons.usage1.name);
+            const addon = currentSelectedAddons.usage1;
+            const basePrice = (addon.price || 0) / 100; // price is in cents
+            const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
+            grandTotal += itemCost;
+            displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
         }
+
+        // Process usage2 addons
         currentSelectedAddons.usage2.forEach(addon => {
-            displayItems.push(`${addon.name} (x${addon.quantity})`);
+            const basePrice = (addon.price || 0) / 100; // price is in cents
+            const itemCost = basePrice * addon.quantity;
+            grandTotal += itemCost;
+            displayItems.push(`${addon.name} x${addon.quantity} (${currencySymbol}${itemCost.toFixed(2)})`);
         });
+
+        // Process usage3 addons
         currentSelectedAddons.usage3.forEach(addon => {
-            displayItems.push(addon.name);
+            const basePrice = (addon.price || 0) / 100; // price is in cents
+            const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
+            grandTotal += itemCost;
+            displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
         });
+
         if (displayItems.length > 0) {
-            selectedAddonsValueSpan.textContent = displayItems.join(', ');
+            let displayText = displayItems.join(', ');
+            displayText += ` --- Total Addons: ${currencySymbol}${grandTotal.toFixed(2)}`;
+            selectedAddonsValueSpan.textContent = displayText;
         } else {
             selectedAddonsValueSpan.textContent = '-';
         }
-        // console.log('Updated currentSelectedAddons:', JSON.stringify(currentSelectedAddons, null, 2)); // Removed
+        // console.log('Updated currentSelectedAddons for display:', JSON.stringify(currentSelectedAddons, null, 2)); // Optional: for debugging
     }
 
     function handleAddonUsage1Selection(event, addonData, isSingleCheckboxMode) {
@@ -148,12 +173,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         // console.log('handleAddonUsage1Selection called:', addonData, 'Checked/Mode:', checkboxOrRadio.checked, isSingleCheckboxMode); // Removed
         if (isSingleCheckboxMode) {
             if (checkboxOrRadio.checked) {
-                currentSelectedAddons.usage1 = { uid: addonData.uid, name: addonData.name, price: addonData.price };
+                // Store more fields from addonData
+                currentSelectedAddons.usage1 = {
+                    uid: addonData.uid,
+                    name: addonData.name,
+                    price: parseFloat(addonData.price), // Ensure price is numeric
+                    per: addonData.per,
+                    type: addonData.type,
+                    desc: addonData.desc
+                };
             } else {
                 currentSelectedAddons.usage1 = null;
             }
         } else { 
-            currentSelectedAddons.usage1 = { uid: addonData.uid, name: addonData.name, price: addonData.price };
+            // Store more fields from addonData
+            currentSelectedAddons.usage1 = {
+                uid: addonData.uid,
+                name: addonData.name,
+                price: parseFloat(addonData.price), // Ensure price is numeric
+                per: addonData.per,
+                type: addonData.type,
+                desc: addonData.desc
+            };
         }
         updateSelectedAddonsDisplay();
         updateNextButtonState(); // Added call
@@ -164,7 +205,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // console.log('handleAddonUsage2Selection called:', addonData, 'Quantity:', quantity); // Removed
         currentSelectedAddons.usage2 = currentSelectedAddons.usage2.filter(a => a.uid !== addonUid);
         if (quantity > 0) {
-            currentSelectedAddons.usage2.push({ uid: addonUid, name: addonData.name, price: addonData.price, quantity: quantity });
+            // Store more fields from addonData
+            currentSelectedAddons.usage2.push({
+                uid: addonData.uid,
+                name: addonData.name,
+                price: parseFloat(addonData.price), // Ensure price is numeric
+                per: addonData.per,
+                type: addonData.type,
+                desc: addonData.desc,
+                quantity: quantity
+            });
         }
         updateSelectedAddonsDisplay();
         updateNextButtonState(); // Added call
@@ -174,11 +224,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const checkbox = event.target;
         const addonUid = parseInt(checkbox.dataset.addonUid, 10);
         const addonName = checkbox.dataset.addonName;
-        const addonPrice = parseFloat(checkbox.dataset.addonPrice);
+        const addonPrice = parseFloat(checkbox.dataset.addonPrice); // Already ensuring price is numeric
+        const addonPer = checkbox.dataset.addonPer;
+        const addonType = checkbox.dataset.addonType;
+        const addonDesc = checkbox.dataset.addonDesc;
         // console.log('handleAddonUsage3Selection called:', addonUid, 'Checked:', checkbox.checked); // Removed
         if (checkbox.checked) {
             if (!currentSelectedAddons.usage3.some(a => a.uid === addonUid)) {
-                currentSelectedAddons.usage3.push({ uid: addonUid, name: addonName, price: addonPrice });
+                // Store more fields from dataset
+                currentSelectedAddons.usage3.push({
+                    uid: addonUid,
+                    name: addonName,
+                    price: addonPrice,
+                    per: addonPer,
+                    type: addonType,
+                    desc: addonDesc
+                });
             }
         } else {
             currentSelectedAddons.usage3 = currentSelectedAddons.usage3.filter(addon => addon.uid !== addonUid);
