@@ -825,12 +825,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (areaSelectorContainer) areaSelectorContainer.style.display = 'block'; // This is redundant due to earlier logic but harmless
                 } else { // No areas available from API, but arSelect is true
                     areaRadioGroupContainer.innerHTML = `<p class="no-areas-defined-message">${languageStrings.noAreasDefined || 'No areas are defined for selection.'}</p>`;
+                    currentSelectedAreaUID = null; // No area can be selected
                     // areaSelectorContainer remains visible as per new rule
                 }
             }
             // If config.arSelect is false, areaSelectorContainer is already hidden by the logic at the function start.
 
-            currentSelectedAreaUID = getSelectedRadioValue("areaSelection");
+            currentSelectedAreaUID = getSelectedRadioValue("areaSelection"); // This will be null if the above message was set
             updateSelectedAreaDisplay(); // Update after area radio group is populated/changed
 
             const allShifts = availabilityData.shifts;
