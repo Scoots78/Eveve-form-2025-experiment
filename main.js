@@ -23,15 +23,15 @@ import {
     // Main UI Orchestration (though displayTimeSlots will be called by event handler)
     // renderAddons, // Likely called by other UI functions or event handlers now
     // UI Updaters
-    updateAddonsDisplayUI,
-    updateNextBtnUI, // Still needed for initial setup
-    updateAreaDisplayUI,
+    updateSelectedAddonsDisplay as updateAddonsDisplayUI,
+    updateNextButtonState as updateNextBtnUI, // Still needed for initial setup
+    updateSelectedAreaDisplay as updateAreaDisplayUI,
     // Loading/Error states in UI
     showLoadingTimes,
     displayErrorMessageInTimesContainer,
     // Callback setter
     _setResetAddonsUICallback,
-    updateAllUsage2ButtonStatesUI
+    updateAllUsage2ButtonStatesUI // This one is exported with UI suffix from ui_manager.js
 } from './ui_manager.js';
 import { initializeEventHandlers, handleDateOrCoversChange } from './event_handlers.js';
 
