@@ -6,6 +6,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     let initialShiftsConfig = []; 
     let currentEstName = '';
     let currentShiftUsagePolicy = null; // Added for Next button logic
+    let currentSelectedAreaUID = null; // Added for area selection state
+    let currentAvailabilityData = null; // To store fetched availability data
+    let isInitialRenderCycle = true; // Flag for initial load special behavior
+    let currentSelectedDecimalTime = null; // To store the selected time as a decimal value
+    // desiredStickyAreaUID has been removed
+    // desiredStickyTime has been removed
     let currentSelectedAddons = {
         usage1: null,
         usage2: [],
@@ -24,8 +30,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
     const dailyRotaMessageDiv = document.getElementById('dailyRotaMessage');
+    const areaSelectorContainer = document.getElementById('areaSelectorContainer');
+    // areaSelector is now areaRadioGroupContainer; the actual radio inputs will be dynamic
+    const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
+    const areaAvailabilityMessage = document.getElementById('areaAvailabilityMessage');
+    const selectedAreaValueSpan = document.getElementById('selectedAreaValue');
 
     // --- Helper Functions ---
+    function getSelectedRadioValue(groupName) {
+        const checkedRadio = document.querySelector(`input[name="${groupName}"]:checked`);
+        return checkedRadio ? checkedRadio.value : null;
+    }
+
     function getQueryParam(paramName) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(paramName);
@@ -56,6 +72,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         else if (displayHours > 12) { displayHours -= 12; }
         const minutesStr = minutes < 10 ? '0' + minutes : String(minutes);
         return `${displayHours}:${minutesStr} ${ampm}`;
+    }
+
+    function formatSelectedAddons(selectedAddons) {
+        let addonParts = [];
+        if (selectedAddons.usage1 && selectedAddons.usage1.uid) {
+            addonParts.push(`${selectedAddons.usage1.uid}:1`);
+        }
+        if (selectedAddons.usage2 && selectedAddons.usage2.length > 0) {
+            selectedAddons.usage2.forEach(addon => {
+                if (addon.uid && addon.quantity > 0) { // Ensure quantity is positive
+                    addonParts.push(`${addon.uid}:${addon.quantity}`);
+                }
+            });
+        }
+        if (selectedAddons.usage3 && selectedAddons.usage3.length > 0) {
+            selectedAddons.usage3.forEach(addon => {
+                if (addon.uid) {
+                    addonParts.push(`${addon.uid}:1`);
+                }
+            });
+        }
+        return addonParts.join(',');
     }
 
     function parseJsObjectString(jsString) {
@@ -101,9 +139,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    async function fetchAvailableTimes(estNameForApi, date, covers) { 
+    // Fetches general availability, not area-specific
+    async function fetchAvailableTimes(estNameForApi, date, covers) {
         const apiUrl = `https://nz.eveve.com/web/day-avail?est=${estNameForApi}&covers=${covers}&date=${date}`;
-        // console.log(`Fetching available times from: ${apiUrl}`); // Removed general operational log
+        // console.log(`Fetching available times from: ${apiUrl}`);
         try {
             const response = await fetch(apiUrl);
             if (!response.ok) {
@@ -579,12 +618,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Core Logic ---
     try {
-        config = await loadConfigFromServer(); 
+        config = await loadConfigFromServer();
+
+        // Area selector visibility logic
+        if (areaSelectorContainer) {
+            if (config.arSelect === "true") {
+                areaSelectorContainer.style.display = 'block';
+            } else {
+                areaSelectorContainer.style.display = 'none';
+            }
+        }
+        if (areaAvailabilityMessage && (config.arSelect !== "true" || !areaSelectorContainer || areaSelectorContainer.style.display === 'none')) {
+            areaAvailabilityMessage.style.display = 'none';
+        }
+        updateSelectedAreaDisplay(); // Initial update after config load
+
         languageStrings = parseJsObjectString(config.lng) || {};
         if (!languageStrings.availableAddonsTitle) languageStrings.availableAddonsTitle = 'Available Addons:';
         if (!languageStrings.noAddonsAvailable) languageStrings.noAddonsAvailable = 'No addons available for this selection.';
         if (!languageStrings.noAddonsForGuestCount) languageStrings.noAddonsForGuestCount = 'No addons currently available for the selected number of guests.';
         if (!languageStrings.noAddonsAvailableTime) languageStrings.noAddonsAvailableTime = 'No addons available for this time.';
+        if (!languageStrings.anyAreaText) languageStrings.anyAreaText = "Any Area";
+        if (!languageStrings.noAreasAvailable) languageStrings.noAreasAvailable = "No specific areas available for this date/time.";
+        if (!languageStrings.selectAreaPrompt) languageStrings.selectAreaPrompt = "Please select an area first.";
+        if (!languageStrings.loadingTimes) languageStrings.loadingTimes = "Loading times...";
+        if (!languageStrings.noTimesForArea) languageStrings.noTimesForArea = "This area is not available at this time. Please choose another area.";
+        if (!languageStrings.notAvailableText) languageStrings.notAvailableText = "Not Available";
+        if (!languageStrings.errorGeneric) languageStrings.errorGeneric = "An error occurred. Please try again.";
+        // languageStrings.areaNotAvailableForSession has been removed.
+        // languageStrings.noAreaTimesForAnySession has been removed.
+        if (!languageStrings.noAreasDefined) languageStrings.noAreasDefined = "No areas are defined for selection.";
+
 
         initialShiftsConfig = parseJsObjectString(config.allShifts) || []; 
         const displayName = config.estName ? config.estName.replace(/^['"](.*)['"]$/, '$1') : currentEstName;
@@ -620,94 +684,373 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateNextButtonState(); // Added call
         }
 
-        function displayTimeSlots(shiftsData) {
-            // console.log('displayTimeSlots received shiftsData:', JSON.stringify(shiftsData, null, 2)); // Removed
-            if (!timeSelectorContainer || !selectedTimeValueSpan) return;
-            timeSelectorContainer.innerHTML = '';
-            selectedTimeValueSpan.textContent = '-';
-            currentShiftUsagePolicy = null; // Reset policy
-            updateNextButtonState(); // Update button state
-
-            const addonsDisplay = document.getElementById('addonsDisplayArea');
-            if (addonsDisplay) addonsDisplay.innerHTML = '';
-            resetCurrentSelectedAddons(); 
-
-            if (!shiftsData || !Array.isArray(shiftsData) || shiftsData.length === 0) {
-                timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No time slots available.'}</p>`;
-                return;
-            }
-            let foundAnySlotsToShow = false; 
-            shiftsData.forEach(shift => { 
-                // console.log('Processing shift:', JSON.stringify(shift, null, 2)); // Removed
-                if (!shift || typeof shift.name !== 'string') {
-                    console.warn("Invalid shift object:", shift); return; // Kept as warning
-                }
-                const shiftTitle = document.createElement('h3');
-                shiftTitle.textContent = shift.name;
-                timeSelectorContainer.appendChild(shiftTitle);
-                if (shift.message && shift.message.trim() !== '') {
-                    const shiftMessageDiv = document.createElement('div');
-                    shiftMessageDiv.className = 'api-message shift-message';
-                    shiftMessageDiv.textContent = shift.message;
-                    timeSelectorContainer.appendChild(shiftMessageDiv);
-                }
-                const shiftButtonContainer = document.createElement('div');
-                shiftButtonContainer.className = 'shift-times-wrapper';
-                timeSelectorContainer.appendChild(shiftButtonContainer);
-                if (Array.isArray(shift.times) && shift.times.length > 0) {
-                    shift.times.forEach(timeValue => { 
-                        // console.log('Attempting to process timeValue:', timeValue, 'type:', typeof timeValue); // Removed
-                        if (typeof timeValue !== 'number') {
-                            console.warn('Invalid time value in shift.times array:', timeValue, 'Expected a number.'); // Kept as warning
-                            return; 
-                        }
-                        const button = document.createElement('button');
-                        button.className = 'time-slot-button'; 
-                        if (timeValue < 0) {
-                            if (!showUnavailableSlots) return;
-                            button.textContent = 'Not Available';
-                            button.classList.add('time-slot-unavailable');
-                            button.disabled = true;
+        function updateSelectedAreaDisplay() {
+            if (selectedAreaValueSpan) {
+                if (config.arSelect === "true" && areaRadioGroupContainer && areaRadioGroupContainer.style.display !== 'none') {
+                    const checkedRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"]:checked');
+                    if (checkedRadio) {
+                        if (checkedRadio.value === "any") {
+                            selectedAreaValueSpan.textContent = languageStrings.anyAreaSelectedText || "Any";
                         } else {
-                            button.classList.add('time-slot-available');
-                            button.dataset.time = timeValue; 
-                            button.textContent = formatTime(timeValue);
-                            button.addEventListener('click', function() {
-                                selectedTimeValueSpan.textContent = this.textContent;
-                                timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
-                                this.classList.add('time-slot-button-selected');
-
-                                currentShiftUsagePolicy = (shift && typeof shift.usage !== 'undefined') ? shift.usage : null; // Set policy
-
-                                const currentAddonsDisplayArea = document.getElementById('addonsDisplayArea');
-                                if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = ''; 
-                                resetCurrentSelectedAddons(); 
-                                const guestCount = parseInt(coversSelector.value); 
-                                if (shift.addons && Array.isArray(shift.addons) && shift.addons.length > 0) {
-                                    renderAddons(shift.addons, shift.usage, guestCount, shift.name); 
-                                } else {
-                                    if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = `<p>${languageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
-                                }
-                                updateNextButtonState(); // Update button state
-                            });
+                            // Attempt to get the label text associated with the checked radio
+                            const label = areaRadioGroupContainer.querySelector(`label[for="${checkedRadio.id}"]`);
+                            selectedAreaValueSpan.textContent = label ? label.textContent : checkedRadio.value; // Fallback to value if label not found
                         }
-                        shiftButtonContainer.appendChild(button);
-                        foundAnySlotsToShow = true; 
-                    });
-                } else { 
-                    const noTimesMsg = document.createElement('p');
-                    noTimesMsg.className = 'no-times-for-shift-message';
-                    noTimesMsg.textContent = `No specific times listed for ${shift.name}.`;
-                    shiftButtonContainer.appendChild(noTimesMsg);
-                    foundAnySlotsToShow = true; 
+                    } else {
+                        selectedAreaValueSpan.textContent = '-'; // No radio button selected
+                    }
+                } else {
+                    selectedAreaValueSpan.textContent = '-'; // Area selection not active
                 }
-            });
-            if (!foundAnySlotsToShow) {
-                 timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
             }
         }
 
+        function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
+            const button = document.createElement('button');
+            button.className = 'time-slot-button';
+
+            let effectiveIsActive = isActive;
+
+            if (timeValue < 0) { // API-defined unavailable slot
+                if (!showUnavailableSlots) return null;
+                button.textContent = languageStrings.notAvailableText || 'Not Available';
+                button.classList.add('time-slot-unavailable');
+                button.disabled = true;
+                // No click listener for API-defined unavailable slots
+            } else { // Potentially bookable slot (timeValue is positive)
+                button.textContent = formatTime(timeValue); // Always show the formatted time
+                button.dataset.time = timeValue;
+
+                if (effectiveIsActive) {
+                    button.classList.add('time-slot-available');
+                    button.disabled = false;
+                    // Add click listener ONLY for truly active buttons
+                    button.addEventListener('click', function() {
+                        selectedTimeValueSpan.textContent = this.textContent;
+                        currentSelectedDecimalTime = parseFloat(this.dataset.time); // Store decimal time
+                        timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
+                        this.classList.add('time-slot-button-selected');
+
+                        currentShiftUsagePolicy = (shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null;
+
+                        const currentAddonsDisplayArea = document.getElementById('addonsDisplayArea');
+                        if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = '';
+                        resetCurrentSelectedAddons();
+                        const guestCount = parseInt(coversSelector.value);
+                        if (shiftObject.addons && Array.isArray(shiftObject.addons) && shiftObject.addons.length > 0) {
+                            renderAddons(shiftObject.addons, shiftObject.usage, guestCount, shiftObject.name);
+                        } else {
+                            if (currentAddonsDisplayArea) currentAddonsDisplayArea.innerHTML = `<p>${languageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+                        }
+                        updateNextButtonState();
+                    });
+                } else { // Not active due to other logic (e.g. area/session mismatch, isActive was passed as false)
+                    button.classList.add('time-slot-inactive'); // New class for styling
+                    button.disabled = true;
+                    // No click listener for inactive slots
+                }
+            }
+            return button;
+        }
+
+        function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
+            if (!timeSelectorContainer || !selectedTimeValueSpan) return;
+
+            // Centralized visibility for areaSelectorContainer based on config
+            if (areaSelectorContainer) {
+                if (config.arSelect === "true") {
+                    areaSelectorContainer.style.display = 'block'; // Or appropriate visible style
+                } else {
+                    areaSelectorContainer.style.display = 'none';
+                    if (areaRadioGroupContainer) areaRadioGroupContainer.innerHTML = ''; // Clear radios if section is hidden
+                    if (areaAvailabilityMessage) {
+                        areaAvailabilityMessage.textContent = '';
+                        areaAvailabilityMessage.style.display = 'none';
+                    }
+                }
+            }
+
+            timeSelectorContainer.innerHTML = '';
+            selectedTimeValueSpan.textContent = '-';
+            currentSelectedDecimalTime = null; // Reset stored decimal time
+            currentShiftUsagePolicy = null;
+            updateNextButtonState();
+
+            const addonsDisplay = document.getElementById('addonsDisplayArea');
+            if (addonsDisplay) addonsDisplay.innerHTML = '';
+            resetCurrentSelectedAddons();
+
+            // Populate Area Selector with Radio Buttons
+            if (areaAvailabilityMessage) { // Clear any previous global area messages
+                areaAvailabilityMessage.textContent = '';
+                areaAvailabilityMessage.style.display = 'none';
+            }
+
+            if (config.arSelect === "true" && areaRadioGroupContainer) {
+                areaRadioGroupContainer.innerHTML = '';
+
+                const areas = availabilityData.areas;
+                let radiosPopulated = false;
+
+                // Determine uidToSelect:
+                // Start with current module-scoped currentSelectedAreaUID (which would be the sticky one if called from handleDateOrCoversChange)
+                let uidToSelect = currentSelectedAreaUID;
+
+                // Validate uidToSelect against the new availabilityData.areas
+                let SPUIDIsValidInNewData = false;
+                if (uidToSelect) {
+                    if (uidToSelect === "any" && config.areaAny === "true") {
+                        SPUIDIsValidInNewData = true;
+                    } else if (uidToSelect !== "any" && areas && Array.isArray(areas)) {
+                        SPUIDIsValidInNewData = areas.some(area => area.uid.toString() === uidToSelect);
+                    }
+                }
+
+                if (!SPUIDIsValidInNewData) { // If no valid current/sticky selection, apply defaults
+                    if (config.areaAny === "true") {
+                        uidToSelect = "any";
+                    } else if (areas && Array.isArray(areas) && areas.length > 0) {
+                        uidToSelect = areas[0].uid.toString();
+                    } else {
+                        uidToSelect = null; // No possible selection
+                    }
+                }
+                // 'uidToSelect' now holds the definitive UID that should be checked, or null.
+
+                // Build "Any Area" radio button
+                if (config.areaAny === "true") {
+                    const radioId = "area-any";
+                    const radioItemContainer = document.createElement('div');
+                    radioItemContainer.className = 'area-radio-item';
+                    const radio = document.createElement('input');
+                    radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = 'any';
+                    radio.checked = (uidToSelect === 'any');
+                    const label = document.createElement('label');
+                    label.htmlFor = radioId; label.textContent = languageStrings.anyAreaText || "Any Area";
+                    radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
+                    areaRadioGroupContainer.appendChild(radioItemContainer);
+                    radiosPopulated = true;
+                }
+
+                // Build specific area radio buttons
+                if (areas && Array.isArray(areas) && areas.length > 0) {
+                    areas.forEach((area) => {
+                        const radioId = `area-${area.uid}`;
+                        const radioItemContainer = document.createElement('div');
+                        radioItemContainer.className = 'area-radio-item';
+                        const radio = document.createElement('input');
+                        radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = area.uid.toString();
+                        radio.checked = (uidToSelect === area.uid.toString());
+                        const label = document.createElement('label');
+                        label.htmlFor = radioId; label.textContent = area.name;
+                        radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
+                        areaRadioGroupContainer.appendChild(radioItemContainer);
+                        radiosPopulated = true;
+                    });
+                }
+
+                // 2. If no radio was checked based on currentSelectedAreaUID, apply defaults
+                if (radiosPopulated && !getSelectedRadioValue("areaSelection")) {
+                    let defaultRadioToSelect = null;
+                    if (config.areaAny === "true") {
+                        defaultRadioToSelect = areaRadioGroupContainer.querySelector('input[type="radio"][value="any"]');
+                    }
+                    if (!defaultRadioToSelect && areas && Array.isArray(areas) && areas.length > 0) {
+                        const firstSpecificAreaValue = areas[0].uid.toString();
+                        defaultRadioToSelect = areaRadioGroupContainer.querySelector(`input[type="radio"][value="${firstSpecificAreaValue}"]`);
+                    }
+                    if (defaultRadioToSelect) {
+                        defaultRadioToSelect.checked = true;
+                    }
+                }
+
+                if (!radiosPopulated) {
+                    currentSelectedAreaUID = null;
+                }
+                // currentSelectedAreaUID will be updated after this block by getSelectedRadioValue
+                // The duplicated block that referenced targetSelectedUID and radioToActuallyCheck has been removed.
+                // The logic above this (starting with let uidToSelect = currentSelectedAreaUID;)
+                // now correctly determines which radio button is checked.
+            }
+            // If config.arSelect is false, areaSelectorContainer and its contents are handled at the start of displayTimeSlots
+
+            currentSelectedAreaUID = getSelectedRadioValue("areaSelection");
+            updateSelectedAreaDisplay(); // Update after area radio group is populated/changed
+
+            const allShifts = availabilityData.shifts;
+            let foundAnySlotsToShowOverall = false;
+
+            if (!allShifts || !Array.isArray(allShifts) || allShifts.length === 0) {
+                // This message applies if no shifts returned at all, regardless of area selection
+                timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No time slots available.'}</p>`;
+                if (config.arSelect === "true" && currentSelectedAreaUID && currentSelectedAreaUID !== "any" && areaAvailabilityMessage) {
+                    // If a specific area was selected and no shifts came back, it's effectively no times for area
+                     areaAvailabilityMessage.textContent = languageStrings.noTimesForArea || "This area is not available at this time. Please choose another area.";
+                     areaAvailabilityMessage.style.display = 'block';
+                }
+                updateNextButtonState();
+                return;
+            }
+
+            // Logic for displaying times based on selected area
+            if (config.arSelect === "true" && currentSelectedAreaUID && currentSelectedAreaUID !== "any") {
+                const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentSelectedAreaUID);
+
+                if (!selectedAreaObject) {
+                    console.error(`Selected area UID ${currentSelectedAreaUID} not found in availabilityData.areas.`);
+                    timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorGeneric || "An error occurred displaying area times."}</p>`;
+                    updateNextButtonState();
+                    return;
+                }
+
+                const selectedAreaGeneralTimes = selectedAreaObject.times;
+                if (!selectedAreaGeneralTimes || selectedAreaGeneralTimes.length === 0) {
+                    if (areaAvailabilityMessage) {
+                         areaAvailabilityMessage.textContent = (languageStrings.noTimesForArea || "This area has no available times on this date.").replace('{areaName}', selectedAreaObject.name);
+                         areaAvailabilityMessage.style.display = 'block';
+                    }
+                    timeSelectorContainer.innerHTML = '';
+                    updateNextButtonState();
+                    return;
+                }
+
+                allShifts.forEach(shift => {
+                    if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+
+                    const shiftTitle = document.createElement('h3');
+                    shiftTitle.textContent = shift.name;
+                    timeSelectorContainer.appendChild(shiftTitle);
+
+                    if (shift.message && shift.message.trim() !== '') {
+                        const shiftMessageDiv = document.createElement('div');
+                        shiftMessageDiv.className = 'api-message shift-message';
+                        shiftMessageDiv.textContent = shift.message;
+                        timeSelectorContainer.appendChild(shiftMessageDiv);
+                    }
+
+                    // const sessionMessageDiv = document.createElement('div'); // REMOVED
+                    // sessionMessageDiv.className = 'session-area-availability-message'; // REMOVED
+
+                    const shiftButtonContainer = document.createElement('div');
+                    shiftButtonContainer.className = 'shift-times-wrapper';
+
+                    const currentShiftSessionTimes = shift.times;
+
+                    if (!currentShiftSessionTimes || !Array.isArray(currentShiftSessionTimes)) {
+                        console.warn(`Shift '${shift.name}' (UID: ${shift.uid}) is missing 'times' (session times) data or it's not an array, for area '${selectedAreaObject.name}'.`);
+                    }
+
+                    // Determine actual bookable times for messaging (true intersection)
+                    const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
+                        areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
+                    );
+
+                    if (actualBookableTimesForShiftInArea.length > 0) {
+                        // sessionMessageDiv.textContent = ''; // REMOVED
+                        // sessionMessageDiv.style.display = 'none'; // REMOVED
+                        // Iterate over all of the shift's defined times to show all potential slots
+                        currentShiftSessionTimes.forEach(timeValueFromShift => {
+                            if (timeValueFromShift < 0 && !showUnavailableSlots) return; // Skip negative times if not showing unavailable
+
+                            let buttonIsActive;
+                            if (isInitialRenderCycle && config.areaAny === "false") {
+                                // On initial load where an area is auto-selected because areaAny is false, show all its shift's times as active
+                                buttonIsActive = true;
+                            } else {
+                                // Normal operation: active only if the time is in the selected area's general times
+                                buttonIsActive = selectedAreaGeneralTimes.includes(timeValueFromShift);
+                            }
+                            // However, if the time itself is negative (API unavailable), it's never active for clicking.
+                            // createTimeSlotButton handles the display for timeValue < 0.
+                            // We only pass isActive based on area/session matching for positive times.
+                            if (timeValueFromShift < 0) buttonIsActive = false;
+
+                            const button = createTimeSlotButton(timeValueFromShift, shift, buttonIsActive);
+                            if (button) {
+                                shiftButtonContainer.appendChild(button);
+                                foundAnySlotsToShowOverall = true;
+                            }
+                        });
+                    } else {
+                        // let msg = languageStrings.areaNotAvailableForSession || "{areaName} is not available for the {shiftName} session."; // REMOVED
+                        // msg = msg.replace('{areaName}', selectedAreaObject.name).replace('{shiftName}', shift.name); // REMOVED
+                        // sessionAreaMessageDiv.textContent = msg; // REMOVED - This was likely a typo for sessionMessageDiv
+                        // sessionMessageDiv.textContent = msg; // REMOVED
+                        // sessionMessageDiv.style.display = 'block'; // REMOVED
+                        // No buttons in shiftButtonContainer as it's empty by default
+                    }
+                    // Insert the button container for this shift. The session message div is no longer appended.
+                    // timeSelectorContainer.appendChild(sessionAreaMessageDiv); // REMOVED - This was sessionMessageDiv before, also removed.
+                    timeSelectorContainer.appendChild(shiftButtonContainer);
+                });
+
+                // If after checking all shifts, no times were found for this specific area in any valid session.
+                // This message is less critical now as per-shift messages are more specific.
+                // The global areaAvailabilityMessage is better used if areaSpecificTimes itself is empty.
+                // Consider removing this 'noAreaTimesForAnySession' or making it a fallback for timeSelectorContainer.
+                // For now, let's rely on the per-session messages and the final check on foundAnySlotsToShowOverall for timeSelectorContainer.
+                // The previous logic for 'noAreaTimesForAnySession' in areaAvailabilityMessage is removed.
+
+            } else { // "Any Area" selected or area selection not active
+                allShifts.forEach(shift => {
+                    if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+                    const shiftTitle = document.createElement('h3');
+                    shiftTitle.textContent = shift.name;
+                    timeSelectorContainer.appendChild(shiftTitle);
+                     if (shift.message && shift.message.trim() !== '') {
+                        const shiftMessageDiv = document.createElement('div');
+                        shiftMessageDiv.className = 'api-message shift-message';
+                        shiftMessageDiv.textContent = shift.message;
+                        timeSelectorContainer.appendChild(shiftMessageDiv);
+                    }
+                    // sessionMessageDiv should not be created or managed here for "Any Area"
+                    const shiftButtonContainer = document.createElement('div');
+                    shiftButtonContainer.className = 'shift-times-wrapper';
+                    timeSelectorContainer.appendChild(shiftButtonContainer);
+
+                    if (Array.isArray(shift.times) && shift.times.length > 0) {
+                        shift.times.forEach(timeValue => {
+                            // For "Any Area" or when area selection is off, all defined shift times are active (unless < 0)
+                            const button = createTimeSlotButton(timeValue, shift, true);
+                            if (button) {
+                                shiftButtonContainer.appendChild(button);
+                                foundAnySlotsToShowOverall = true;
+                            }
+                        });
+                    } else {
+                        const noTimesMsg = document.createElement('p');
+                        noTimesMsg.className = 'no-times-for-shift-message';
+                        noTimesMsg.textContent = `No specific times listed for ${shift.name}.`;
+                        shiftButtonContainer.appendChild(noTimesMsg);
+                         // foundAnySlotsToShowOverall = true; // Technically true, we showed *something* for the shift
+                    }
+                });
+            }
+
+            if (!foundAnySlotsToShowOverall) {
+                 timeSelectorContainer.innerHTML = `<p class="no-times-message">${languageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
+                 // No specific area message needed here, as it's "Any Area" or area selection is off
+            }
+            updateNextButtonState(); // Update button state based on what was actually rendered and selected
+
+            // Attempt to re-select a sticky time if one was desired and is available
+            if (stickyTimeAttempt !== null) {
+                const allTimeSlotButtons = timeSelectorContainer.querySelectorAll('.time-slot-button');
+                let foundAndClickedStickyTime = false;
+                allTimeSlotButtons.forEach(button => {
+                    if (!button.disabled && parseFloat(button.dataset.time) === stickyTimeAttempt && !foundAndClickedStickyTime) {
+                        button.click();
+                        foundAndClickedStickyTime = true;
+                    }
+                });
+            }
+            // The stickyTimeAttempt is a local parameter, so it's naturally "reset" on the next call.
+        }
+
         async function handleDateOrCoversChange() {
+            // const previouslySelectedAreaOnEntry = currentSelectedAreaUID; // REMOVED - Area stickiness simplified
+            const previouslySelectedTimeOnEntry = currentSelectedDecimalTime; // Preserve time intent
+
             if (!dateSelector || !coversSelector || !selectedDateValueSpan || !selectedCoversValueSpan || !selectedTimeValueSpan || !timeSelectorContainer || !dailyRotaMessageDiv) return;
             const selectedDateStr = dateSelector.value;
             const coversValue = parseInt(coversSelector.value, 10);
@@ -726,12 +1069,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 selectedDateValueSpan.textContent = '-'; 
                 selectedCoversValueSpan.textContent = '-';
                 selectedTimeValueSpan.textContent = '-';
+                if (selectedAreaValueSpan) selectedAreaValueSpan.textContent = '-';
                 currentShiftUsagePolicy = null; updateNextButtonState(); // Explicitly update here
                 return;
             }
             selectedDateValueSpan.textContent = selectedDateStr || '-';
             selectedCoversValueSpan.textContent = coversValue || '-';
-            selectedTimeValueSpan.textContent = '-'; 
+            selectedTimeValueSpan.textContent = '-'; // Visual reset for time display
+            currentSelectedDecimalTime = null; // Reset actual stored decimal time; displayTimeSlots will attempt re-selection based on previouslySelectedTimeOnEntry
+
+            currentSelectedAreaUID = null; // Reset area selection; displayTimeSlots will apply defaults
+            if (selectedAreaValueSpan) {
+                 selectedAreaValueSpan.textContent = '-'; // Temporarily clear display; will be updated by displayTimeSlots
+            }
             currentShiftUsagePolicy = null; updateNextButtonState(); // Explicitly update here
 
             if (!currentEstName) { 
@@ -750,38 +1100,157 @@ document.addEventListener('DOMContentLoaded', async () => {
             // currentShiftUsagePolicy will be null here, button should be disabled until times load and one is selected.
             // updateNextButtonState(); // Already called above
 
-            const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue);
-            if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
-                dailyRotaMessageDiv.textContent = availabilityData.message;
-                dailyRotaMessageDiv.style.display = 'block';
-            } else {
-                dailyRotaMessageDiv.textContent = ''; 
-                dailyRotaMessageDiv.style.display = 'none';
-            }
-            if (availabilityData && availabilityData.shifts && availabilityData.shifts.length > 0) {
-                displayTimeSlots(availabilityData.shifts);
-            } else {
-                timeSelectorContainer.innerHTML = ''; 
-                if (!dailyRotaMessageDiv.textContent) { 
-                    let messageToShow = languageStrings.noTimesAvailableDaySize || 'No time slots available for the selected date or party size.';
-                    if (availabilityData && availabilityData.message && availabilityData.message.trim() !== '') {
-                         messageToShow = languageStrings.noTimesAvailableDaySize || 'No time slots available for the selected date or party size.';
-                    } else if (!availabilityData && !dailyRotaMessageDiv.textContent) { 
-                        messageToShow = languageStrings.errorLoadingTimes || 'Could not load times. Please check connection or try again.';
-                    }
-                     timeSelectorContainer.innerHTML = `<p class="error-message">${messageToShow}</p>`;
+            try {
+                // currentSelectedAreaUID is used directly by fetchAvailableTimes.
+                // It's updated by handleAreaChange or by displayTimeSlots after initial load.
+                // The initial currentSelectedAreaUID on page load will be null, which is fine.
+                // fetchAvailableTimes handles null as default/any.
+                // displayTimeSlots then populates areaSelector and updates currentSelectedAreaUID.
+
+                const availabilityData = await fetchAvailableTimes(currentEstName, selectedDateStr, coversValue);
+                currentAvailabilityData = availabilityData; // Store globally
+                isInitialRenderCycle = true; // Reset flag for the new data
+
+                // The area population and currentSelectedAreaUID update happens in displayTimeSlots using the *returned* availabilityData.
+                // So, the call to displayTimeSlots below will handle it.
+
+                if (currentAvailabilityData && currentAvailabilityData.message && currentAvailabilityData.message.trim() !== '') {
+                    dailyRotaMessageDiv.textContent = availabilityData.message;
+                    dailyRotaMessageDiv.style.display = 'block';
+                } else {
+                    dailyRotaMessageDiv.textContent = '';
+                    dailyRotaMessageDiv.style.display = 'none';
                 }
-                selectedTimeValueSpan.textContent = '-';
-                currentShiftUsagePolicy = null; // Reset policy
-                updateNextButtonState(); // Update button state
+
+                // Pass the whole availabilityData to displayTimeSlots
+                if (currentAvailabilityData) { // Ensure currentAvailabilityData is not null
+                    displayTimeSlots(currentAvailabilityData, previouslySelectedTimeOnEntry); // Pass sticky time attempt
+                } else {
+                    // Handle case where fetchAvailableTimes returned null (e.g., network error through its own catch)
+                    // This specific 'else' might be hit if fetchAvailableTimes returns null without throwing an error that the outer try/catch would get.
+                    if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please try again.'}</p>`;
+                    if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+                    // Do not hide areaSelectorContainer here if config.arSelect is true
+                    if (areaAvailabilityMessage) {
+                        areaAvailabilityMessage.textContent = '';
+                        areaAvailabilityMessage.style.display = 'none';
+                    }
+                    currentShiftUsagePolicy = null;
+                    updateNextButtonState();
+                }
+            } catch (error) {
+                console.error('Error during availability fetch/processing in handleDateOrCoversChange:', error);
+                if (timeSelectorContainer) timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Could not load times. Please try again.'}</p>`;
+                if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+                // Do not hide areaSelectorContainer here if config.arSelect is true
+                if (areaAvailabilityMessage) {
+                    areaAvailabilityMessage.textContent = '';
+                    areaAvailabilityMessage.style.display = 'none';
+                }
+                currentShiftUsagePolicy = null;
+                updateNextButtonState();
+            }
+        }
+
+
+        async function handleAreaChange(event) { // Added event parameter
+            // desiredStickyTime (module-scoped) has been removed.
+            // When an area is explicitly changed, any time stickiness is implicitly cleared
+            // because currentSelectedDecimalTime is reset below, and displayTimeSlots is called without a stickyTimeAttempt.
+
+            // Ensure the event target is an input element, part of the radio group
+            if (!event || !event.target || event.target.name !== 'areaSelection') {
+                return;
+            }
+            isInitialRenderCycle = false; // User has interacted with area selection
+            currentSelectedAreaUID = event.target.value;
+            updateSelectedAreaDisplay(); // Update display when area changes
+
+            if (timeSelectorContainer) {
+                timeSelectorContainer.innerHTML = `<p class="loading-message">${languageStrings.loadingTimes || 'Loading times...'}</p>`;
+            }
+            const addonsDisplay = document.getElementById('addonsDisplayArea');
+            if (addonsDisplay) addonsDisplay.innerHTML = '';
+            resetCurrentSelectedAddons();
+
+            if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+            currentSelectedDecimalTime = null; // Reset stored decimal time
+
+            if (areaAvailabilityMessage) {
+                areaAvailabilityMessage.textContent = '';
+                areaAvailabilityMessage.style.display = 'none';
+            }
+            // Instead of re-fetching, use the stored global availability data
+            if (currentAvailabilityData) {
+                displayTimeSlots(currentAvailabilityData);
+            } else {
+                // Fallback if data hasn't been fetched yet (e.g. initial load error or race condition)
+                console.warn("handleAreaChange called but currentAvailabilityData is null. Attempting to fetch.");
+                // Display a general loading/error or try to trigger a full fetch if appropriate
+                // For now, just indicate that times can't be displayed without data.
+                if (timeSelectorContainer) {
+                     timeSelectorContainer.innerHTML = `<p class="error-message">${languageStrings.errorLoadingTimes || 'Data not loaded. Please select date/covers again.'}</p>`;
+                }
+                // Optionally, could call: await handleDateOrCoversChange();
+                // But the instruction is client-side re-render. If data isn't there, nothing to render for area change.
             }
         }
 
         function setupEventListeners() {
             if (dateSelector) dateSelector.addEventListener('change', handleDateOrCoversChange);
             if (coversSelector) coversSelector.addEventListener('change', handleDateOrCoversChange);
+            if (areaRadioGroupContainer) areaRadioGroupContainer.addEventListener('change', handleAreaChange); // Changed to areaRadioGroupContainer
+
+            const nextButton = document.getElementById('nextButton');
+            if (nextButton) {
+                nextButton.addEventListener('click', handleNextButtonClick);
+            }
         }
         setupEventListeners();
+
+        async function handleNextButtonClick() {
+            const est = currentEstName;
+            const language = (config && config.usrLang) ? config.usrLang.replace(/['"]/g, '') : 'en'; // Remove potential quotes
+            const numCovers = coversSelector ? coversSelector.value : null;
+            const selectedDate = dateSelector ? dateSelector.value : null;
+            const decimalTime = currentSelectedDecimalTime; // Already a float or null
+
+            let areaToSubmit = null;
+            if (config.arSelect === "true" && currentSelectedAreaUID && currentSelectedAreaUID !== "any") {
+                areaToSubmit = currentSelectedAreaUID;
+            }
+
+            const addonsString = formatSelectedAddons(currentSelectedAddons);
+
+            if (!selectedDate || decimalTime === null || !numCovers || !est) { // Check decimalTime against null explicitly
+                console.error("Missing required data for hold call:", { selectedDate, decimalTime, numCovers, est });
+                // Optionally, display a user-friendly message to the user here
+                return;
+            }
+
+            const holdApiData = {
+                est: est,
+                lng: language,
+                covers: parseInt(numCovers, 10), // Ensure covers is an integer
+                date: selectedDate,
+                time: decimalTime,
+                area: areaToSubmit, // Will be null if not applicable
+                addons: addonsString // Add formatted addons string
+            };
+            console.log("Hold API Call Data:", holdApiData);
+
+            // Construct the example URL for logging (filtering out null/undefined params)
+            let holdUrl = `https://nz.eveve.com/web/hold?est=${holdApiData.est}&lng=${holdApiData.lng}&covers=${holdApiData.covers}&date=${holdApiData.date}&time=${holdApiData.time}`;
+            if (holdApiData.area) { // Only add area if it's not null
+                holdUrl += `&area=${holdApiData.area}`;
+            }
+            if (holdApiData.addons && holdApiData.addons !== "") { // Check if addons string is not empty
+                holdUrl += `&addons=${holdApiData.addons}`;
+            }
+            console.log("Example Hold API URL:", holdUrl);
+
+            // Actual fetch call will be added in a subsequent step.
+        }
 
         // console.log(`Performing initial load for ${currentEstName}`); // Removed
         if (currentEstName && dateSelector && dateSelector.value && coversSelector && parseInt(coversSelector.value) > 0) {

@@ -23,6 +23,14 @@
                 <input type="number" id="coversSelector" name="numberOfGuests" min="1">
             </div>
 
+            <div id="areaSelectorContainer" style="display: none;">
+                <label>Select Area:</label> <!-- Removed 'for' attribute -->
+                <div id="areaRadioGroupContainer">
+                    <!-- Radio buttons will be populated by JavaScript -->
+                </div>
+            </div>
+            <p id="areaAvailabilityMessage" style="display: none;"></p>
+
             <div>
                 <label for="timeSelectorContainer">Select Time:</label>
                 <div id="timeSelectorContainer" class="time-slots">
@@ -41,6 +49,7 @@
                 <p>Date: <span id="selectedDateValue">-</span></p>
                 <p>Guests: <span id="selectedCoversValue">-</span></p>
                 <p>Time: <span id="selectedTimeValue">-</span></p>
+                <p>Area: <span id="selectedAreaValue">-</span></p>
                 <p>Addons: <span id="selectedAddonsValue">-</span></p> 
             </div>
         </div>
