@@ -274,7 +274,7 @@ function timeSlotDelegatedListener(event) {
         const timeValue = parseFloat(button.dataset.time);
         const shiftUid = button.dataset.shiftUid;
         const availabilityData = getCurrentAvailabilityData();
-        const shiftObject = availabilityData?.shifts?.find(s => s.uid.toString() === shiftUid);
+        const shiftObject = availabilityData?.shifts?.find(s => s && s.uid != null && s.uid.toString() === shiftUid);
 
         if (shiftObject) {
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
