@@ -34,7 +34,7 @@
             <div>
                 <label for="timeSelectorContainer">Select Time:</label>
                 <div id="timeSelectorContainer" class="time-slots">
-                    <!-- Time slots will be populated by form_logic.js -->
+                    <!-- Time slots will be populated by JavaScript -->
                 </div>
             </div>
 
@@ -60,7 +60,13 @@
 
         <!-- Removed script tag with id="configData" -->
 
-        <script src="form_logic.js"></script>
+        <script src="dom_utils.js" type="module"></script>
+        <script src="config_manager.js" type="module"></script>
+        <script src="state_manager.js" type="module"></script>
+        <script src="api_service.js" type="module"></script>
+        <script src="ui_manager.js" type="module"></script>
+        <script src="event_handlers.js" type="module"></script>
+        <script src="main.js" type="module"></script>
     </div>
 </body>
 </html>
