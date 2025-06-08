@@ -139,7 +139,7 @@ def get_config_for_establishment(est_name: str) -> dict | None:
         # Extracted values might have quotes, e.g., "'NZ'" or "\"NZ\""
         if country_val and isinstance(country_val, str):
             # Remove typical surrounding quotes and whitespace
-            cleaned_country_val = country_val.strip().strip("'"'"")
+            cleaned_country_val = country_val.strip().strip("'\"")
             if cleaned_country_val == "NZ":
                 # Force currSym to '$' for NZ establishments
                 variables_dict["currSym"] = "$"  # Store as a clean '$'
