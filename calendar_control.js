@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
             minDate: "today", // Disable past dates
             defaultDate: "today", // Select today's date by default
             dateFormat: "Y-m-d", // Internal format for Flatpickr
+            monthSelectorType: 'static', // Ensures month is displayed as text, not a dropdown
+            disableMobile: true, // Recommended for custom UIs to ensure desktop behavior
+            locale: {
+                firstDayOfWeek: 1 // 0 for Sunday, 1 for Monday, etc.
+            },
             onChange: function(selectedDates, dateStr, instance) {
                 if (selectedDates.length > 0) {
                     const displayDate = instance.formatDate(selectedDates[0], "D M j | Y");

@@ -446,6 +446,8 @@ input[type="text"].qty-input[readonly] {
     border: 1px solid #ddd; /* Optional: a light border around the calendar area when visible */
     border-top: none; /* Optional: if top-bar acts as top border */
     border-radius: 0 0 4px 4px; /* Match top bar if it's rounded */
+    box-sizing: border-box; /* If any padding/border is added directly to host later */
+    width: 100%; /* Explicitly set, though div usually defaults to this */
 }
 
 /* Class to be added by JS to show the calendar */
@@ -471,6 +473,8 @@ input[type="text"].qty-input[readonly] {
     color: white;
     padding: 10px 0;
     border-radius: 4px 4px 0 0; /* Match top bar if it's rounded, assuming host border is separate */
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 .flatpickr-months .flatpickr-month {
@@ -502,6 +506,8 @@ input[type="text"].qty-input[readonly] {
 .flatpickr-weekdays {
     background-color: #f8f8f8; /* Light background for weekday header */
     padding: 5px 0;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 span.flatpickr-weekday {
     color: #333; /* Dark text for weekdays */
@@ -513,6 +519,8 @@ span.flatpickr-weekday {
 .dayContainer {
     padding: 5px;
     background-color: #fff; /* Ensure background of days area is white */
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
 }
 
 /* Individual days */
@@ -586,4 +594,52 @@ span.flatpickr-weekday {
 
 .flatpickr-rContainer {
     /* background-color: #fff; */
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
+}
+
+/* This is the direct container for dayContainer usually */
+.flatpickr-days {
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
+}
+
+/* Simplify Flatpickr Header - No Dropdowns/Spinners */
+
+/* Hide the dropdown arrow for months if it appears */
+.flatpickr-months .flatpickr-month .flatpickr-current-month span.flatpickr-monthDropdown-arrow {
+    display: none !important;
+}
+
+/* Hide the up/down arrows for the year input */
+.flatpickr-months .flatpickr-current-month .numInputWrapper span.arrowUp,
+.flatpickr-months .flatpickr-current-month .numInputWrapper span.arrowDown {
+    display: none !important;
+}
+
+/* Optionally, make the year input look like static text if it's still an input field. */
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important; /* Adjust if needed */
+    pointer-events: none !important; /* Makes it non-interactive */
+    /* color: white; /* Should inherit from .flatpickr-months .flatpickr-month */
+}
+
+/* Ensure the month text itself is not styled like a dropdown */
+.flatpickr-months .flatpickr-month .flatpickr-current-month .cur-month {
+    /* Default styling is usually fine if not a dropdown */
+    padding: 0; /* Remove any padding that suggests it's clickable */
+}
+
+/* Adjust spacing for the month/year text if necessary after hiding elements */
+.flatpickr-current-month {
+   display: flex;
+   align-items: center;
+   justify-content: center; /* Center the "Month Year" text */
+   padding-left: 0; /* Reset padding from flatpickr themes */
+}
+.flatpickr-current-month .numInputWrapper {
+   margin-left: 0.25em; /* Small space between month and year */
 }
