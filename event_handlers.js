@@ -147,14 +147,17 @@ function handleUsage2ButtonClick(clickedButton, addonDataset, change) {
 }
 
 export async function handleDateOrCoversChange() {
-    const dateSelector = document.getElementById('dateSelector');
-    const coversDisplay = document.getElementById('covers-display'); // Changed ID
+    // const dateSelector = document.getElementById('dateSelector'); // Old date selector
+    const calendarTopBar = document.getElementById('calendar-top-bar');
+    const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
+
+    const coversDisplay = document.getElementById('covers-display');
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
 
     const previouslySelectedTimeOnEntry = getCurrentSelectedDecimalTime();
-    const selectedDateStr = dateSelector.value;
-    const coversValue = parseInt(coversDisplay.value, 10); // Changed reference
+    // selectedDateStr is now from calendarTopBar.dataset.selectedDate
+    const coversValue = parseInt(coversDisplay.value, 10);
     const localLanguageStrings = getLanguageStrings();
     const localCurrentEstName = getCurrentEstName();
 
@@ -162,17 +165,21 @@ export async function handleDateOrCoversChange() {
     setCurrentShiftUsagePolicy(null);
     updateDailyRotaMessage('');
 
-    if (selectedDateStr < getTodayDateString()) {
-        displayErrorMessageInTimesContainer('errorDateInPast', 'Selected date is in the past. Please choose a current or future date.');
+    // Ensure selectedDateStr is validated before use, especially against getTodayDateString()
+    if (!selectedDateStr || selectedDateStr < getTodayDateString()) {
+        const messageKey = !selectedDateStr ? 'errorInvalidInput' : 'errorDateInPast';
+        const defaultMessage = !selectedDateStr ? 'Please select a valid date.' : 'Selected date is in the past. Please choose a current or future date.';
+        displayErrorMessageInTimesContainer(messageKey, defaultMessage);
+
         if(selectedDateValueSpan) selectedDateValueSpan.textContent = '-';
-        // selectedCoversValueSpan is updated by booking_page.js, but ensure consistency if coversValue is NaN
-        if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = isNaN(coversValue) ? '-' : coversDisplay.value;
+        if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = isNaN(coversValue) ? '-' : coversDisplay.value;
         const selectedAreaValSpan = document.getElementById('selectedAreaValue');
         if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-';
         setCurrentShiftUsagePolicy(null); updateNextBtnUI();
         return;
     }
 
+    // Update the "Your Selection" display for date
     if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
     // selectedCoversValueSpan is updated by booking_page.js, ensure consistency here
     if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value || '-';
@@ -235,13 +242,15 @@ export async function handleAreaChange() {
 export async function handleNextButtonClick() {
     const localConfig = getConfig();
     const localCurrentEstName = getCurrentEstName();
-    const coversDisplay = document.getElementById('covers-display'); // Changed ID
-    const dateSelector = document.getElementById('dateSelector');
+    const coversDisplay = document.getElementById('covers-display');
+    // const dateSelector = document.getElementById('dateSelector'); // Old date selector
+    const calendarTopBar = document.getElementById('calendar-top-bar');
+    const selectedDate = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
 
     const est = localCurrentEstName;
     const language = (localConfig && localConfig.usrLang) ? localConfig.usrLang.replace(/['"]/g, '') : 'en';
-    const numCovers = coversDisplay ? coversDisplay.value : null; // Changed reference
-    const selectedDate = dateSelector ? dateSelector.value : null;
+    const numCovers = coversDisplay ? coversDisplay.value : null;
+    // selectedDate is now from calendarTopBar.dataset.selectedDate
     const timeToSubmit = getCurrentSelectedDecimalTime();
     let areaToSubmit = null;
     if (localConfig.arSelect === "true" && getCurrentSelectedAreaUID() && getCurrentSelectedAreaUID() !== "any") {
@@ -359,17 +368,16 @@ function addonsDelegatedListener(event) {
 }
 
 export function initializeEventHandlers() {
-    const dateSelector = document.getElementById('dateSelector');
-    // const coversSelector = document.getElementById('coversSelector'); // Old selector
-    // The new covers-display input has its own event listener in booking_page.js
-    // which calls window.handleCoversChangeGlobal (handleDateOrCoversChange).
-    // So, we don't need to add a listener to 'covers-display' here for 'change'.
+    // const dateSelector = document.getElementById('dateSelector'); // Old date selector, listener removed
+    // The covers-display input has its own event listener in booking_page.js.
+    // The calendar changes are now handled by calendar_control.js, which calls handleDateOrCoversChange.
+    // So, no direct 'change' listener for date is needed here anymore.
     const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
     const nextButton = document.getElementById('nextButton');
     const timeSelectorContainer = document.getElementById('timeSelectorContainer');
     const addonsDisplayArea = document.getElementById('addonsDisplayArea');
 
-    if (dateSelector) dateSelector.addEventListener('change', handleDateOrCoversChange);
+    // if (dateSelector) dateSelector.addEventListener('change', handleDateOrCoversChange); // Listener removed
     // No longer add listener to coversSelector here, it's handled in booking_page.js
 
     if (areaRadioGroupContainer) {

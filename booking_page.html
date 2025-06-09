@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Booking Form</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,9 +13,14 @@
         <h1>Book at <span id="restaurantName">[Restaurant Name Placeholder]</span></h1>
 
         <div class="form-selectors">
-            <div>
-                <label for="dateSelector">Select Date:</label>
-                <input type="date" id="dateSelector" name="bookingDate">
+            <div id="custom-calendar-container">
+                <div id="calendar-top-bar">
+                    <!-- Date will be displayed here by JavaScript -->
+                    Select a Date
+                </div>
+                <div id="flatpickr-calendar-host">
+                    <!-- Flatpickr will render its calendar here -->
+                </div>
             </div>
             <div id="dailyRotaMessage" class="api-message daily-message"></div>
 
@@ -64,6 +70,8 @@
 
         <!-- Removed script tag with id="configData" -->
 
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="calendar_control.js"></script>
         <script src="booking_page.js"></script>
         <script src="dom_utils.js" type="module"></script>
         <script src="config_manager.js" type="module"></script>

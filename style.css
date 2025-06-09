@@ -419,3 +419,171 @@ input[type="text"].qty-input[readonly] {
     background-color: #004085;
     border-color: #004085;
 }
+
+/* Custom Calendar Styling */
+#custom-calendar-container {
+    max-width: 400px;
+    margin: 0 auto 20px auto; /* Center it and give some bottom margin */
+    position: relative; /* For potential absolute positioning of children if needed */
+}
+
+#calendar-top-bar {
+    background-color: #f05a28;
+    color: white;
+    padding: 10px 15px;
+    font-size: 1.1em;
+    border-radius: 4px; /* Optional: slightly rounded corners for the bar */
+    cursor: pointer; /* To indicate it's clickable for show/hide */
+    text-align: center; /* Default text alignment */
+}
+
+#flatpickr-calendar-host {
+    /* Initially hidden, prepared for slide animation */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out; /* Animation for show/hide */
+    /* Styles to ensure Flatpickr itself looks okay when visible will be in Step 5 */
+    border: 1px solid #ddd; /* Optional: a light border around the calendar area when visible */
+    border-top: none; /* Optional: if top-bar acts as top border */
+    border-radius: 0 0 4px 4px; /* Match top bar if it's rounded */
+}
+
+/* Class to be added by JS to show the calendar */
+#flatpickr-calendar-host.calendar-visible {
+    max-height: 500px; /* Adjust as needed to fit calendar content */
+    /* border color/style might need adjustment when flatpickr is themed */
+}
+
+/* Flatpickr Theme Styling */
+
+/* Ensure the calendar itself respects the container width */
+.flatpickr-calendar {
+    width: 100% !important; /* Override inline styles if any */
+    max-width: 100%; /* Ensure it fits in #custom-calendar-container */
+    box-shadow: none !important; /* Remove default shadow if not desired */
+    border: none !important; /* Remove default border if #flatpickr-calendar-host handles it */
+    background-color: #fff; /* Base background for the calendar */
+}
+
+/* Month and Year navigation */
+.flatpickr-months {
+    background-color: #f05a28; /* Theme color for the month/year header */
+    color: white;
+    padding: 10px 0;
+    border-radius: 4px 4px 0 0; /* Match top bar if it's rounded, assuming host border is separate */
+}
+
+.flatpickr-months .flatpickr-month {
+    color: white;
+    fill: white; /* For SVG icons within month display */
+}
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    color: white; /* Year input text color */
+}
+.flatpickr-months .flatpickr-current-month .numInputWrapper {
+    color: white; /* wrapper for year input */
+}
+
+
+.flatpickr-prev-month,
+.flatpickr-next-month {
+    color: white !important; /* Arrow color */
+    fill: white !important; /* SVG arrow fill */
+    padding: 0 10px; /* Add some padding around arrows */
+}
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+    color: #fde2d8 !important; /* Lighter shade on hover */
+    fill: #fde2d8 !important;
+}
+
+
+/* Weekdays header (Mon, Tue, etc.) */
+.flatpickr-weekdays {
+    background-color: #f8f8f8; /* Light background for weekday header */
+    padding: 5px 0;
+}
+span.flatpickr-weekday {
+    color: #333; /* Dark text for weekdays */
+    font-weight: bold;
+    text-transform: uppercase; /* Optional: MON TUE WED */
+}
+
+/* Days container */
+.dayContainer {
+    padding: 5px;
+    background-color: #fff; /* Ensure background of days area is white */
+}
+
+/* Individual days */
+.flatpickr-day {
+    color: #333; /* Default day text color */
+    border: 1px solid transparent; /* Prepare for hover/focus */
+    border-radius: 50%; /* Make all days circular for consistent shaping */
+    line-height: 34px; /* Adjust to make it look good with width */
+    width: 34px; /* Adjust for circular shape */
+    height: 34px; /* Adjust for circular shape */
+    margin: 1px; /* Minimal margin between days */
+    font-weight: normal;
+}
+
+.flatpickr-day:hover {
+    background-color: #e9e9e9; /* Light gray on hover for non-selected/today */
+    color: #000;
+}
+
+/* Today's date - specific styling */
+.flatpickr-day.today {
+    border-color: #f05a28; /* Optional: border for today if not selected */
+    color: #f05a28; /* Text color for today if not selected */
+    font-weight: bold;
+}
+.flatpickr-day.today:not(.selected):hover {
+     background-color: #fde2d8; /* Lighter theme color for hover on today */
+     color: white;
+}
+
+
+/* Selected date - primary styling */
+.flatpickr-day.selected,
+.flatpickr-day.startRange, /* For range plugin, if ever used */
+.flatpickr-day.endRange {   /* For range plugin, if ever used */
+    background-color: #f05a28 !important; /* Theme color for selected date */
+    color: white !important; /* White text for selected date */
+    border-color: #f05a28 !important; /* Ensure border matches */
+    font-weight: bold;
+}
+
+/* Today and Selected (when today is also the selected date) */
+.flatpickr-day.today.selected {
+    background-color: #f05a28 !important;
+    color: white !important;
+    border-color: #f05a28 !important;
+}
+
+
+/* Disabled dates (past dates) */
+.flatpickr-day.disabled,
+.flatpickr-day.disabled:hover {
+    color: #ccc; /* Light gray for disabled dates */
+    background-color: #f8f8f8; /* Slightly different background for disabled */
+    cursor: not-allowed;
+    border-color: transparent;
+}
+
+/* Make sure the month/year input fields in the header are also styled if needed */
+.flatpickr-current-month input.cur-year {
+    font-weight: bold;
+}
+.flatpickr-current-month span.cur-month {
+    font-weight: bold;
+}
+
+/* Adjust padding/margins if the calendar content feels too cramped or too spaced out */
+.flatpickr-innerContainer {
+    /* background-color: #fff; */ /* Already white from .flatpickr-calendar */
+}
+
+.flatpickr-rContainer {
+    /* background-color: #fff; */
+}
