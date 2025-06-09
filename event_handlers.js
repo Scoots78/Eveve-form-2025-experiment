@@ -88,7 +88,16 @@ function handleAddonUsage3Selection(eventTarget, addonData) {
 
 function handleUsage2ButtonClick(event, addonDataset, change) {
     const targetButton = event.currentTarget;
-    const qtyInput = targetButton.closest('.addon-quantity-selector').querySelector('.qty-input');
+    const qtyContainer = targetButton.closest('.addon-quantity-selector');
+    if (!qtyContainer) {
+        console.error('BUG_TRACE: Could not find .addon-quantity-selector for button:', targetButton);
+        return;
+    }
+    const qtyInput = qtyContainer.querySelector('.qty-input');
+    if (!qtyInput) {
+        console.error('BUG_TRACE: Could not find .qty-input within container:', qtyContainer);
+        return;
+    }
     let currentValue = parseInt(qtyInput.value);
     const coversSelectorEl = document.getElementById('coversSelector');
     const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
