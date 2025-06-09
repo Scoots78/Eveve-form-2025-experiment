@@ -41,8 +41,7 @@ window.handleCoversChangeGlobal = handleDateOrCoversChange;
 document.addEventListener('DOMContentLoaded', async () => {
     // --- DOM Elements needed for initial setup ---
     const restaurantNameSpan = document.getElementById('restaurantName');
-    const dateSelector = document.getElementById('dateSelector');
-    // const coversSelector = document.getElementById('coversSelector'); // Old selector
+    // const dateSelector = document.getElementById('dateSelector'); // Removed: Old date selector
     const coversDisplay = document.getElementById('covers-display'); // New selector
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
@@ -107,12 +106,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         updateAreaDisplayUI();
 
-        if (dateSelector) {
-            const todayStrForMin = getTodayDateString();
-            dateSelector.min = todayStrForMin;
-            dateSelector.value = todayStrForMin;
-            if (selectedDateValueSpan) selectedDateValueSpan.textContent = todayStrForMin;
-        } else { console.error("Date selector element not found!"); }
+        // Old dateSelector initialization block removed.
+        // Flatpickr in calendar_control.js now handles default date, minDate, and initial display.
+        // selectedDateValueSpan will be updated by the initial call to handleDateOrCoversChange.
+        // The console.error for "Date selector element not found!" is no longer relevant here for the old element.
 
         const partyMin = parseInt(localConfig.partyMin) || 1;
         const partyMax = parseInt(localConfig.partyMax) || 10;
@@ -141,25 +138,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         initializeEventHandlers(); // Attach all event listeners
 
         // Initial data load and UI render
-        // Use coversDisplay.value for the check here
-        if (localCurrentEstName && dateSelector.value && coversDisplay && parseInt(coversDisplay.value) > 0) {
-            if (dateSelector.value >= getTodayDateString()) {
+        const calendarTopBar = document.getElementById('calendar-top-bar');
+        const initialSelectedDate = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
+        // coversDisplay is already defined and its value is set by booking_page.js
+
+        if (localCurrentEstName && initialSelectedDate && coversDisplay && parseInt(coversDisplay.value) > 0) {
+            if (initialSelectedDate >= getTodayDateString()) { // getTodayDateString() is a helper in main.js
                 showLoadingTimes();
-                // Directly call the event handler to perform initial load.
-                // This ensures consistent behavior with user-initiated changes.
-                await handleDateOrCoversChange();
+                await window.handleCoversChangeGlobal(); // Use the globally exposed function
             } else {
+                // This 'else' case (initial date in past) should ideally not happen with Flatpickr's minDate: "today"
                 displayErrorMessageInTimesContainer('errorDateInPastInitial', 'Initial date is in the past. Please select a valid date.');
-                if(selectedDateValueSpan) selectedDateValueSpan.textContent = dateSelector.value;
-                if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value; // Use new display
+                if (selectedDateValueSpan && initialSelectedDate) selectedDateValueSpan.textContent = initialSelectedDate;
+                if (selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
                 setCurrentShiftUsagePolicy(null); updateNextBtnUI();
             }
         } else {
             let promptMessage = localLanguageStrings.promptSelection || 'Please select date and guests for times.';
             if (!localCurrentEstName) {
                 promptMessage = localLanguageStrings.errorConfigMissing || 'Restaurant config missing.';
+            } else if (!initialSelectedDate) {
+                promptMessage = localLanguageStrings.errorDateMissing || 'Please select a date.'; // More specific message
+            } else if (!coversDisplay || !(parseInt(coversDisplay.value) > 0)) {
+                promptMessage = localLanguageStrings.errorCoversMissing || 'Please select number of guests.'; // More specific message
             }
             displayErrorMessageInTimesContainer('promptSelectionInitial', promptMessage);
+            // Update selection display to reflect current state (e.g. if date is missing)
+            if(selectedDateValueSpan) selectedDateValueSpan.textContent = initialSelectedDate || '-';
+            if(selectedCoversValueSpan && coversDisplay && coversDisplay.value !== "0" && coversDisplay.value !== "") selectedCoversValueSpan.textContent = coversDisplay.value;
+            else if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-';
         }
         updateNextBtnUI(); // Final check for button state
 

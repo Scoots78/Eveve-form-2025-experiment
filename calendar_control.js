@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // No need to call handleCoversChangeGlobal here, as main.js triggers the initial data load.
         }
 
+        // Make calendar visible by default on load
+        calendarHost.classList.add('calendar-visible');
+
         // Remove the dynamically created hidden input if it exists from previous step (cleanup)
         // This part might be redundant if it was already removed or never committed, but good for safety.
         const oldHiddenInput = document.getElementById('actualDateInput');
