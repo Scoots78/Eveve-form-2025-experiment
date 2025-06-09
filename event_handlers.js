@@ -86,8 +86,8 @@ function handleAddonUsage3Selection(eventTarget, addonData) {
     updateNextBtnUI();
 }
 
-function handleUsage2ButtonClick(event, addonDataset, change) {
-    const targetButton = event.currentTarget;
+function handleUsage2ButtonClick(clickedButton, addonDataset, change) {
+    const targetButton = clickedButton; // event.currentTarget is wrong here if called from delegate
     const qtyContainer = targetButton.closest('.addon-quantity-selector');
     if (!qtyContainer) {
         console.error('BUG_TRACE: Could not find .addon-quantity-selector for button:', targetButton);
@@ -341,7 +341,7 @@ function addonsDelegatedListener(event) {
         const qtyInput = target.closest('.addon-quantity-selector').querySelector('.qty-input');
         const itemDataset = qtyInput.dataset;
         const change = target.matches('.minus-btn') ? -1 : 1;
-        handleUsage2ButtonClick(event, itemDataset, change);
+        handleUsage2ButtonClick(target, itemDataset, change);
         return;
     }
 
