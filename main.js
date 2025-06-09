@@ -35,11 +35,15 @@ import {
 } from './ui_manager.js';
 import { initializeEventHandlers, handleDateOrCoversChange } from './event_handlers.js';
 
+// Make it available globally for booking_page.js
+window.handleCoversChangeGlobal = handleDateOrCoversChange;
+
 document.addEventListener('DOMContentLoaded', async () => {
     // --- DOM Elements needed for initial setup ---
     const restaurantNameSpan = document.getElementById('restaurantName');
     const dateSelector = document.getElementById('dateSelector');
-    const coversSelector = document.getElementById('coversSelector');
+    // const coversSelector = document.getElementById('coversSelector'); // Old selector
+    const coversDisplay = document.getElementById('covers-display'); // New selector
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
     const areaSelectorContainer = document.getElementById('areaSelectorContainer');
@@ -112,26 +116,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const partyMin = parseInt(localConfig.partyMin) || 1;
         const partyMax = parseInt(localConfig.partyMax) || 10;
-        if (coversSelector) {
-            coversSelector.min = partyMin;
-            coversSelector.max = partyMax;
-            coversSelector.value = partyMin;
-            if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = coversSelector.value;
-        } else { console.error("Covers selector element not found!"); }
+        if (coversDisplay) {
+            coversDisplay.dataset.min = partyMin;
+            coversDisplay.dataset.max = partyMax;
+            // The initial value of coversDisplay (2) is set by booking_page.js
+            // booking_page.js runs its DOMContentLoaded, then this main.js DOMContentLoaded runs.
+            // So, coversDisplay.value should already be '2'.
+            if (selectedCoversValueSpan) {
+                selectedCoversValueSpan.textContent = coversDisplay.value; // Should be '2'
+            }
+        } else {
+            console.error("Covers display element (#covers-display) not found!");
+        }
 
         // Setup the callback for UI Manager to reset addon UI
         _setResetAddonsUICallback(() => {
             resetStateAddons();
             updateAddonsDisplayUI();
-            const coversSel = document.getElementById('coversSelector'); // Direct query
-            const guestCount = coversSel ? parseInt(coversSel.value) || 0 : 0;
+            const currentCoversDisplay = document.getElementById('covers-display'); // Use new ID
+            const guestCount = currentCoversDisplay ? parseInt(currentCoversDisplay.value) || 0 : 0;
             updateAllUsage2ButtonStatesUI(guestCount);
         });
 
         initializeEventHandlers(); // Attach all event listeners
 
         // Initial data load and UI render
-        if (localCurrentEstName && dateSelector.value && parseInt(coversSelector.value) > 0) {
+        // Use coversDisplay.value for the check here
+        if (localCurrentEstName && dateSelector.value && coversDisplay && parseInt(coversDisplay.value) > 0) {
             if (dateSelector.value >= getTodayDateString()) {
                 showLoadingTimes();
                 // Directly call the event handler to perform initial load.
@@ -140,7 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 displayErrorMessageInTimesContainer('errorDateInPastInitial', 'Initial date is in the past. Please select a valid date.');
                 if(selectedDateValueSpan) selectedDateValueSpan.textContent = dateSelector.value;
-                if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = coversSelector.value;
+                if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value; // Use new display
                 setCurrentShiftUsagePolicy(null); updateNextBtnUI();
             }
         } else {

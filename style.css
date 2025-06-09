@@ -361,3 +361,61 @@ input[type="radio"].addon-radio-btn {
 input[type="text"].qty-input[readonly] {
     background-color: #f8f9fa; 
 }
+
+/* Covers Selector Styling */
+.covers-control {
+    margin-bottom: 20px; /* Same as other form elements */
+}
+
+.covers-control label {
+    display: block;
+    margin-bottom: 8px; /* Same as other labels */
+    font-weight: bold;
+    color: #444;
+}
+
+.covers-input-area {
+    display: flex;
+    align-items: center;
+}
+
+#covers-display {
+    width: 60px; /* Adjust as needed */
+    text-align: center;
+    font-size: 1em;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0 10px; /* Space between buttons and input */
+    box-sizing: border-box;
+}
+
+#covers-decrement,
+#covers-increment {
+    width: 36px; /* Fixed width for a more circular button with padding */
+    height: 36px; /* Fixed height */
+    font-size: 1.2em;
+    font-weight: bold;
+    color: white;
+    background-color: #007bff;
+    border: 1px solid #007bff;
+    border-radius: 18px; /* Half of width/height for a circle */
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0; /* Remove default padding to help with centering */
+    line-height: 1; /* Ensure text is vertically centered */
+}
+
+#covers-decrement:hover,
+#covers-increment:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+#covers-decrement:active,
+#covers-increment:active {
+    background-color: #004085;
+    border-color: #004085;
+}

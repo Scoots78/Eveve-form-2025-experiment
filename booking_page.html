@@ -18,9 +18,13 @@
             </div>
             <div id="dailyRotaMessage" class="api-message daily-message"></div>
 
-            <div>
-                <label for="coversSelector">Number of Guests:</label>
-                <input type="number" id="coversSelector" name="numberOfGuests" min="1">
+            <div class="covers-control">
+                <label for="covers-display">Number of Guests:</label>
+                <div class="covers-input-area">
+                    <button type="button" id="covers-decrement">-</button>
+                    <input type="text" id="covers-display" name="numberOfGuests" value="1">
+                    <button type="button" id="covers-increment">+</button>
+                </div>
             </div>
 
             <div id="areaSelectorContainer" style="display: none;">
@@ -60,6 +64,7 @@
 
         <!-- Removed script tag with id="configData" -->
 
+        <script src="booking_page.js"></script>
         <script src="dom_utils.js" type="module"></script>
         <script src="config_manager.js" type="module"></script>
         <script src="state_manager.js" type="module"></script>

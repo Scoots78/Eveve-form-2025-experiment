@@ -13,7 +13,7 @@ import {
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
 
 // DOM Element Getters
-const getCoversSelector = () => document.getElementById('coversSelector');
+const getCoversSelector = () => document.getElementById('covers-display'); // Changed ID
 const getTimeSelectorContainer = () => document.getElementById('timeSelectorContainer');
 const getSelectedTimeValueSpan = () => document.getElementById('selectedTimeValue');
 const getAreaSelectorContainer = () => document.getElementById('areaSelectorContainer');

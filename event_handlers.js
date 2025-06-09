@@ -66,8 +66,8 @@ function handleAddonUsage2Selection(addonData, quantity) {
     setSelectedAddons(currentAddons);
     updateAddonsDisplayUI();
     updateNextBtnUI();
-    const coversSelectorEl = document.getElementById('coversSelector');
-    const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
+    const coversDisplayEl = document.getElementById('covers-display'); // Changed ID
+    const guestCount = coversDisplayEl ? parseInt(coversDisplayEl.value) : 0;
     updateAllUsage2ButtonStatesUI(guestCount);
 }
 
@@ -99,8 +99,8 @@ function handleUsage2ButtonClick(clickedButton, addonDataset, change) {
         return;
     }
     let currentValue = parseInt(qtyInput.value);
-    const coversSelectorEl = document.getElementById('coversSelector');
-    const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
+    const coversDisplayEl = document.getElementById('covers-display'); // Changed ID
+    const guestCount = coversDisplayEl ? parseInt(coversDisplayEl.value) : 0;
 
     let totalUsage2QuantityBeforeChange = 0;
     const currentSelected = getSelectedAddons();
@@ -148,13 +148,13 @@ function handleUsage2ButtonClick(clickedButton, addonDataset, change) {
 
 export async function handleDateOrCoversChange() {
     const dateSelector = document.getElementById('dateSelector');
-    const coversSelector = document.getElementById('coversSelector');
+    const coversDisplay = document.getElementById('covers-display'); // Changed ID
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
 
     const previouslySelectedTimeOnEntry = getCurrentSelectedDecimalTime();
     const selectedDateStr = dateSelector.value;
-    const coversValue = parseInt(coversSelector.value, 10);
+    const coversValue = parseInt(coversDisplay.value, 10); // Changed reference
     const localLanguageStrings = getLanguageStrings();
     const localCurrentEstName = getCurrentEstName();
 
@@ -165,7 +165,8 @@ export async function handleDateOrCoversChange() {
     if (selectedDateStr < getTodayDateString()) {
         displayErrorMessageInTimesContainer('errorDateInPast', 'Selected date is in the past. Please choose a current or future date.');
         if(selectedDateValueSpan) selectedDateValueSpan.textContent = '-';
-        if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-';
+        // selectedCoversValueSpan is updated by booking_page.js, but ensure consistency if coversValue is NaN
+        if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = isNaN(coversValue) ? '-' : coversDisplay.value;
         const selectedAreaValSpan = document.getElementById('selectedAreaValue');
         if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-';
         setCurrentShiftUsagePolicy(null); updateNextBtnUI();
@@ -173,7 +174,8 @@ export async function handleDateOrCoversChange() {
     }
 
     if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
-    if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = coversValue || '-';
+    // selectedCoversValueSpan is updated by booking_page.js, ensure consistency here
+    if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value || '-';
 
     setCurrentSelectedDecimalTime(null);
     setCurrentSelectedAreaUID(null);
@@ -233,12 +235,12 @@ export async function handleAreaChange() {
 export async function handleNextButtonClick() {
     const localConfig = getConfig();
     const localCurrentEstName = getCurrentEstName();
-    const coversSelector = document.getElementById('coversSelector');
+    const coversDisplay = document.getElementById('covers-display'); // Changed ID
     const dateSelector = document.getElementById('dateSelector');
 
     const est = localCurrentEstName;
     const language = (localConfig && localConfig.usrLang) ? localConfig.usrLang.replace(/['"]/g, '') : 'en';
-    const numCovers = coversSelector ? coversSelector.value : null;
+    const numCovers = coversDisplay ? coversDisplay.value : null; // Changed reference
     const selectedDate = dateSelector ? dateSelector.value : null;
     const timeToSubmit = getCurrentSelectedDecimalTime();
     let areaToSubmit = null;
@@ -300,8 +302,8 @@ function timeSlotDelegatedListener(event) {
 
             resetStateAddons();
             updateAddonsDisplayUI();
-            const coversSelector = document.getElementById('coversSelector');
-            const guestCount = parseInt(coversSelector.value);
+            const coversDisplay = document.getElementById('covers-display'); // Changed ID
+            const guestCount = parseInt(coversDisplay.value); // Changed reference
             updateAllUsage2ButtonStatesUI(guestCount);
 
             const addonsDisplayArea = document.getElementById('addonsDisplayArea');
@@ -358,14 +360,17 @@ function addonsDelegatedListener(event) {
 
 export function initializeEventHandlers() {
     const dateSelector = document.getElementById('dateSelector');
-    const coversSelector = document.getElementById('coversSelector');
+    // const coversSelector = document.getElementById('coversSelector'); // Old selector
+    // The new covers-display input has its own event listener in booking_page.js
+    // which calls window.handleCoversChangeGlobal (handleDateOrCoversChange).
+    // So, we don't need to add a listener to 'covers-display' here for 'change'.
     const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
     const nextButton = document.getElementById('nextButton');
     const timeSelectorContainer = document.getElementById('timeSelectorContainer');
     const addonsDisplayArea = document.getElementById('addonsDisplayArea');
 
     if (dateSelector) dateSelector.addEventListener('change', handleDateOrCoversChange);
-    if (coversSelector) coversSelector.addEventListener('change', handleDateOrCoversChange);
+    // No longer add listener to coversSelector here, it's handled in booking_page.js
 
     if (areaRadioGroupContainer) {
         areaRadioGroupContainer.addEventListener('change', (event) => {
