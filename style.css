@@ -505,7 +505,7 @@ input[type="text"].qty-input[readonly] {
 /* Weekdays header (Mon, Tue, etc.) */
 .flatpickr-weekdays {
     background-color: #f8f8f8; /* Light background for weekday header */
-    padding: 5px 0;
+    padding: 5px 2px;
     width: 100% !important;
     box-sizing: border-box !important;
 }
@@ -517,7 +517,7 @@ span.flatpickr-weekday {
 
 /* Days container */
 .dayContainer {
-    padding: 5px; /* Or adjust/remove if gap is preferred for all spacing */
+    padding: 5px 2px; /* Or adjust/remove if gap is preferred for all spacing */
     background-color: #fff;
     width: 100% !important;
     min-width: 100% !important;
@@ -526,7 +526,7 @@ span.flatpickr-weekday {
 
     display: grid !important; /* Use grid for 7 columns */
     grid-template-columns: repeat(7, 1fr); /* Each column takes equal fraction of space */
-    gap: 2px; /* Spacing between day cells, adjust as desired */
+    gap: 4px; /* Spacing between day cells, adjust as desired */
 }
 
 /* Individual days */
@@ -540,7 +540,7 @@ span.flatpickr-weekday {
     border: 1px solid transparent; /* Base border, modified by selected/today states */
     border-radius: 50%;      /* Makes it a circle if width/height are equal */
 
-    aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
+    //aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
                              /* The border-radius then makes this square a circle */
 
     color: #333;
@@ -548,6 +548,10 @@ span.flatpickr-weekday {
     margin: 0;               /* Removed margin, using 'gap' in .dayContainer now */
     padding: 0;              /* No internal padding needed for the cell itself */
     cursor: pointer;
+    max-width:unset; 
+    width:auto;
+    border-radius:10px;
+    
 }
 
 .flatpickr-day:hover {
