@@ -517,74 +517,83 @@ span.flatpickr-weekday {
 
 /* Days container */
 .dayContainer {
-    padding: 5px;
-    background-color: #fff; /* Ensure background of days area is white */
-    width: 100% !important; /* Force them to use available width */
-    min-width: 100% !important; /* Override inline min-width */
-    max-width: 100% !important; /* Override inline max-width */
-    box-sizing: border-box !important; /* Include padding/border in width calculation */
+    padding: 5px; /* Or adjust/remove if gap is preferred for all spacing */
+    background-color: #fff;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+
+    display: grid !important; /* Use grid for 7 columns */
+    grid-template-columns: repeat(7, 1fr); /* Each column takes equal fraction of space */
+    gap: 2px; /* Spacing between day cells, adjust as desired */
 }
 
 /* Individual days */
 .flatpickr-day {
-    color: #333; /* Default day text color */
-    border: 1px solid transparent; /* Prepare for hover/focus */
-    border-radius: 50%; /* Keeps it circular */
-    width: 38px;       /* Consistent width */
-    height: 38px;      /* Consistent height (equal to width) */
-    line-height: 38px; /* Equal to height for vertical centering */
-    margin: 1px;       /* Keep or adjust margin as needed for spacing */
+    display: flex;           /* For centering content (the day number) */
+    align-items: center;     /* Vertically center */
+    justify-content: center; /* Horizontally center */
+
+    position: relative;      /* In case pseudo-elements are ever needed for styling */
+    box-sizing: border-box;  /* Border & padding included in width/height */
+    border: 1px solid transparent; /* Base border, modified by selected/today states */
+    border-radius: 50%;      /* Makes it a circle if width/height are equal */
+
+    aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
+                             /* The border-radius then makes this square a circle */
+
+    color: #333;
     font-weight: normal;
-    padding: 0;        /* Ensure no padding interferes with fixed size */
-    display: inline-flex; /* Or inline-block, flex can help with centering content too if needed */
-    align-items: center;  /* For flex, to center content vertically */
-    justify-content: center; /* For flex, to center content horizontally */
-    text-align: center; /* Fallback for text centering if not flex */
-    box-sizing: border-box; /* Include border in width/height calculation */
+    margin: 0;               /* Removed margin, using 'gap' in .dayContainer now */
+    padding: 0;              /* No internal padding needed for the cell itself */
+    cursor: pointer;
 }
 
 .flatpickr-day:hover {
-    background-color: #e9e9e9; /* Light gray on hover for non-selected/today */
+    background-color: #e9e9e9;
     color: #000;
 }
 
-/* Today's date - specific styling */
+/* Ensure selected/today styles still work and look good on the responsive circle */
 .flatpickr-day.today {
-    border-color: #f05a28; /* Optional: border for today if not selected */
-    color: #f05a28; /* Text color for today if not selected */
+    border-color: #f05a28;
+    color: #f05a28;
     font-weight: bold;
 }
 .flatpickr-day.today:not(.selected):hover {
-     background-color: #fde2d8; /* Lighter theme color for hover on today */
+     background-color: #fde2d8;
      color: white;
 }
 
-
-/* Selected date - primary styling */
 .flatpickr-day.selected,
-.flatpickr-day.startRange, /* For range plugin, if ever used */
-.flatpickr-day.endRange {   /* For range plugin, if ever used */
-    background-color: #f05a28 !important; /* Theme color for selected date */
-    color: white !important; /* White text for selected date */
-    border-color: #f05a28 !important; /* Ensure border matches */
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background-color: #f05a28 !important;
+    color: white !important;
+    border-color: #f05a28 !important;
     font-weight: bold;
 }
 
-/* Today and Selected (when today is also the selected date) */
 .flatpickr-day.today.selected {
     background-color: #f05a28 !important;
     color: white !important;
     border-color: #f05a28 !important;
 }
 
-
-/* Disabled dates (past dates) */
 .flatpickr-day.disabled,
 .flatpickr-day.disabled:hover {
-    color: #ccc; /* Light gray for disabled dates */
-    background-color: #f8f8f8; /* Slightly different background for disabled */
-    cursor: not-allowed;
-    border-color: transparent;
+    color: #ccc !important;
+    background-color: #f8f8f8 !important;
+    cursor: not-allowed !important;
+    border-color: transparent !important;
+    font-weight: normal; /* Ensure disabled days are not bold if today/selected was also disabled somehow */
+}
+
+/* Hide days not in the current month */
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    visibility: hidden; /* Makes the element invisible but it still occupies space */
 }
 
 /* Make sure the month/year input fields in the header are also styled if needed */
@@ -651,3 +660,5 @@ span.flatpickr-weekday {
 .flatpickr-current-month .numInputWrapper {
    margin-left: 0.25em; /* Small space between month and year */
 }
+
+[end of style.css]
