@@ -497,8 +497,8 @@ input[type="text"].qty-input[readonly] {
 }
 .flatpickr-prev-month:hover,
 .flatpickr-next-month:hover {
-    color: #fde2d8 !important; /* Lighter shade on hover */
-    fill: #fde2d8 !important;
+    color: white !important; /* Maintain original color from base style */
+    fill: white !important;   /* Maintain original fill from base style */
 }
 
 
@@ -520,6 +520,8 @@ span.flatpickr-weekday {
     padding: 5px;
     background-color: #fff; /* Ensure background of days area is white */
     width: 100% !important; /* Force them to use available width */
+    min-width: 100% !important; /* Override inline min-width */
+    max-width: 100% !important; /* Override inline max-width */
     box-sizing: border-box !important; /* Include padding/border in width calculation */
 }
 
@@ -527,12 +529,18 @@ span.flatpickr-weekday {
 .flatpickr-day {
     color: #333; /* Default day text color */
     border: 1px solid transparent; /* Prepare for hover/focus */
-    border-radius: 50%; /* Make all days circular for consistent shaping */
-    line-height: 34px; /* Adjust to make it look good with width */
-    width: 34px; /* Adjust for circular shape */
-    height: 34px; /* Adjust for circular shape */
-    margin: 1px; /* Minimal margin between days */
+    border-radius: 50%; /* Keeps it circular */
+    width: 38px;       /* Consistent width */
+    height: 38px;      /* Consistent height (equal to width) */
+    line-height: 38px; /* Equal to height for vertical centering */
+    margin: 1px;       /* Keep or adjust margin as needed for spacing */
     font-weight: normal;
+    padding: 0;        /* Ensure no padding interferes with fixed size */
+    display: inline-flex; /* Or inline-block, flex can help with centering content too if needed */
+    align-items: center;  /* For flex, to center content vertically */
+    justify-content: center; /* For flex, to center content horizontally */
+    text-align: center; /* Fallback for text centering if not flex */
+    box-sizing: border-box; /* Include border in width/height calculation */
 }
 
 .flatpickr-day:hover {
