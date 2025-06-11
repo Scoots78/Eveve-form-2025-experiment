@@ -417,7 +417,7 @@ input[type="text"].qty-input[readonly] {
 /* Custom Calendar Styling */
 #custom-calendar-container {
     max-width: 330px;
-    margin: 0 auto 20px auto; /* Center it and give some bottom margin */
+    margin: 0 20px 20px 0; /* Center it and give some bottom margin */
     position: relative; /* For potential absolute positioning of children if needed */
 }
 
@@ -558,6 +558,10 @@ span.flatpickr-weekday {
     height:auto;
 }
 
+.flatpickr-day.flatpickr-disabled {
+    color:#cecece;
+}
+
 .flatpickr-day:hover {
     background-color: #e9e9e9;
     color: #000;
@@ -622,6 +626,7 @@ span.flatpickr-weekday {
     /* background-color: #fff; */
     width: 100% !important; /* Force them to use available width */
     box-sizing: border-box !important; /* Include padding/border in width calculation */
+    padding: 0px 6px 4px 6px;
 }
 
 /* This is the direct container for dayContainer usually */
