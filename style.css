@@ -298,12 +298,6 @@ input[type="radio"].addon-radio-btn {
     margin-top: 3px;
 }
 
-/* Usage 1 - Radio Group Specifics */
-.addon-radio-group {
-}
-.addon-item.usage1-radio { 
-}
-
 .area-radio-item {
     display: flex;
     gap: 20px;
@@ -422,7 +416,7 @@ input[type="text"].qty-input[readonly] {
 
 /* Custom Calendar Styling */
 #custom-calendar-container {
-    max-width: 400px;
+    max-width: 330px;
     margin: 0 auto 20px auto; /* Center it and give some bottom margin */
     position: relative; /* For potential absolute positioning of children if needed */
 }
@@ -435,6 +429,7 @@ input[type="text"].qty-input[readonly] {
     border-radius: 4px; /* Optional: slightly rounded corners for the bar */
     cursor: pointer; /* To indicate it's clickable for show/hide */
     text-align: center; /* Default text alignment */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 #flatpickr-calendar-host {
@@ -443,7 +438,6 @@ input[type="text"].qty-input[readonly] {
     overflow: hidden;
     transition: max-height 0.5s ease-in-out; /* Animation for show/hide */
     /* Styles to ensure Flatpickr itself looks okay when visible will be in Step 5 */
-    border: 1px solid #ddd; /* Optional: a light border around the calendar area when visible */
     border-top: none; /* Optional: if top-bar acts as top border */
     border-radius: 0 0 4px 4px; /* Match top bar if it's rounded */
     box-sizing: border-box; /* If any padding/border is added directly to host later */
@@ -459,20 +453,21 @@ input[type="text"].qty-input[readonly] {
 /* Flatpickr Theme Styling */
 
 /* Ensure the calendar itself respects the container width */
-.flatpickr-calendar {
+#custom-calendar-container .flatpickr-calendar {
     width: 100% !important; /* Override inline styles if any */
     max-width: 100%; /* Ensure it fits in #custom-calendar-container */
-    box-shadow: none !important; /* Remove default shadow if not desired */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* soft shadow */ /* Remove default shadow if not desired */
     border: none !important; /* Remove default border if #flatpickr-calendar-host handles it */
     background-color: #fff; /* Base background for the calendar */
+    margin-top:10px;
+    
 }
 
 /* Month and Year navigation */
-.flatpickr-months {
-    background-color: #f05a28; /* Theme color for the month/year header */
-    color: white;
+#custom-calendar-container .flatpickr-months {
+    background-color: transparent; /* Theme color for the month/year header */
+    color: #000000;
     padding: 10px 0;
-    border-radius: 4px 4px 0 0; /* Match top bar if it's rounded, assuming host border is separate */
     width: 100% !important;
     box-sizing: border-box !important;
 }
@@ -491,33 +486,33 @@ input[type="text"].qty-input[readonly] {
 
 .flatpickr-prev-month,
 .flatpickr-next-month {
-    color: white !important; /* Arrow color */
-    fill: white !important; /* SVG arrow fill */
+    color: #000000 !important; /* Arrow color */
+    fill: #000000 !important; /* SVG arrow fill */
     padding: 0 10px; /* Add some padding around arrows */
     display: flex;
     align-items: center;
 }
 
-.flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg {
-    color: #ffdfdf !important;
-    fill: #ffdfdf !important;
+.flatpickr-months .flatpickr-prev-month:hover svg , .flatpickr-months .flatpickr-next-month:hover svg {
+    color: #272727 !important;
+    fill: #272727 !important;
 }
 
-flatpickr-months .flatpickr-prev-month svg, .flatpickr-months .flatpickr-next-month svg {
+.flatpickr-months .flatpickr-prev-month svg, .flatpickr-months .flatpickr-next-month svg {
     width: 20px;
     height: 20px;
 }
 
 .flatpickr-prev-month:hover,
 .flatpickr-next-month:hover {
-    color: white !important; /* Maintain original color from base style */
-    fill: white !important;   /* Maintain original fill from base style */
+    color: rgb(19, 19, 19) !important; /* Maintain original color from base style */
+    fill: rgb(19, 19, 19) !important;   /* Maintain original fill from base style */
 }
 
 
 /* Weekdays header (Mon, Tue, etc.) */
 .flatpickr-weekdays {
-    background-color: #f8f8f8; /* Light background for weekday header */
+    background-color: none; /* Light background for weekday header */
     padding: 5px 2px;
     width: 100% !important;
     box-sizing: border-box !important;
@@ -531,7 +526,7 @@ span.flatpickr-weekday {
 /* Days container */
 .dayContainer {
     padding: 5px 2px; /* Or adjust/remove if gap is preferred for all spacing */
-    background-color: #fff;
+    background-color: transparent;
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
@@ -543,28 +538,24 @@ span.flatpickr-weekday {
 }
 
 /* Individual days */
-.flatpickr-day {
+.dayContainer .flatpickr-day {
     display: flex;           /* For centering content (the day number) */
     align-items: center;     /* Vertically center */
     justify-content: center; /* Horizontally center */
-
     position: relative;      /* In case pseudo-elements are ever needed for styling */
     box-sizing: border-box;  /* Border & padding included in width/height */
     border: 1px solid transparent; /* Base border, modified by selected/today states */
     border-radius: 50%;      /* Makes it a circle if width/height are equal */
-
-    //aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
-                             /* The border-radius then makes this square a circle */
-
+    aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
+    border-radius: 50%;      /* The border-radius then makes this square a circle */
     color: #333;
     font-weight: normal;
     margin: 0;               /* Removed margin, using 'gap' in .dayContainer now */
     padding: 0;              /* No internal padding needed for the cell itself */
     cursor: pointer;
     max-width:unset; 
-    width:auto;
-    border-radius:10px;
-    
+    width: max-content; 
+    height:auto;
 }
 
 .flatpickr-day:hover {
@@ -611,14 +602,15 @@ span.flatpickr-weekday {
 .flatpickr-day.prevMonthDay,
 .flatpickr-day.nextMonthDay {
     visibility: hidden; /* Makes the element invisible but it still occupies space */
+    height:0px;
 }
 
 /* Make sure the month/year input fields in the header are also styled if needed */
 .flatpickr-current-month input.cur-year {
     font-weight: bold;
 }
-.flatpickr-current-month span.cur-month {
-    font-weight: bold;
+.flatpickr-current-month span.cur-month, .flatpickr-months .flatpickr-current-month input.cur-year {
+    font-weight: 400;
 }
 
 /* Adjust padding/margins if the calendar content feels too cramped or too spaced out */
@@ -673,9 +665,18 @@ span.flatpickr-weekday {
    align-items: center;
    justify-content: center; /* Center the "Month Year" text */
    padding: 0; /* Reset padding from flatpickr themes */
+   color:#000;
+}
+
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    color: #000000;
 }
 .flatpickr-current-month .numInputWrapper {
    margin-left: 0.25em; /* Small space between month and year */
+}
+
+.numInputWrapper:hover, .flatpickr-current-month span.cur-month:hover {
+    background: none;
 }
 
 [end of style.css]
