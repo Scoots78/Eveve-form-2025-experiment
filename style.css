@@ -494,7 +494,20 @@ input[type="text"].qty-input[readonly] {
     color: white !important; /* Arrow color */
     fill: white !important; /* SVG arrow fill */
     padding: 0 10px; /* Add some padding around arrows */
+    display: flex;
+    align-items: center;
 }
+
+.flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg {
+    color: #ffdfdf !important;
+    fill: #ffdfdf !important;
+}
+
+flatpickr-months .flatpickr-prev-month svg, .flatpickr-months .flatpickr-next-month svg {
+    width: 20px;
+    height: 20px;
+}
+
 .flatpickr-prev-month:hover,
 .flatpickr-next-month:hover {
     color: white !important; /* Maintain original color from base style */
@@ -659,7 +672,7 @@ span.flatpickr-weekday {
    display: flex;
    align-items: center;
    justify-content: center; /* Center the "Month Year" text */
-   padding-left: 0; /* Reset padding from flatpickr themes */
+   padding: 0; /* Reset padding from flatpickr themes */
 }
 .flatpickr-current-month .numInputWrapper {
    margin-left: 0.25em; /* Small space between month and year */
