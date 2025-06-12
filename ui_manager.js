@@ -712,12 +712,11 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
             });
         });
 
-        // Auto-open the first shift if any shifts are present and foundAnySlotsToShowOverall
-        // and no other shift was opened by sticky time logic.
-        if (foundAnySlotsToShowOverall) { // Redundant check for allH3sInContainer.length > 0 as it's parent if
+        // Auto-open a shift if it's the ONLY one rendered and no other shift was made active by sticky time.
+        if (foundAnySlotsToShowOverall && allH3sInContainer.length === 1) {
             const anyActive = Array.from(allH3sInContainer).some(h3 => h3.classList.contains('active-shift-title'));
-            if (!anyActive && allH3sInContainer.length > 0) { // Check length again in case of empty container
-                allH3sInContainer[0].click();
+            if (!anyActive) { // If no shift is already active (e.g. by sticky time)
+                allH3sInContainer[0].click(); // Open the single rendered shift
             }
         }
     }
