@@ -8,14 +8,68 @@ import {
     getCurrentSelectedAreaUID,
     setCurrentSelectedDecimalTime,
     setCurrentShiftUsagePolicy,
-    getIsInitialRenderCycle
+    getIsInitialRenderCycle,
+    getCurrentSelectedDecimalTime, // Added for use in displayTimeSlots
+    getCurrentSelectedShiftName // Added for use in displayTimeSlots
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
 
 // DOM Element Getters
-const getCoversSelector = () => document.getElementById('covers-display'); // Changed ID
+const getCoversSelector = () => document.getElementById('covers-display');
 const getTimeSelectorContainer = () => document.getElementById('timeSelectorContainer');
 const getSelectedTimeValueSpan = () => document.getElementById('selectedTimeValue');
+const getTimeSelectionLabel = () => document.getElementById('timeSelectionLabel');
+
+// Module-level cache
+let originalTimeSelectionLabelText = '';
+
+// --- Time Selection UI Mode Toggle ---
+
+export function initializeOriginalLabelText() {
+    const labelEl = getTimeSelectionLabel();
+    if (labelEl) {
+        originalTimeSelectionLabelText = labelEl.innerText;
+    } else {
+        console.warn("Time selection label (#timeSelectionLabel) not found during init.");
+    }
+}
+
+export function showTimeSelectionSummary(shiftName, timeValueFormatted) {
+    const labelEl = getTimeSelectionLabel();
+    const containerEl = getTimeSelectorContainer();
+
+    if (containerEl) containerEl.style.display = 'none';
+    if (labelEl) {
+        labelEl.innerText = `${shiftName} at ${timeValueFormatted}`;
+        labelEl.classList.add('summary-mode-active');
+        labelEl.addEventListener('click', handleSummaryLabelClick, { once: true });
+    }
+}
+
+function handleSummaryLabelClick() {
+    showTimeSelectionAccordion();
+    if (window.handleCoversChangeGlobal) {
+        window.handleCoversChangeGlobal();
+    } else {
+        console.warn("handleCoversChangeGlobal not found. Cannot refresh time slots on summary click.");
+    }
+}
+
+export function showTimeSelectionAccordion(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+    const labelEl = getTimeSelectionLabel();
+    const containerEl = getTimeSelectorContainer();
+
+    if (containerEl) containerEl.style.display = '';
+    if (labelEl) {
+        labelEl.innerText = originalTimeSelectionLabelText;
+        labelEl.classList.remove('summary-mode-active');
+    }
+}
+
+// --- Existing DOM Element Getters ---
 const getAreaSelectorContainer = () => document.getElementById('areaSelectorContainer');
 const getAreaRadioGroupContainer = () => document.getElementById('areaRadioGroupContainer');
 const getAreaAvailabilityMessage = () => document.getElementById('areaAvailabilityMessage');
@@ -398,17 +452,14 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
         button.dataset.shiftUid = String(shiftObject.uid);
         hasValidIdentifier = true;
     } else if (shiftObject && shiftObject.name != null && String(shiftObject.name).trim() !== '') {
-        // Fallback to using name if UID is not available/valid
-        button.dataset.shiftName = String(shiftObject.name); // Event handler would need to be adapted for this
+        button.dataset.shiftName = String(shiftObject.name);
         hasValidIdentifier = true;
-        // Note: Current event_handler.js timeSlotDelegatedListener only uses shiftUid.
-        // This change is made as per instruction, but would require event_handler adjustment to be useful.
     }
 
     if (!hasValidIdentifier) {
         console.warn("Time slot button created without a valid shift identifier (UID or Name):", shiftObject);
-        button.classList.add('time-slot-no-identifier'); // New class name
-        isActive = false; // Override isActive if essential identifier is missing
+        button.classList.add('time-slot-no-identifier');
+        isActive = false;
     }
 
     if (timeValue < 0) {
@@ -431,7 +482,7 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
     return button;
 }
 
-export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
+export function displayTimeSlots(availabilityData) {
     const timeSelectorContainer = getTimeSelectorContainer();
     const selectedTimeValueSpan = getSelectedTimeValueSpan();
     const areaSelectorContainer = getAreaSelectorContainer();
@@ -459,7 +510,7 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
 
     timeSelectorContainer.innerHTML = '';
     selectedTimeValueSpan.textContent = '-';
-    setCurrentSelectedDecimalTime(null);
+    setCurrentSelectedDecimalTime(null); // This will also reset currentSelectedShiftName
     setCurrentShiftUsagePolicy(null);
 
     if (addonsDisplay) addonsDisplay.innerHTML = '';
@@ -581,8 +632,7 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
         allShifts.forEach(shift => {
             if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
 
-            // Determine if this shift has any bookable times in the current area context
-            const currentShiftSessionTimes = shift.times; // Assuming shift.times exists and is an array
+            const currentShiftSessionTimes = shift.times;
             const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
                 areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
             );
@@ -606,7 +656,6 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
                 shiftButtonContainer.className = 'shift-times-wrapper';
 
                 currentShiftSessionTimes.forEach(timeValueFromShift => {
-                    // Skip if unavailable and settings dictate not to show them
                     if (timeValueFromShift < 0 && !getShowUnavailableSlots()) return;
 
                     let buttonIsActive = actualBookableTimesForShiftInArea.includes(timeValueFromShift);
@@ -621,13 +670,11 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
                 panelDiv.appendChild(shiftButtonContainer);
                 timeSelectorContainer.appendChild(panelDiv);
             }
-            // If actualBookableTimesForShiftInArea.length is 0, this entire shift section is skipped.
         });
-    } else { // General view (not area-specific, or "any" area)
+    } else {
         allShifts.forEach(shift => {
             if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
 
-            // Filter times for display: positive times, or negative ones if getShowUnavailableSlots() is true
             const displayableTimes = shift.times ? shift.times.filter(timeValue => timeValue >= 0 || getShowUnavailableSlots()) : [];
 
             if (displayableTimes.length > 0) {
@@ -658,16 +705,13 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
                 panelDiv.appendChild(shiftButtonContainer);
                 timeSelectorContainer.appendChild(panelDiv);
             }
-            // If displayableTimes.length is 0 for a shift, that shift is not rendered at all.
         });
     }
 
-    // This message appears if NO shifts had ANY displayable slots AT ALL across all considered shifts.
     if (!foundAnySlotsToShowOverall) {
          timeSelectorContainer.innerHTML = `<p class="no-times-message">${localLanguageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
     }
 
-    // Accordion logic for shift titles (should be applied only if shifts were rendered)
     const allAccordionPanels = timeSelectorContainer.querySelectorAll('.shift-accordion-panel');
     if (allAccordionPanels.length > 0) {
         allAccordionPanels.forEach(panel => {
@@ -675,20 +719,18 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
             const msgEl = panel.querySelector('.shift-message');
             const wrapEl = panel.querySelector('.shift-times-wrapper');
 
-            // Initially hide content and remove active states
             if (h3El) h3El.classList.remove('active-shift-title');
             if (msgEl) msgEl.classList.add('shift-content-hidden');
             if (wrapEl) wrapEl.classList.add('shift-content-hidden');
 
             if (h3El) {
                 h3El.addEventListener('click', () => {
-                    const clickedPanel = h3El.closest('.shift-accordion-panel'); // Should be `panel`
+                    const clickedPanel = h3El.closest('.shift-accordion-panel');
                     if (!clickedPanel) return;
 
                     const clickedMsg = clickedPanel.querySelector('.shift-message');
                     const clickedWrap = clickedPanel.querySelector('.shift-times-wrapper');
 
-                    // Hide all other panels' content and deactivate their titles
                     allAccordionPanels.forEach(otherPanel => {
                         const otherH3 = otherPanel.querySelector('h3');
                         const otherMsg = otherPanel.querySelector('.shift-message');
@@ -699,7 +741,6 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
                         if (otherWrap) otherWrap.classList.add('shift-content-hidden');
                     });
 
-                    // Show content and activate title for the CLICKED panel
                     if (clickedMsg) clickedMsg.classList.remove('shift-content-hidden');
                     if (clickedWrap) clickedWrap.classList.remove('shift-content-hidden');
                     h3El.classList.add('active-shift-title');
@@ -708,46 +749,59 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
         });
     }
 
-    if (stickyTimeAttempt !== null) {
-        const stickyButtonElement = Array.from(timeSelectorContainer.querySelectorAll('.time-slot-button.time-slot-available'))
-                                .find(button => parseFloat(button.dataset.time) === stickyTimeAttempt);
-        if (stickyButtonElement) {
-            const parentPanel = stickyButtonElement.closest('.shift-accordion-panel');
-            if (parentPanel) {
-                const stickyH3 = parentPanel.querySelector('h3');
-                if (stickyH3) {
-                    // Hide all other panels first
-                    allAccordionPanels.forEach(otherPanel => {
-                        if (otherPanel !== parentPanel) {
-                            const otherH3 = otherPanel.querySelector('h3');
-                            const otherMsg = otherPanel.querySelector('.shift-message');
-                            const otherWrap = otherPanel.querySelector('.shift-times-wrapper');
-                            if (otherH3) otherH3.classList.remove('active-shift-title');
-                            if (otherMsg) otherMsg.classList.add('shift-content-hidden');
-                            if (otherWrap) otherWrap.classList.add('shift-content-hidden');
-                        }
-                    });
-                    // Then show the target panel's content
-                    const msgEl = parentPanel.querySelector('.shift-message');
-                    const wrapEl = parentPanel.querySelector('.shift-times-wrapper');
-                    if (msgEl) msgEl.classList.remove('shift-content-hidden');
-                    if (wrapEl) wrapEl.classList.remove('shift-content-hidden');
-                    stickyH3.classList.add('active-shift-title');
+    // Logic to open panel and select button based on current state from state_manager
+    const currentSelectedTime = getCurrentSelectedDecimalTime();
+    const currentSelectedShiftName = getCurrentSelectedShiftName();
+
+    let stateBasedSelectionMade = false;
+    if (currentSelectedTime !== null && currentSelectedShiftName && allAccordionPanels.length > 0) {
+        let targetButtonElement = null;
+        let targetH3ForSelection = null;
+        let targetPanelForSelection = null;
+
+        allAccordionPanels.forEach(panel => {
+            const h3 = panel.querySelector('h3');
+            if (h3 && h3.textContent && h3.textContent === currentSelectedShiftName) {
+                targetH3ForSelection = h3;
+                targetPanelForSelection = panel;
+                const timesWrapper = panel.querySelector('.shift-times-wrapper');
+                if (timesWrapper) {
+                    const button = Array.from(timesWrapper.querySelectorAll('.time-slot-button.time-slot-available'))
+                        .find(btn => btn.dataset.time && parseFloat(btn.dataset.time) === currentSelectedTime);
+                    if (button) {
+                        targetButtonElement = button;
+                    }
                 }
             }
-            if (!stickyButtonElement.classList.contains('time-slot-button-selected')) {
-                stickyButtonElement.click(); // This click is for selecting the time slot
-            }
+        });
+
+        if (targetButtonElement && targetH3ForSelection && targetPanelForSelection) {
+            allAccordionPanels.forEach(otherPanel => {
+                if (otherPanel !== targetPanelForSelection) {
+                    const otherH3 = otherPanel.querySelector('h3');
+                    const otherMsg = otherPanel.querySelector('.shift-message');
+                    const otherWrap = otherPanel.querySelector('.shift-times-wrapper');
+                    if (otherH3) otherH3.classList.remove('active-shift-title');
+                    if (otherMsg) otherMsg.classList.add('shift-content-hidden');
+                    if (otherWrap) otherWrap.classList.add('shift-content-hidden');
+                }
+            });
+
+            const msgEl = targetPanelForSelection.querySelector('.shift-message');
+            const wrapEl = targetPanelForSelection.querySelector('.shift-times-wrapper');
+            if (msgEl) msgEl.classList.remove('shift-content-hidden');
+            if (wrapEl) wrapEl.classList.remove('shift-content-hidden');
+            targetH3ForSelection.classList.add('active-shift-title');
+            stateBasedSelectionMade = true;
+
+            timeSelectorContainer.querySelectorAll('.time-slot-button-selected').forEach(btn => btn.classList.remove('time-slot-button-selected'));
+            targetButtonElement.classList.add('time-slot-button-selected');
         }
     }
 
-    // Auto-open a shift if it's the ONLY one rendered AND no shift was made active by sticky time.
-    if (allAccordionPanels.length === 1) {
+    if (!stateBasedSelectionMade && allAccordionPanels.length === 1) {
         const singlePanelH3 = allAccordionPanels[0].querySelector('h3');
-        if (singlePanelH3 && !singlePanelH3.classList.contains('active-shift-title')) {
-            // No need to check anyActive if there's only one panel,
-            // because if stickyTime opened it, it would be active.
-            // If not active, and it's the only one, click its H3.
+        if (singlePanelH3) {
             singlePanelH3.click();
         }
     }
@@ -766,6 +820,7 @@ export function resetTimeRelatedUI() {
 
     resetCurrentAddonsUICallback();
     updateNextButtonState();
+    showTimeSelectionAccordion();
 }
 
 export function showLoadingTimes() {

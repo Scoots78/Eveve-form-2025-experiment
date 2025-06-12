@@ -6,6 +6,7 @@ let state = {
     currentAvailabilityData: null,
     isInitialRenderCycle: true,
     currentSelectedDecimalTime: null,
+    currentSelectedShiftName: null, // Added
     currentSelectedAddons: {
         usage1: null,
         usage2: [],
@@ -47,8 +48,13 @@ export function setIsInitialRenderCycle(flag) {
 export function getCurrentSelectedDecimalTime() {
     return state.currentSelectedDecimalTime;
 }
-export function setCurrentSelectedDecimalTime(time) {
+export function getCurrentSelectedShiftName() { // Added
+    return state.currentSelectedShiftName;
+}
+
+export function setCurrentSelectedDecimalTime(time, shiftName = null) { // Modified signature
     state.currentSelectedDecimalTime = time;
+    state.currentSelectedShiftName = time === null ? null : shiftName; // Reset shiftName if time is reset
 }
 
 export function getSelectedAddons() {

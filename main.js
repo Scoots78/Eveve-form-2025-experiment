@@ -31,7 +31,8 @@ import {
     displayErrorMessageInTimesContainer,
     // Callback setter
     _setResetAddonsUICallback,
-    updateAllUsage2ButtonStatesUI // This one is exported with UI suffix from ui_manager.js
+    updateAllUsage2ButtonStatesUI, // This one is exported with UI suffix from ui_manager.js
+    initializeOriginalLabelText // New import
 } from './ui_manager.js';
 import { initializeEventHandlers, handleDateOrCoversChange, toggleTimeSelectionVisibility } from './event_handlers.js';
 
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
     const areaSelectorContainer = document.getElementById('areaSelectorContainer');
+    const timeSelectionLabel = document.getElementById('timeSelectionLabel'); // Get for init
     // timeSelectorContainer and areaRadioGroupContainer are used by event_handlers
 
     // Helper function (remains for initial date setup)
@@ -126,6 +128,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } else {
             console.error("Covers display element (#covers-display) not found!");
+        }
+
+        // Initialize original text for the time selection label
+        if (timeSelectionLabel) { // Ensure it exists before trying to init
+            initializeOriginalLabelText();
         }
 
         // Setup the callback for UI Manager to reset addon UI

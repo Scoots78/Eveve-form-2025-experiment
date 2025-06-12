@@ -27,7 +27,8 @@ import {
     resetTimeRelatedUI,
     // _setResetAddonsUICallback, // This is set in main.js, not used directly by event_handlers
     updateAllUsage2ButtonStatesUI,
-    resetTimeRelatedUI as resetTimeRelatedUIFromManager // Renaming to avoid conflict if any local one exists
+    resetTimeRelatedUI as resetTimeRelatedUIFromManager, // Renaming to avoid conflict if any local one exists
+    showTimeSelectionSummary // New import
 } from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
@@ -353,7 +354,7 @@ function timeSlotDelegatedListener(event) {
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
             if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = formatTime(timeValue);
 
-            setCurrentSelectedDecimalTime(timeValue);
+            setCurrentSelectedDecimalTime(timeValue, shiftObject.name); // Pass shiftName here
             setCurrentShiftUsagePolicy((shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null);
 
             resetStateAddons();
@@ -372,6 +373,11 @@ function timeSlotDelegatedListener(event) {
                 if (addonsDisplayArea) addonsDisplayArea.innerHTML = `<p>${lang.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
             }
             updateNextBtnUI();
+
+            // After everything is updated, show the summary view for time selection
+            const formattedTime = formatTime(timeValue); // timeValue is already a float
+            showTimeSelectionSummary(shiftObject.name, formattedTime);
+
         } else {
             console.warn(`Shift object not found for time slot button. Attempted UID: ${shiftUidFromDataset}, Attempted Name: ${shiftNameFromDataset}`, button);
         }
