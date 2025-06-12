@@ -177,7 +177,7 @@ export function updateNextButtonState() {
     const nextButton = getNextButton();
     if (!nextButton) return;
     nextButton.disabled = true;
-    const selectedTimeValueEl = getSelectedTimeValueSpan(); // Uses getter
+    const selectedTimeValueEl = getSelectedTimeValueSpan();
     const selectedTimeText = selectedTimeValueEl ? selectedTimeValueEl.textContent : '-';
     if (!selectedTimeText || selectedTimeText === '-' || selectedTimeText.includes('N/A')) return;
     const coversSelectorEl = getCoversSelector();
@@ -197,23 +197,10 @@ export function updateNextButtonState() {
     }
 }
 
-export function updateSelectedAreaDisplay() {
+export function updateSelectedAreaDisplay(textToDisplay) {
     const selectedAreaValueSpan = getSelectedAreaValueSpan();
-    const localConfig = getConfig();
-    const localLanguageStrings = getLanguageStrings();
-    const areaRadioGroupContainer = getAreaRadioGroupContainer();
     if (selectedAreaValueSpan) {
-        if (localConfig.arSelect === "true" && areaRadioGroupContainer && areaRadioGroupContainer.style.display !== 'none') {
-            const checkedRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"]:checked');
-            if (checkedRadio) {
-                if (checkedRadio.value === "any") {
-                    selectedAreaValueSpan.textContent = localLanguageStrings.anyAreaSelectedText || "Any";
-                } else {
-                    const label = areaRadioGroupContainer.querySelector(`label[for="${checkedRadio.id}"]`);
-                    selectedAreaValueSpan.textContent = label ? label.textContent : checkedRadio.value;
-                }
-            } else { selectedAreaValueSpan.textContent = '-'; }
-        } else { selectedAreaValueSpan.textContent = '-'; }
+        selectedAreaValueSpan.textContent = textToDisplay || '-';
     }
 }
 
@@ -490,18 +477,15 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
 
 export function displayTimeSlots(availabilityData) {
     const timeSelectorContainer = getTimeSelectorContainer();
-    // const selectedTimeValueSpan = getSelectedTimeValueSpan(); // This line was commented out in the previous version.
-                                                                // It's not used directly in this function after recent changes.
     const areaSelectorContainer = getAreaSelectorContainer();
     const areaRadioGroupContainer = getAreaRadioGroupContainer();
     const areaAvailabilityMessage = getAreaAvailabilityMessage();
     const addonsDisplay = getAddonsDisplayArea();
 
-    if (!timeSelectorContainer) { // Removed check for selectedTimeValueSpan as it's not directly used here.
+    if (!timeSelectorContainer) {
         console.error("timeSelectorContainer not found in displayTimeSlots");
         return;
     }
-    // Safety check for getSelectedTimeValueSpan as it's used by updateNextButtonState indirectly
     if (!getSelectedTimeValueSpan()) {
          console.error("selectedTimeValueSpan (from getSelectedTimeValueSpan) not found; this might affect updateNextButtonState.");
     }
@@ -523,9 +507,6 @@ export function displayTimeSlots(availabilityData) {
     }
 
     timeSelectorContainer.innerHTML = '';
-    // State clearing (selected time, shift name, policy) is now handled by the calling functions
-    // (e.g., handleDateOrCoversChange, handleAreaChange) before they call displayTimeSlots, if a reset is intended.
-    // displayTimeSlots should purely render based on the current state.
 
     if (addonsDisplay) addonsDisplay.innerHTML = '';
     resetCurrentAddonsUICallback();
@@ -535,11 +516,14 @@ export function displayTimeSlots(availabilityData) {
         areaAvailabilityMessage.style.display = 'none';
     }
 
+    let currentSelectedAreaTextInSummary = '-'; // Default for summary
+
     if (localConfig.arSelect === "true" && areaRadioGroupContainer) {
+        const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
         areaRadioGroupContainer.innerHTML = '';
         const areas = availabilityData.areas;
         let radiosPopulated = false;
-        let uidToSelect = getCurrentSelectedAreaUID();
+        let uidToSelect = currentSelectedAreaFromState;
 
         let SPUIDIsValidInNewData = false;
         if (uidToSelect) {
@@ -558,6 +542,7 @@ export function displayTimeSlots(availabilityData) {
             } else {
                 uidToSelect = null;
             }
+            setCurrentSelectedAreaUID(uidToSelect);
         }
 
         if (localConfig.areaAny === "true") {
@@ -572,6 +557,7 @@ export function displayTimeSlots(availabilityData) {
             radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
             areaRadioGroupContainer.appendChild(radioItemContainer);
             radiosPopulated = true;
+            if (radio.checked) currentSelectedAreaTextInSummary = label.textContent;
         }
 
         if (areas && Array.isArray(areas) && areas.length > 0) {
@@ -587,27 +573,19 @@ export function displayTimeSlots(availabilityData) {
                 radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
                 areaRadioGroupContainer.appendChild(radioItemContainer);
                 radiosPopulated = true;
+                if (radio.checked) currentSelectedAreaTextInSummary = label.textContent;
             });
         }
 
-        if (radiosPopulated && !getSelectedRadioValue("areaSelection")) {
-            let defaultRadioToSelect = null;
-            if (localConfig.areaAny === "true") {
-                defaultRadioToSelect = areaRadioGroupContainer.querySelector('input[type="radio"][value="any"]');
-            }
-            if (!defaultRadioToSelect && areas && Array.isArray(areas) && areas.length > 0) {
-                const firstSpecificAreaValue = areas[0].uid.toString();
-                defaultRadioToSelect = areaRadioGroupContainer.querySelector(`input[type="radio"][value="${firstSpecificAreaValue}"]`);
-            }
-            if (defaultRadioToSelect) {
-                defaultRadioToSelect.checked = true;
-            }
+        if (!radiosPopulated && localConfig.arSelect === "true") {
+             updateSelectedAreaDisplay(null);
+        } else if (radiosPopulated) {
+             updateSelectedAreaDisplay(currentSelectedAreaTextInSummary);
         }
-        if (!radiosPopulated) {
-            setCurrentSelectedAreaUID(null);
-        }
+    } else if (areaRadioGroupContainer) {
+         updateSelectedAreaDisplay(null);
     }
-    updateSelectedAreaDisplay();
+
 
     const allShifts = availabilityData.shifts;
     let foundAnySlotsToShowOverall = false;
@@ -833,6 +811,7 @@ export function resetTimeRelatedUI() {
     resetCurrentAddonsUICallback();
     updateNextButtonState();
     showTimeSelectionAccordion();
+    updateSelectedAreaDisplay(null); // Clear area display
 }
 
 export function showLoadingTimes() {

@@ -21,7 +21,7 @@ import {
     renderAddons,
     updateSelectedAddonsDisplay as updateAddonsDisplayUI,
     updateNextButtonState as updateNextBtnUI,
-    updateSelectedAreaDisplay as updateAreaDisplayUI,
+    updateSelectedAreaDisplay, // Changed: No alias, direct use
     updateDailyRotaMessage,
     showLoadingTimes,
     displayErrorMessageInTimesContainer,
@@ -159,7 +159,7 @@ export async function handleDateOrCoversChange() {
         if (selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
         if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-';
         setCurrentShiftUsagePolicy(null);
-        setCurrentSelectedDecimalTime(null); // Clears time and shift name
+        setCurrentSelectedDecimalTime(null);
         updateDailyRotaMessage('');
         updateNextBtnUI();
         return;
@@ -180,8 +180,8 @@ export async function handleDateOrCoversChange() {
         }
         if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
         if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
-        const selectedAreaValSpan = document.getElementById('selectedAreaValue');
-        if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-';
+
+        updateSelectedAreaDisplay(null);
         updateNextBtnUI();
         return;
     }
@@ -191,7 +191,7 @@ export async function handleDateOrCoversChange() {
 
     setCurrentSelectedDecimalTime(null);
     setCurrentSelectedAreaUID(null);
-    updateAreaDisplayUI();
+    updateSelectedAreaDisplay(null);
     updateNextBtnUI();
 
     if (!localCurrentEstName) {
@@ -237,7 +237,6 @@ export async function handleDateOrCoversChange() {
 }
 
 export async function handleAreaChange() {
-    // 1. Initial setup
     const timeSelectionLabel = document.getElementById('timeSelectionLabel');
     const wasInSummaryMode = timeSelectionLabel?.classList.contains('summary-mode-active');
     const previouslySelectedTime = getCurrentSelectedDecimalTime();
@@ -245,22 +244,18 @@ export async function handleAreaChange() {
     const localLanguageStrings = getLanguageStrings();
 
     setIsInitialRenderCycle(false);
-    updateSelectedAreaDisplay();
+    // updateSelectedAreaDisplay(); // Removed: Called by direct event listener now.
 
-    // DOM elements needed for validation and API call
     const estName = getCurrentEstName();
     const calendarTopBar = document.getElementById('calendar-top-bar');
     const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
     const coversDisplay = document.getElementById('covers-display');
     const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0;
-    // const newAreaId = getCurrentSelectedAreaUID(); // Already set in state by the event listener calling this
 
-    // 2. Basic validation
     if (!selectedDateStr || coversValue <= 0) {
         displayErrorMessageInTimesContainer('errorInvalidInput', localLanguageStrings.errorInvalidInput || 'Please select a date and number of guests first.');
         setCurrentSelectedDecimalTime(null);
         resetTimeRelatedUI();
-        // Addons are cleared within resetTimeRelatedUI via showTimeSelectionAccordion -> resetCurrentAddonsUICallback
         updateNextBtnUI();
         return;
     }
@@ -269,15 +264,13 @@ export async function handleAreaChange() {
 
     let newAvailabilityData;
     try {
-        // 3. Fetch new availability data
         newAvailabilityData = await fetchAvailableTimes(estName, selectedDateStr, coversValue);
         setCurrentAvailabilityData(newAvailabilityData);
         updateDailyRotaMessage(newAvailabilityData.message || '');
 
         let selectionStillValid = false;
-        let selectedShiftObject = null; // Store the shift object if found
+        let selectedShiftObject = null;
 
-        // 4. Conditional logic
         if (wasInSummaryMode && previouslySelectedTime !== null && previouslySelectedShiftName) {
             selectedShiftObject = newAvailabilityData.shifts.find(s => s.name === previouslySelectedShiftName);
             if (selectedShiftObject && selectedShiftObject.times && selectedShiftObject.times.includes(previouslySelectedTime)) {
@@ -293,7 +286,6 @@ export async function handleAreaChange() {
             }
         }
 
-        // 5. Update UI
         if (selectionStillValid && selectedShiftObject) {
             setCurrentShiftUsagePolicy(selectedShiftObject.usage);
 
@@ -314,7 +306,6 @@ export async function handleAreaChange() {
             setCurrentSelectedDecimalTime(null);
             resetTimeRelatedUI();
             displayTimeSlots(newAvailabilityData);
-            // updateNextBtnUI(); // Called by resetTimeRelatedUI
         }
 
     } catch (error) {
@@ -466,8 +457,21 @@ export function initializeEventHandlers() {
     if (areaRadioGroupContainer) {
         areaRadioGroupContainer.addEventListener('change', (event) => {
             if (event.target.name === 'areaSelection') {
-                setCurrentSelectedAreaUID(event.target.value);
-                handleAreaChange();
+                const areaId = event.target.value;
+                setCurrentSelectedAreaUID(areaId);
+
+                // Determine text for display
+                let areaNameToDisplay;
+                const languageStrings = getLanguageStrings();
+                if (areaId === "any") {
+                    areaNameToDisplay = languageStrings.anyAreaSelectedText || "Any";
+                } else {
+                    const label = areaRadioGroupContainer.querySelector(`label[for="${event.target.id}"]`);
+                    areaNameToDisplay = label ? label.textContent : areaId;
+                }
+                updateSelectedAreaDisplay(areaNameToDisplay); // Update UI immediately
+
+                handleAreaChange(); // Then handle data fetching & further logic
             }
         });
     }
