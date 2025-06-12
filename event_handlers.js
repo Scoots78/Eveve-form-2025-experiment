@@ -13,6 +13,7 @@ import {
     getCurrentAvailabilityData,
     getCurrentSelectedAreaUID,
     getCurrentSelectedDecimalTime,
+    getCurrentSelectedShiftName, // Added for handleAreaChange
     getIsInitialRenderCycle
 } from './state_manager.js';
 import {
@@ -25,11 +26,9 @@ import {
     showLoadingTimes,
     displayErrorMessageInTimesContainer,
     resetTimeRelatedUI,
-    // _setResetAddonsUICallback, // This is set in main.js, not used directly by event_handlers
-    updateAllUsage2ButtonStatesUI,
-    resetTimeRelatedUI as resetTimeRelatedUIFromManager, // Renaming to avoid conflict if any local one exists
-    showTimeSelectionSummary // New import
-} from './ui_manager.js';
+    showTimeSelectionSummary,
+    showTimeSelectionAccordion // Explicitly call if needed
+} from './ui_manager.js'; // Removed resetTimeRelatedUIFromManager alias as direct call is fine
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
 // --- Helper Functions ---
@@ -39,14 +38,12 @@ export function toggleTimeSelectionVisibility(coversValueStr) {
     if (timeSelectionSection) {
         const isCurrentlyVisible = timeSelectionSection.style.display !== 'none';
         if (coversValue > 0 && !isCurrentlyVisible) {
-            timeSelectionSection.style.display = ''; // Or 'block', depending on default CSS
+            timeSelectionSection.style.display = '';
         } else if (coversValue === 0 && isCurrentlyVisible) {
             timeSelectionSection.style.display = 'none';
-            // Also clear time-related UI when hiding the section due to 0 covers
-            resetTimeRelatedUIFromManager(); // Clear time slots, selected time, addons
+            resetTimeRelatedUI();
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
             if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
-            // No need to call updateNextBtnUI here as handleDateOrCoversChange will do it
         }
     }
 }
@@ -86,7 +83,7 @@ function handleAddonUsage2Selection(addonData, quantity) {
     setSelectedAddons(currentAddons);
     updateAddonsDisplayUI();
     updateNextBtnUI();
-    const coversDisplayEl = document.getElementById('covers-display'); // Changed ID
+    const coversDisplayEl = document.getElementById('covers-display');
     const guestCount = coversDisplayEl ? parseInt(coversDisplayEl.value) : 0;
     updateAllUsage2ButtonStatesUI(guestCount);
 }
@@ -107,19 +104,13 @@ function handleAddonUsage3Selection(eventTarget, addonData) {
 }
 
 function handleUsage2ButtonClick(clickedButton, addonDataset, change) {
-    const targetButton = clickedButton; // event.currentTarget is wrong here if called from delegate
+    const targetButton = clickedButton;
     const qtyContainer = targetButton.closest('.addon-quantity-selector');
-    if (!qtyContainer) {
-        console.error('BUG_TRACE: Could not find .addon-quantity-selector for button:', targetButton);
-        return;
-    }
+    if (!qtyContainer) return;
     const qtyInput = qtyContainer.querySelector('.qty-input');
-    if (!qtyInput) {
-        console.error('BUG_TRACE: Could not find .qty-input within container:', qtyContainer);
-        return;
-    }
+    if (!qtyInput) return;
     let currentValue = parseInt(qtyInput.value);
-    const coversDisplayEl = document.getElementById('covers-display'); // Changed ID
+    const coversDisplayEl = document.getElementById('covers-display');
     const guestCount = coversDisplayEl ? parseInt(coversDisplayEl.value) : 0;
 
     let totalUsage2QuantityBeforeChange = 0;
@@ -132,102 +123,76 @@ function handleUsage2ButtonClick(clickedButton, addonDataset, change) {
         }
     });
 
-    if (change === -1 && currentValue > 0) {
-         // Allow decrement
-    } else if (change === 1) {
+    if (change === -1 && currentValue > 0) { /* Allow decrement */ }
+    else if (change === 1) {
         let otherItemsTotal = 0;
          currentSelected.usage2.forEach(addon => {
-            if (addon.uid.toString() !== addonDataset.addonUid) {
-                otherItemsTotal += addon.quantity;
-            }
+            if (addon.uid.toString() !== addonDataset.addonUid) otherItemsTotal += addon.quantity;
         });
-        if (guestCount === 0 || (otherItemsTotal + (currentValue + 1) > guestCount) ) {
-             return;
-        }
-    } else if(change === -1 && currentValue === 0) {
-        return;
-    } else {
-        return;
-    }
+        if (guestCount === 0 || (otherItemsTotal + (currentValue + 1) > guestCount) ) return;
+    } else if(change === -1 && currentValue === 0) return;
+    else return;
 
     if (change === -1) currentValue--;
     else if (change === 1) currentValue++;
-
     qtyInput.value = currentValue;
 
     const fullAddonData = {
-        uid: parseInt(addonDataset.addonUid, 10),
-        name: addonDataset.addonName,
-        price: parseFloat(addonDataset.addonPrice),
-        per: addonDataset.addonPer,
-        type: addonDataset.addonType,
-        desc: addonDataset.addonDesc,
+        uid: parseInt(addonDataset.addonUid, 10), name: addonDataset.addonName,
+        price: parseFloat(addonDataset.addonPrice), per: addonDataset.addonPer,
+        type: addonDataset.addonType, desc: addonDataset.addonDesc,
     };
     handleAddonUsage2Selection(fullAddonData, currentValue);
 }
 
 export async function handleDateOrCoversChange() {
-    // const dateSelector = document.getElementById('dateSelector'); // Old date selector
     const calendarTopBar = document.getElementById('calendar-top-bar');
     const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
-
-    const coversDisplay = document.getElementById('covers-display'); // Input element
+    const coversDisplay = document.getElementById('covers-display');
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
-    const selectedCoversValueSpan = document.getElementById('selectedCoversValue'); // Span in summary
+    const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
+    const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0;
 
-    const previouslySelectedTimeOnEntry = getCurrentSelectedDecimalTime();
-    const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0; // Actual numeric value
-
-    // Toggle visibility based on current covers value FIRST
     toggleTimeSelectionVisibility(coversDisplay ? coversDisplay.value : '0');
 
-    // If covers is 0, no need to proceed with API calls etc.
     if (coversValue === 0) {
         if (selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
-        if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-'; // Reflect 0 covers as '-'
-        // resetTimeRelatedUI is called by toggleTimeSelectionVisibility if it hides the section
+        if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-';
         setCurrentShiftUsagePolicy(null);
-        setCurrentSelectedDecimalTime(null);
-        updateDailyRotaMessage(''); // Clear daily rota message
-        updateNextBtnUI(); // Ensure Next button is disabled
+        setCurrentSelectedDecimalTime(null); // Clears time and shift name
+        updateDailyRotaMessage('');
+        updateNextBtnUI();
         return;
     }
 
     const localLanguageStrings = getLanguageStrings();
     const localCurrentEstName = getCurrentEstName();
 
-    updateDailyRotaMessage(''); // Clear any previous daily message
-
-    // For covers > 0, proceed with validation and fetching
-    resetTimeRelatedUIFromManager(); // Clear previous times/addons explicitly if covers > 0
+    updateDailyRotaMessage('');
+    resetTimeRelatedUI(); // Clears HTML, summary text, and calls showTimeSelectionAccordion
     setCurrentShiftUsagePolicy(null); // Reset before fetching
 
-    // Ensure selectedDateStr is validated before use
     if (!selectedDateStr || selectedDateStr < getTodayDateString()) {
         const messageKey = !selectedDateStr ? 'errorInvalidInput' : 'errorDateInPast';
         const defaultMessage = !selectedDateStr ? 'Please select a valid date.' : 'Selected date is in the past. Please choose a current or future date.';
         if (document.getElementById('time-selection-section').style.display !== 'none') {
             displayErrorMessageInTimesContainer(messageKey, defaultMessage);
         }
-
-        if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-'; // Show selected date even if invalid
-        if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value; // Show current covers
+        if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
+        if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
         const selectedAreaValSpan = document.getElementById('selectedAreaValue');
-        if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-'; // Reset area
+        if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-';
         updateNextBtnUI();
         return;
     }
 
-    // Update the "Your Selection" display for date and covers (covers already updated by booking_page.js)
     if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
     if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
 
-
-    setCurrentSelectedDecimalTime(null); // Reset selected time
-    setCurrentSelectedAreaUID(null);     // Reset selected area
-    updateAreaDisplayUI();               // Update area display in UI
-    // setCurrentShiftUsagePolicy(null); // Already done above
-    updateNextBtnUI();                   // Update next button state based on current selections
+    setCurrentSelectedDecimalTime(null); // Reset selected time and shift name
+    setCurrentSelectedAreaUID(null);
+    updateAreaDisplayUI();
+    updateNextBtnUI();
 
     if (!localCurrentEstName) {
         console.error('Restaurant Name (est) is not set. Cannot fetch times.');
@@ -236,8 +201,6 @@ export async function handleDateOrCoversChange() {
         }
         return;
     }
-    // This check for coversValue <= 0 is now technically redundant due to the early exit for coversValue === 0,
-    // but kept for safety in case of direct calls or future refactoring.
     if (!selectedDateStr || isNaN(coversValue) || coversValue <= 0) {
         if (document.getElementById('time-selection-section').style.display !== 'none') {
             displayErrorMessageInTimesContainer('errorInvalidInput', 'Please select a valid date and number of guests.');
@@ -253,13 +216,13 @@ export async function handleDateOrCoversChange() {
     try {
         const availabilityData = await fetchAvailableTimes(localCurrentEstName, selectedDateStr, coversValue);
         setCurrentAvailabilityData(availabilityData);
-        setIsInitialRenderCycle(true);
+        setIsInitialRenderCycle(true); // For displayTimeSlots logic if needed
 
-        const currentAvailData = getCurrentAvailabilityData();
+        const currentAvailData = getCurrentAvailabilityData(); // Re-fetch after setting
         updateDailyRotaMessage(currentAvailData ? currentAvailData.message : '');
 
         if (currentAvailData) {
-            displayTimeSlots(currentAvailData, previouslySelectedTimeOnEntry);
+            displayTimeSlots(currentAvailData); // Pass full new data
         } else {
             displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times. Please try again.');
             setCurrentShiftUsagePolicy(null);
@@ -274,31 +237,105 @@ export async function handleDateOrCoversChange() {
 }
 
 export async function handleAreaChange() {
+    const timeSelectionLabel = document.getElementById('timeSelectionLabel');
+    const wasInSummaryMode = timeSelectionLabel?.classList.contains('summary-mode-active');
+    const previouslySelectedTime = getCurrentSelectedDecimalTime();
+    const previouslySelectedShiftName = getCurrentSelectedShiftName();
+    const localLanguageStrings = getLanguageStrings();
+
     setIsInitialRenderCycle(false);
     updateAreaDisplayUI();
-    showLoadingTimes();
-    resetTimeRelatedUI();
-    const currentAvailData = getCurrentAvailabilityData();
-    if (currentAvailData) {
-        displayTimeSlots(currentAvailData);
+
+    const estName = getCurrentEstName();
+    const calendarTopBar = document.getElementById('calendar-top-bar');
+    const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
+    const coversDisplay = document.getElementById('covers-display');
+    const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0;
+
+    if (!estName || !selectedDateStr || isNaN(coversValue) || coversValue <= 0) {
+        displayErrorMessageInTimesContainer('errorInvalidInput', localLanguageStrings.errorInvalidInput || 'Please select date and covers first.');
+        updateNextBtnUI();
+        // Ensure accordion is visible if we bail early
+        showTimeSelectionAccordion();
+        return;
+    }
+
+    showLoadingTimes(); // Show loading message in time slot container
+
+    let newAvailabilityData;
+    try {
+        newAvailabilityData = await fetchAvailableTimes(estName, selectedDateStr, coversValue);
+        setCurrentAvailabilityData(newAvailabilityData); // Update state with fresh data
+    } catch (error) {
+        console.error("Error fetching new availability data in handleAreaChange:", error);
+        displayErrorMessageInTimesContainer('errorLoadingTimes', localLanguageStrings.errorLoadingTimes || 'Could not load times for the new area.');
+        setCurrentSelectedDecimalTime(null); // Clear selection
+        setCurrentShiftUsagePolicy(null);
+        showTimeSelectionAccordion(); // Ensure accordion is shown on error
+        updateNextBtnUI();
+        return;
+    }
+
+    updateDailyRotaMessage(newAvailabilityData.message || ''); // Update daily rota message
+
+    let selectionStillValid = false;
+    let selectedShiftObject = null;
+
+    if (wasInSummaryMode && previouslySelectedTime !== null && previouslySelectedShiftName) {
+        selectedShiftObject = newAvailabilityData.shifts.find(s => s.name === previouslySelectedShiftName);
+        if (selectedShiftObject && selectedShiftObject.times.includes(previouslySelectedTime)) {
+            const currentAreaUID = getCurrentSelectedAreaUID(); // UID of the NEWLY selected area
+            if (getConfig().arSelect === "true" && currentAreaUID && currentAreaUID !== "any") {
+                const areaData = newAvailabilityData.areas.find(a => a.uid.toString() === currentAreaUID);
+                if (areaData && areaData.times.includes(previouslySelectedTime)) {
+                    selectionStillValid = true;
+                }
+            } else {
+                selectionStillValid = true;
+            }
+        }
+    }
+
+    if (selectionStillValid && selectedShiftObject) {
+        // Time/Shift is still valid. Update policy, addons, keep summary view.
+        setCurrentShiftUsagePolicy(selectedShiftObject.usage);
+
+        const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+        if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
+
+        if (selectedShiftObject.addons && Array.isArray(selectedShiftObject.addons) && selectedShiftObject.addons.length > 0) {
+            renderAddons(selectedShiftObject.addons, selectedShiftObject.usage, coversValue, selectedShiftObject.name);
+        } else {
+            if (addonsDisplayArea) addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+        }
+        updateAddonsDisplayUI();
+        updateNextBtnUI();
+
+        // Summary label remains. Accordion remains hidden.
+        // Refresh the hidden accordion's data. displayTimeSlots will use current state.
+        displayTimeSlots(newAvailabilityData);
+        // Re-apply summary view because displayTimeSlots->resetTimeRelatedUI->showTimeSelectionAccordion would have shown accordion
+        showTimeSelectionSummary(previouslySelectedShiftName, formatTime(previouslySelectedTime));
+
     } else {
-        console.warn("handleAreaChange called but currentAvailabilityData from state is null.");
-        displayErrorMessageInTimesContainer('errorLoadingTimes', 'Data not loaded. Please select date/covers again.');
+        setCurrentSelectedDecimalTime(null);
+        resetTimeRelatedUI(); // This calls showTimeSelectionAccordion
+        displayTimeSlots(newAvailabilityData);
+        // updateNextBtnUI(); // Called by resetTimeRelatedUI
     }
 }
+
 
 export async function handleNextButtonClick() {
     const localConfig = getConfig();
     const localCurrentEstName = getCurrentEstName();
     const coversDisplay = document.getElementById('covers-display');
-    // const dateSelector = document.getElementById('dateSelector'); // Old date selector
     const calendarTopBar = document.getElementById('calendar-top-bar');
     const selectedDate = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
 
     const est = localCurrentEstName;
     const language = (localConfig && localConfig.usrLang) ? localConfig.usrLang.replace(/['"]/g, '') : 'en';
     const numCovers = coversDisplay ? coversDisplay.value : null;
-    // selectedDate is now from calendarTopBar.dataset.selectedDate
     const timeToSubmit = getCurrentSelectedDecimalTime();
     let areaToSubmit = null;
     if (localConfig.arSelect === "true" && getCurrentSelectedAreaUID() && getCurrentSelectedAreaUID() !== "any") {
@@ -338,7 +375,7 @@ function timeSlotDelegatedListener(event) {
 
         const timeValue = parseFloat(button.dataset.time);
         const shiftUidFromDataset = button.dataset.shiftUid;
-        const shiftNameFromDataset = button.dataset.shiftName; // Get shiftName from dataset
+        const shiftNameFromDataset = button.dataset.shiftName;
         const availabilityData = getCurrentAvailabilityData();
         let shiftObject = null;
 
@@ -346,7 +383,7 @@ function timeSlotDelegatedListener(event) {
             shiftObject = availabilityData?.shifts?.find(s => s && s.uid != null && s.uid.toString() === shiftUidFromDataset);
         }
 
-        if (!shiftObject && shiftNameFromDataset) { // If not found by UID, try by name
+        if (!shiftObject && shiftNameFromDataset) {
             shiftObject = availabilityData?.shifts?.find(s => s && s.name != null && String(s.name).trim() !== '' && s.name === shiftNameFromDataset);
         }
 
@@ -354,13 +391,13 @@ function timeSlotDelegatedListener(event) {
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
             if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = formatTime(timeValue);
 
-            setCurrentSelectedDecimalTime(timeValue, shiftObject.name); // Pass shiftName here
+            setCurrentSelectedDecimalTime(timeValue, shiftObject.name);
             setCurrentShiftUsagePolicy((shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null);
 
             resetStateAddons();
             updateAddonsDisplayUI();
-            const coversDisplay = document.getElementById('covers-display'); // Changed ID
-            const guestCount = parseInt(coversDisplay.value); // Changed reference
+            const coversDisplay = document.getElementById('covers-display');
+            const guestCount = parseInt(coversDisplay.value);
             updateAllUsage2ButtonStatesUI(guestCount);
 
             const addonsDisplayArea = document.getElementById('addonsDisplayArea');
@@ -374,8 +411,7 @@ function timeSlotDelegatedListener(event) {
             }
             updateNextBtnUI();
 
-            // After everything is updated, show the summary view for time selection
-            const formattedTime = formatTime(timeValue); // timeValue is already a float
+            const formattedTime = formatTime(timeValue);
             showTimeSelectionSummary(shiftObject.name, formattedTime);
 
         } else {
@@ -421,23 +457,16 @@ function addonsDelegatedListener(event) {
 }
 
 export function initializeEventHandlers() {
-    // const dateSelector = document.getElementById('dateSelector'); // Old date selector, listener removed
-    // The covers-display input has its own event listener in booking_page.js.
-    // The calendar changes are now handled by calendar_control.js, which calls handleDateOrCoversChange.
-    // So, no direct 'change' listener for date is needed here anymore.
     const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
     const nextButton = document.getElementById('nextButton');
     const timeSelectorContainer = document.getElementById('timeSelectorContainer');
     const addonsDisplayArea = document.getElementById('addonsDisplayArea');
 
-    // if (dateSelector) dateSelector.addEventListener('change', handleDateOrCoversChange); // Listener removed
-    // No longer add listener to coversSelector here, it's handled in booking_page.js
-
     if (areaRadioGroupContainer) {
         areaRadioGroupContainer.addEventListener('change', (event) => {
             if (event.target.name === 'areaSelection') {
-                setCurrentSelectedAreaUID(event.target.value);
-                handleAreaChange();
+                setCurrentSelectedAreaUID(event.target.value); // This sets the new area UID
+                handleAreaChange(); // Then this is called
             }
         });
     }

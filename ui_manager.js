@@ -9,8 +9,9 @@ import {
     setCurrentSelectedDecimalTime,
     setCurrentShiftUsagePolicy,
     getIsInitialRenderCycle,
-    getCurrentSelectedDecimalTime, // Added for use in displayTimeSlots
-    getCurrentSelectedShiftName // Added for use in displayTimeSlots
+    getCurrentSelectedDecimalTime,
+    getCurrentSelectedShiftName,
+    getCurrentAvailabilityData // Added for handleSummaryLabelClick
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
 
@@ -47,11 +48,19 @@ export function showTimeSelectionSummary(shiftName, timeValueFormatted) {
 }
 
 function handleSummaryLabelClick() {
-    showTimeSelectionAccordion();
-    if (window.handleCoversChangeGlobal) {
-        window.handleCoversChangeGlobal();
+    showTimeSelectionAccordion(); // Resets label, makes container visible
+
+    const currentAvailData = getCurrentAvailabilityData(); // From state_manager
+    if (currentAvailData) {
+        // Re-render the time slots; displayTimeSlots will use the current
+        // selection state (time & shiftName) to highlight correctly.
+        displayTimeSlots(currentAvailData);
     } else {
-        console.warn("handleCoversChangeGlobal not found. Cannot refresh time slots on summary click.");
+        // Fallback if somehow availability data is lost, trigger a full refresh.
+        console.warn("No current availability data to re-display slots on summary click. Forcing full refresh.");
+        if (window.handleCoversChangeGlobal) {
+            window.handleCoversChangeGlobal();
+        }
     }
 }
 
@@ -484,7 +493,7 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
 
 export function displayTimeSlots(availabilityData) {
     const timeSelectorContainer = getTimeSelectorContainer();
-    const selectedTimeValueSpan = getSelectedTimeValueSpan();
+    // const selectedTimeValueSpan = getSelectedTimeValueSpan(); // Text content is managed by selection/reset handlers
     const areaSelectorContainer = getAreaSelectorContainer();
     const areaRadioGroupContainer = getAreaRadioGroupContainer();
     const areaAvailabilityMessage = getAreaAvailabilityMessage();
@@ -509,9 +518,9 @@ export function displayTimeSlots(availabilityData) {
     }
 
     timeSelectorContainer.innerHTML = '';
-    selectedTimeValueSpan.textContent = '-';
-    setCurrentSelectedDecimalTime(null); // This will also reset currentSelectedShiftName
-    setCurrentShiftUsagePolicy(null);
+    // selectedTimeValueSpan.textContent = '-'; // Removed: Should be set by explicit clear or selection
+    // setCurrentSelectedDecimalTime(null); // Removed: State should be cleared by calling context if needed
+    // setCurrentShiftUsagePolicy(null); // Removed: State should be cleared by calling context if needed
 
     if (addonsDisplay) addonsDisplay.innerHTML = '';
     resetCurrentAddonsUICallback();
