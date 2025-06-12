@@ -21,7 +21,7 @@ import {
 import {
     updateSelectedAddonsDisplay as updateAddonsDisplayUI,
     updateNextButtonState as updateNextBtnUI,
-    updateSelectedAreaDisplay, // Changed: Direct import
+    updateSelectedAreaDisplay, // Changed: Direct import, no alias
     showLoadingTimes,
     displayErrorMessageInTimesContainer,
     _setResetAddonsUICallback,
@@ -92,13 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             areaAvailMsg.style.display = 'none';
         }
 
-        // Initial area display update:
-        // If area selection is not active, or no default is set by displayTimeSlots later, this ensures it's '-'
-        // If displayTimeSlots *does* set a default and calls updateSelectedAreaDisplay, this will be overridden.
-        // The most reliable way is to let displayTimeSlots (if called) handle the initial text based on populated radios.
-        // For now, setting to null/'-' ensures it's cleared if not otherwise set.
-        updateSelectedAreaDisplay(null);
-
+        updateSelectedAreaDisplay(null); // Set initial area display to "-"
 
         const partyMin = parseInt(localConfig.partyMin) || 1;
         const partyMax = parseInt(localConfig.partyMax) || 10;
@@ -135,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (localCurrentEstName && initialSelectedDate && coversDisplay && parseInt(initialCovers) > 0) {
             if (initialSelectedDate >= getTodayDateString()) {
                 showLoadingTimes();
-                await window.handleCoversChangeGlobal(); // This will call displayTimeSlots, which now also updates area display based on its logic
+                await window.handleCoversChangeGlobal();
             } else {
                 displayErrorMessageInTimesContainer('errorDateInPastInitial', 'Initial date is in the past. Please select a valid date.');
                 if (selectedDateValueSpan && initialSelectedDate) selectedDateValueSpan.textContent = initialSelectedDate;
@@ -155,16 +149,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(selectedDateValueSpan) selectedDateValueSpan.textContent = initialSelectedDate || '-';
             if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = (initialCovers === "0" || initialCovers === "") ? "-" : initialCovers;
 
-            // If not fetching times (e.g. covers is 0), ensure time selection section doesn't show loading.
-            // displayTimeSlots is not called, so no "no times" message will be in timeSelectorContainer yet
-            // unless toggleTimeSelectionVisibility -> resetTimeRelatedUI -> displayTimeSlots (with no data) puts one there.
-            // For covers = 0, time-selection-section is hidden.
-            // If covers > 0 but date is missing, handleCoversChangeGlobal won't be called.
-            if (parseInt(initialCovers) > 0 && !initialSelectedDate) { // e.g. covers set, but no date from flatpickr yet
+            if (parseInt(initialCovers) > 0 && !initialSelectedDate) {
                  displayErrorMessageInTimesContainer('errorDateMissing', promptMessage);
             } else if (parseInt(initialCovers) === 0) {
-                // Time section is hidden, no message needed there.
-                // The main prompt for user is to select date/covers.
+                // Time section is hidden.
             }
         }
         updateNextBtnUI();

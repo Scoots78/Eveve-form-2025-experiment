@@ -11,7 +11,8 @@ import {
     getIsInitialRenderCycle,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getCurrentAvailabilityData
+    getCurrentAvailabilityData,
+    setCurrentSelectedAreaUID // Added import
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
 
@@ -542,7 +543,7 @@ export function displayTimeSlots(availabilityData) {
             } else {
                 uidToSelect = null;
             }
-            setCurrentSelectedAreaUID(uidToSelect);
+            // setCurrentSelectedAreaUID(uidToSelect); // Removed: displayTimeSlots should not set this state.
         }
 
         if (localConfig.areaAny === "true") {
