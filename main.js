@@ -26,7 +26,8 @@ import {
     displayErrorMessageInTimesContainer,
     _setResetAddonsUICallback,
     updateAllUsage2ButtonStatesUI,
-    initializeOriginalLabelText
+    initializeOriginalLabelText,
+    hideAreaSelector // Added import
 } from './ui_manager.js';
 import { initializeEventHandlers, handleDateOrCoversChange, toggleTimeSelectionVisibility } from './event_handlers.js';
 
@@ -39,6 +40,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
     const areaSelectorContainer = document.getElementById('areaSelectorContainer');
     const timeSelectionLabel = document.getElementById('timeSelectionLabel');
+
+    // Hide area selector on initial load (CSS also does this, but JS ensures it if CSS fails or is overridden)
+    hideAreaSelector();
 
     function getTodayDateString() {
         const today = new Date();
@@ -84,9 +88,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const displayName = localConfig.estName ? localConfig.estName.replace(/^['"](.*)['"]$/, '$1') : localCurrentEstName;
             restaurantNameSpan.textContent = displayName;
         }
-        if (areaSelectorContainer) {
-            areaSelectorContainer.style.display = localConfig.arSelect === "true" ? 'block' : 'none';
-        }
+        // Initial display of areaSelectorContainer is handled by hideAreaSelector() above,
+        // and CSS. JS logic in displayTimeSlots or event handlers will show it if arSelect is true.
+        // if (areaSelectorContainer) {
+        //     areaSelectorContainer.style.display = localConfig.arSelect === "true" ? 'block' : 'none';
+        // }
         const areaAvailMsg = document.getElementById('areaAvailabilityMessage');
         if (areaAvailMsg && (localConfig.arSelect !== "true" || !areaSelectorContainer || areaSelectorContainer.style.display === 'none')) {
             areaAvailMsg.style.display = 'none';

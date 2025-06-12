@@ -28,7 +28,9 @@ import {
     resetTimeRelatedUI,
     showTimeSelectionSummary,
     showTimeSelectionAccordion,
-    updateAllUsage2ButtonStatesUI // Added import
+    updateAllUsage2ButtonStatesUI, // Added import
+    showAreaSelector, // Added import
+    hideAreaSelector // Added import
 } from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
@@ -417,6 +419,11 @@ function timeSlotDelegatedListener(event) {
 
             const formattedTime = formatTime(timeValue);
             showTimeSelectionSummary(shiftObject.name, formattedTime);
+
+            const localConfig = getConfig();
+            if (localConfig.arSelect === "true") {
+                showAreaSelector();
+            }
 
         } else {
             console.warn(`Shift object not found for time slot button. Attempted UID: ${shiftUidFromDataset}, Attempted Name: ${shiftNameFromDataset}`, button);

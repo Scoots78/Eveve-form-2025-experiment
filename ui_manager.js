@@ -74,6 +74,11 @@ export function showTimeSelectionAccordion(event) {
         labelEl.innerText = originalTimeSelectionLabelText;
         labelEl.classList.remove('summary-mode-active');
     }
+    // When returning to accordion view, hide area selector until a new time is chosen
+    const localConfig = getConfig();
+    if (localConfig.arSelect === "true") {
+        hideAreaSelector();
+    }
 }
 
 // --- Existing DOM Element Getters ---
@@ -85,6 +90,24 @@ const getAddonsDisplayArea = () => document.getElementById('addonsDisplayArea');
 const getNextButton = () => document.getElementById('nextButton');
 const getSelectedAddonsValueSpan = () => document.getElementById('selectedAddonsValue');
 const getDailyRotaMessageDiv = () => document.getElementById('dailyRotaMessage');
+
+// --- Area Selector Visibility ---
+
+export function showAreaSelector() {
+    const areaSelector = getAreaSelectorContainer();
+    if (areaSelector) {
+        areaSelector.style.display = 'block'; // Or 'flex' if it's a flex container
+    }
+}
+
+export function hideAreaSelector() {
+    const areaSelector = getAreaSelectorContainer();
+    if (areaSelector) {
+        areaSelector.style.display = 'none';
+    }
+}
+
+// --- Addon UI Callbacks & Updates ---
 
 let resetCurrentAddonsUICallback = () => {
     const addonsDisplayArea = getAddonsDisplayArea();
@@ -834,8 +857,12 @@ export function resetTimeRelatedUI() {
 
     resetCurrentAddonsUICallback();
     updateNextButtonState();
-    showTimeSelectionAccordion();
+    showTimeSelectionAccordion(); // This will also hide the area selector if arSelect is true
     updateSelectedAreaDisplay(null); // Clear area display
+
+    // Explicitly hide area selector during full reset, regardless of arSelect state in showTimeSelectionAccordion
+    // This ensures it's hidden if resetTimeRelatedUI is called directly for other reasons.
+    hideAreaSelector();
 }
 
 export function showLoadingTimes() {
