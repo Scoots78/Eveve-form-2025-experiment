@@ -33,10 +33,12 @@ import {
     _setResetAddonsUICallback,
     updateAllUsage2ButtonStatesUI // This one is exported with UI suffix from ui_manager.js
 } from './ui_manager.js';
-import { initializeEventHandlers, handleDateOrCoversChange } from './event_handlers.js';
+import { initializeEventHandlers, handleDateOrCoversChange, toggleTimeSelectionVisibility } from './event_handlers.js';
 
 // Make it available globally for booking_page.js
 window.handleCoversChangeGlobal = handleDateOrCoversChange;
+// Make toggleTimeSelectionVisibility available to booking_page.js if it needs it (though it has a local one now)
+// window.toggleTimeSelectionVisibilityGlobal = toggleTimeSelectionVisibility;
 
 document.addEventListener('DOMContentLoaded', async () => {
     // --- DOM Elements needed for initial setup ---
@@ -116,11 +118,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (coversDisplay) {
             coversDisplay.dataset.min = partyMin;
             coversDisplay.dataset.max = partyMax;
-            // The initial value of coversDisplay (2) is set by booking_page.js
+    // The initial value of coversDisplay is now 0, set by booking_page.js
             // booking_page.js runs its DOMContentLoaded, then this main.js DOMContentLoaded runs.
-            // So, coversDisplay.value should already be '2'.
             if (selectedCoversValueSpan) {
-                selectedCoversValueSpan.textContent = coversDisplay.value; // Should be '2'
+        // Reflect the initial 0 covers as '-' in the summary
+        selectedCoversValueSpan.textContent = coversDisplay.value === "0" ? "-" : coversDisplay.value;
             }
         } else {
             console.error("Covers display element (#covers-display) not found!");
@@ -140,35 +142,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Initial data load and UI render
         const calendarTopBar = document.getElementById('calendar-top-bar');
         const initialSelectedDate = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
-        // coversDisplay is already defined and its value is set by booking_page.js
+const initialCovers = coversDisplay ? coversDisplay.value : '0'; // Should be "0"
 
-        if (localCurrentEstName && initialSelectedDate && coversDisplay && parseInt(coversDisplay.value) > 0) {
-            if (initialSelectedDate >= getTodayDateString()) { // getTodayDateString() is a helper in main.js
+// Ensure time selection section is hidden initially if covers is 0
+toggleTimeSelectionVisibility(initialCovers);
+
+if (localCurrentEstName && initialSelectedDate && coversDisplay && parseInt(initialCovers) > 0) {
+    // This block will not be entered if initialCovers is "0"
+    if (initialSelectedDate >= getTodayDateString()) {
                 showLoadingTimes();
-                await window.handleCoversChangeGlobal(); // Use the globally exposed function
+        await window.handleCoversChangeGlobal();
             } else {
-                // This 'else' case (initial date in past) should ideally not happen with Flatpickr's minDate: "today"
                 displayErrorMessageInTimesContainer('errorDateInPastInitial', 'Initial date is in the past. Please select a valid date.');
                 if (selectedDateValueSpan && initialSelectedDate) selectedDateValueSpan.textContent = initialSelectedDate;
-                if (selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
+        if (selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value; // Show actual covers
                 setCurrentShiftUsagePolicy(null); updateNextBtnUI();
             }
         } else {
+    // This block WILL be entered if initialCovers is "0"
             let promptMessage = localLanguageStrings.promptSelection || 'Please select date and guests for times.';
             if (!localCurrentEstName) {
                 promptMessage = localLanguageStrings.errorConfigMissing || 'Restaurant config missing.';
             } else if (!initialSelectedDate) {
-                promptMessage = localLanguageStrings.errorDateMissing || 'Please select a date.'; // More specific message
-            } else if (!coversDisplay || !(parseInt(coversDisplay.value) > 0)) {
-                promptMessage = localLanguageStrings.errorCoversMissing || 'Please select number of guests.'; // More specific message
+        promptMessage = localLanguageStrings.errorDateMissing || 'Please select a date.';
+    } else if (!coversDisplay || parseInt(initialCovers) === 0) { // Check for 0 covers
+        promptMessage = localLanguageStrings.errorCoversMissing || 'Please select number of guests.';
             }
-            displayErrorMessageInTimesContainer('promptSelectionInitial', promptMessage);
-            // Update selection display to reflect current state (e.g. if date is missing)
+    // Only display this prompt if the time section would have been visible (i.e., if covers > 0)
+    // Or, if covers is 0, the time section is hidden, so this message might not be needed in that container.
+    // However, handleDateOrCoversChange (if called with 0) might clear it.
+    // For initial load with 0 covers, the time section is hidden by toggleTimeSelectionVisibility.
+    // So, no specific message needs to be put into the (now hidden) time container.
+    // The main page structure (date, covers input) is the prompt.
+
+    // Update selection display to reflect current state
             if(selectedDateValueSpan) selectedDateValueSpan.textContent = initialSelectedDate || '-';
-            if(selectedCoversValueSpan && coversDisplay && coversDisplay.value !== "0" && coversDisplay.value !== "") selectedCoversValueSpan.textContent = coversDisplay.value;
-            else if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-';
+    if(selectedCoversValueSpan) selectedCoversValueSpan.textContent = (initialCovers === "0" || initialCovers === "") ? "-" : initialCovers;
         }
-        updateNextBtnUI(); // Final check for button state
+updateNextBtnUI(); // Final check for button state, should be disabled if covers is 0
 
     } catch (error) {
         console.error('Critical error during form initialization (outer try-catch):', error);

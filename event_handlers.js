@@ -26,11 +26,30 @@ import {
     displayErrorMessageInTimesContainer,
     resetTimeRelatedUI,
     // _setResetAddonsUICallback, // This is set in main.js, not used directly by event_handlers
-    updateAllUsage2ButtonStatesUI
+    updateAllUsage2ButtonStatesUI,
+    resetTimeRelatedUI as resetTimeRelatedUIFromManager // Renaming to avoid conflict if any local one exists
 } from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
 // --- Helper Functions ---
+export function toggleTimeSelectionVisibility(coversValueStr) {
+    const coversValue = parseInt(coversValueStr, 10);
+    const timeSelectionSection = document.getElementById('time-selection-section');
+    if (timeSelectionSection) {
+        const isCurrentlyVisible = timeSelectionSection.style.display !== 'none';
+        if (coversValue > 0 && !isCurrentlyVisible) {
+            timeSelectionSection.style.display = ''; // Or 'block', depending on default CSS
+        } else if (coversValue === 0 && isCurrentlyVisible) {
+            timeSelectionSection.style.display = 'none';
+            // Also clear time-related UI when hiding the section due to 0 covers
+            resetTimeRelatedUIFromManager(); // Clear time slots, selected time, addons
+            const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
+            if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+            // No need to call updateNextBtnUI here as handleDateOrCoversChange will do it
+        }
+    }
+}
+
 function getTodayDateString() {
     const today = new Date();
     const year = today.getFullYear();
@@ -151,56 +170,84 @@ export async function handleDateOrCoversChange() {
     const calendarTopBar = document.getElementById('calendar-top-bar');
     const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
 
-    const coversDisplay = document.getElementById('covers-display');
+    const coversDisplay = document.getElementById('covers-display'); // Input element
     const selectedDateValueSpan = document.getElementById('selectedDateValue');
-    const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
+    const selectedCoversValueSpan = document.getElementById('selectedCoversValue'); // Span in summary
 
     const previouslySelectedTimeOnEntry = getCurrentSelectedDecimalTime();
-    // selectedDateStr is now from calendarTopBar.dataset.selectedDate
-    const coversValue = parseInt(coversDisplay.value, 10);
+    const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0; // Actual numeric value
+
+    // Toggle visibility based on current covers value FIRST
+    toggleTimeSelectionVisibility(coversDisplay ? coversDisplay.value : '0');
+
+    // If covers is 0, no need to proceed with API calls etc.
+    if (coversValue === 0) {
+        if (selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
+        if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-'; // Reflect 0 covers as '-'
+        // resetTimeRelatedUI is called by toggleTimeSelectionVisibility if it hides the section
+        setCurrentShiftUsagePolicy(null);
+        setCurrentSelectedDecimalTime(null);
+        updateDailyRotaMessage(''); // Clear daily rota message
+        updateNextBtnUI(); // Ensure Next button is disabled
+        return;
+    }
+
     const localLanguageStrings = getLanguageStrings();
     const localCurrentEstName = getCurrentEstName();
 
-    resetTimeRelatedUI();
-    setCurrentShiftUsagePolicy(null);
-    updateDailyRotaMessage('');
+    updateDailyRotaMessage(''); // Clear any previous daily message
 
-    // Ensure selectedDateStr is validated before use, especially against getTodayDateString()
+    // For covers > 0, proceed with validation and fetching
+    resetTimeRelatedUIFromManager(); // Clear previous times/addons explicitly if covers > 0
+    setCurrentShiftUsagePolicy(null); // Reset before fetching
+
+    // Ensure selectedDateStr is validated before use
     if (!selectedDateStr || selectedDateStr < getTodayDateString()) {
         const messageKey = !selectedDateStr ? 'errorInvalidInput' : 'errorDateInPast';
         const defaultMessage = !selectedDateStr ? 'Please select a valid date.' : 'Selected date is in the past. Please choose a current or future date.';
-        displayErrorMessageInTimesContainer(messageKey, defaultMessage);
+        if (document.getElementById('time-selection-section').style.display !== 'none') {
+            displayErrorMessageInTimesContainer(messageKey, defaultMessage);
+        }
 
-        if(selectedDateValueSpan) selectedDateValueSpan.textContent = '-';
-        if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = isNaN(coversValue) ? '-' : coversDisplay.value;
+        if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-'; // Show selected date even if invalid
+        if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value; // Show current covers
         const selectedAreaValSpan = document.getElementById('selectedAreaValue');
-        if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-';
-        setCurrentShiftUsagePolicy(null); updateNextBtnUI();
+        if (selectedAreaValSpan) selectedAreaValSpan.textContent = '-'; // Reset area
+        updateNextBtnUI();
         return;
     }
 
-    // Update the "Your Selection" display for date
+    // Update the "Your Selection" display for date and covers (covers already updated by booking_page.js)
     if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
-    // selectedCoversValueSpan is updated by booking_page.js, ensure consistency here
-    if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value || '-';
+    if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
 
-    setCurrentSelectedDecimalTime(null);
-    setCurrentSelectedAreaUID(null);
-    updateAreaDisplayUI();
-    setCurrentShiftUsagePolicy(null); updateNextBtnUI();
+
+    setCurrentSelectedDecimalTime(null); // Reset selected time
+    setCurrentSelectedAreaUID(null);     // Reset selected area
+    updateAreaDisplayUI();               // Update area display in UI
+    // setCurrentShiftUsagePolicy(null); // Already done above
+    updateNextBtnUI();                   // Update next button state based on current selections
 
     if (!localCurrentEstName) {
         console.error('Restaurant Name (est) is not set. Cannot fetch times.');
-        displayErrorMessageInTimesContainer('errorConfigMissing', 'Configuration error: Restaurant name not found.');
+        if (document.getElementById('time-selection-section').style.display !== 'none') {
+            displayErrorMessageInTimesContainer('errorConfigMissing', 'Configuration error: Restaurant name not found.');
+        }
         return;
     }
+    // This check for coversValue <= 0 is now technically redundant due to the early exit for coversValue === 0,
+    // but kept for safety in case of direct calls or future refactoring.
     if (!selectedDateStr || isNaN(coversValue) || coversValue <= 0) {
-        displayErrorMessageInTimesContainer('errorInvalidInput', 'Please select a valid date and number of guests.');
-        setCurrentShiftUsagePolicy(null); updateNextBtnUI();
+        if (document.getElementById('time-selection-section').style.display !== 'none') {
+            displayErrorMessageInTimesContainer('errorInvalidInput', 'Please select a valid date and number of guests.');
+        }
+        updateNextBtnUI();
         return;
     }
 
-    showLoadingTimes();
+    if (document.getElementById('time-selection-section').style.display !== 'none') {
+        showLoadingTimes();
+    }
 
     try {
         const availabilityData = await fetchAvailableTimes(localCurrentEstName, selectedDateStr, coversValue);

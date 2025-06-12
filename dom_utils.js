@@ -144,3 +144,21 @@ export function formatSelectedAddonsForApi(selectedAddons) {
     }
     return addonParts.join(',');
 }
+
+/**
+ * Creates a debounced version of a function.
+ * The debounced function will only execute after a specified delay has passed
+ * without any new calls to the debounced function.
+ * @param {Function} func - The function to debounce.
+ * @param {number} delay - The debounce delay in milliseconds.
+ * @returns {Function} The debounced function.
+ */
+export function debounce(func, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
+}
