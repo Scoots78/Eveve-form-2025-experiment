@@ -11,7 +11,8 @@ import {
     getIsInitialRenderCycle,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getCurrentAvailabilityData
+    getCurrentAvailabilityData,
+    getCurrentSelectedAreaUID // Ensure this is imported if used directly, though it's already available via state_manager
     // setCurrentSelectedAreaUID // Removed import
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
@@ -396,43 +397,64 @@ function renderGenericAddons(addonsArray, guestCount, shiftName, usagePolicy) {
     }
 }
 
-export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shiftName) {
+export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shiftName, areaId = null) { // Added areaId
     const addonsDisplayArea = getAddonsDisplayArea();
     const localLanguageStrings = getLanguageStrings();
     if (!addonsDisplayArea) { console.error('Addons display area not found.'); return; }
-    addonsDisplayArea.innerHTML = '';
+    addonsDisplayArea.innerHTML = ''; // Clear previous addons
+
+    // Area ID is passed, but current assumption is addons are pre-filtered by API.
+    // If not, filtering logic based on areaId and addon.area_uids (or similar) would go here.
+    // console.log(`Rendering addons for Area ID: ${areaId}, Shift: ${shiftName}, Guests: ${guestCount}`);
 
     if (!originalAddonsArray || originalAddonsArray.length === 0) {
         addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailable || 'No addons available for this selection.'}</p>`;
+        addonsDisplayArea.style.display = 'block'; // Ensure container is visible for the message
         return;
     }
     const numericGuestCount = parseInt(guestCount);
     if (isNaN(numericGuestCount)) {
         console.error("Invalid guestCount provided to renderAddons:", guestCount);
         addonsDisplayArea.innerHTML = `<p class="error-message">Error: Invalid guest count for addons.</p>`;
+        addonsDisplayArea.style.display = 'block'; // Ensure container is visible for the message
         return;
     }
-    const filteredAddons = originalAddonsArray.filter(addon => {
+
+    // Existing filtering by min/max covers
+    let addonsToRender = originalAddonsArray.filter(addon => {
         const minCovers = (typeof addon.min === 'number' && !isNaN(addon.min)) ? addon.min : 1;
         const maxCovers = (typeof addon.max === 'number' && !isNaN(addon.max)) ? addon.max : Infinity;
         return numericGuestCount >= minCovers && numericGuestCount <= maxCovers;
     });
 
-    if (filteredAddons.length === 0) {
-        addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsForGuestCount || 'No addons currently available for the selected number of guests.'}</p>`;
+    // Placeholder for additional area-specific filtering if addons are not pre-filtered by API
+    // This would require addons to have properties like `addon.area_uids` or `addon.is_area_specific`
+    if (areaId && areaId !== "any") { // Example: only filter if a specific area is chosen
+        // addonsToRender = addonsToRender.filter(addon => {
+        //    // return !addon.area_uids || addon.area_uids.includes(areaId); // Example logic
+        //    return true; // Assuming API pre-filters for now
+        // });
+    }
+
+
+    if (addonsToRender.length === 0) {
+        addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsForGuestCount || 'No addons currently available for the selected number of guests or area.'}</p>`;
+        addonsDisplayArea.style.display = 'block'; // Ensure container is visible for the message
         return;
     }
+
+    addonsDisplayArea.style.display = 'block'; // Ensure container is visible
     const title = document.createElement('h4');
     title.textContent = localLanguageStrings.availableAddonsTitle || 'Available Addons:';
     addonsDisplayArea.appendChild(title);
 
     switch (parseInt(usagePolicy)) {
-        case 1: renderUsage1Addons(filteredAddons, numericGuestCount, shiftName); break;
-        case 2: renderUsage2Addons(filteredAddons, numericGuestCount, shiftName); break;
-        case 3: renderUsage3Addons(filteredAddons, numericGuestCount, shiftName); break;
+        case 1: renderUsage1Addons(addonsToRender, numericGuestCount, shiftName); break;
+        case 2: renderUsage2Addons(addonsToRender, numericGuestCount, shiftName); break;
+        case 3: renderUsage3Addons(addonsToRender, numericGuestCount, shiftName); break;
         default:
             console.warn(`Unknown usagePolicy: ${usagePolicy} for shift "${shiftName}". Rendering all filtered addons generically.`);
-            renderGenericAddons(filteredAddons, numericGuestCount, shiftName, usagePolicy);
+            renderGenericAddons(addonsToRender, numericGuestCount, shiftName, usagePolicy);
     }
 }
 
@@ -476,12 +498,12 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
     return button;
 }
 
-export function displayTimeSlots(availabilityData) {
+export function displayTimeSlots(availabilityData, preserveAddons = false) {
     const timeSelectorContainer = getTimeSelectorContainer();
     const areaSelectorContainer = getAreaSelectorContainer();
     const areaRadioGroupContainer = getAreaRadioGroupContainer();
     const areaAvailabilityMessage = getAreaAvailabilityMessage();
-    const addonsDisplay = getAddonsDisplayArea();
+    const addonsDisplay = getAddonsDisplayArea(); // Keep reference for potential conditional clearing
 
     if (!timeSelectorContainer) {
         console.error("timeSelectorContainer not found in displayTimeSlots");
@@ -509,8 +531,10 @@ export function displayTimeSlots(availabilityData) {
 
     timeSelectorContainer.innerHTML = '';
 
-    if (addonsDisplay) addonsDisplay.innerHTML = '';
-    resetCurrentAddonsUICallback();
+    if (!preserveAddons) {
+        if (addonsDisplay) addonsDisplay.innerHTML = '';
+        resetCurrentAddonsUICallback();
+    }
 
     if (areaAvailabilityMessage) {
         areaAvailabilityMessage.textContent = '';
