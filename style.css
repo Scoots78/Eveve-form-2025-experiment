@@ -247,9 +247,26 @@ input[type="number"] {
     margin-bottom: 5px;
     padding-bottom: 3px;
     border-bottom: 1px solid #ddd;
+    cursor: pointer; /* Make H3 look clickable */
+    transition: color 0.2s ease-in-out; /* Smooth hover text color */
 }
+
+#timeSelectorContainer h3:hover {
+    color: #0056b3; /* Darken text on hover, like a link */
+}
+
+#timeSelectorContainer h3.active-shift-title {
+    color: #f05a28; /* Use the calendar's highlight color for active shift */
+    font-weight: bold; /* Make active title bold */
+}
+
 #timeSelectorContainer h3:first-of-type {
     margin-top: 0; 
+}
+
+/* Styles for accordion content visibility */
+.shift-content-hidden {
+    display: none !important;
 }
 
 /* Wrapper for buttons within a shift */

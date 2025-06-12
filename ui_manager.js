@@ -650,6 +650,68 @@ export function displayTimeSlots(availabilityData, stickyTimeAttempt = null) {
     if (!foundAnySlotsToShowOverall) {
          timeSelectorContainer.innerHTML = `<p class="no-times-message">${localLanguageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
     }
+
+    // Accordion logic for shift titles
+    const allH3sInContainer = timeSelectorContainer.querySelectorAll('h3');
+    allH3sInContainer.forEach(h3El => {
+        const msgEl = h3El.nextElementSibling;
+        const wrapEl = msgEl ? msgEl.nextElementSibling : null;
+
+        // Initially hide content for ALL h3s and remove active states
+        h3El.classList.remove('active-shift-title');
+        if (msgEl && msgEl.classList.contains('shift-message')) {
+            msgEl.classList.add('shift-content-hidden');
+        }
+        if (wrapEl && wrapEl.classList.contains('shift-times-wrapper')) {
+            wrapEl.classList.add('shift-content-hidden');
+        }
+
+        h3El.addEventListener('click', () => {
+            const targetMessageElement = h3El.nextElementSibling;
+            const targetWrapperElement = targetMessageElement ? targetMessageElement.nextElementSibling : null;
+
+            // Determine if the clicked section is currently open (before hiding all)
+            // This check is to see if we are clicking an already open section.
+            const wasCurrentlyOpen = targetMessageElement &&
+                                     targetMessageElement.classList.contains('shift-message') &&
+                                     !targetMessageElement.classList.contains('shift-content-hidden');
+
+            // Hide all other sections and deactivate their titles
+            allH3sInContainer.forEach(otherH3 => {
+                // if (otherH3 !== h3El) { // Optionally, don't hide the clicked one yet
+                    otherH3.classList.remove('active-shift-title');
+                    const otherMsg = otherH3.nextElementSibling;
+                    const otherWrap = otherMsg ? otherMsg.nextElementSibling : null;
+                    if (otherMsg && otherMsg.classList.contains('shift-message')) {
+                        otherMsg.classList.add('shift-content-hidden');
+                    }
+                    if (otherWrap && otherWrap.classList.contains('shift-times-wrapper')) {
+                        otherWrap.classList.add('shift-content-hidden');
+                    }
+                // }
+            });
+
+            // If the clicked section was not already open, or if it was open and we want to allow re-clicking to keep it open
+            // (which is the current behavior: hide all, then show the target), then show its content.
+            // If we wanted a strict toggle (click open one to close it), we'd check `!wasCurrentlyOpen` here.
+            // The current logic ensures the clicked one always ends up open.
+            if (targetMessageElement && targetMessageElement.classList.contains('shift-message')) {
+                targetMessageElement.classList.remove('shift-content-hidden');
+            }
+            if (targetWrapperElement && targetWrapperElement.classList.contains('shift-times-wrapper')) {
+                targetWrapperElement.classList.remove('shift-content-hidden');
+            }
+            h3El.classList.add('active-shift-title');
+        });
+    });
+    // Auto-open the first shift if any shifts are present and foundAnySlotsToShowOverall
+    if (foundAnySlotsToShowOverall && allH3sInContainer.length > 0) {
+        // Temporarily remove the listener to prevent click logic from interfering
+        // or directly manipulate classes. Simpler to just click it.
+        allH3sInContainer[0].click(); // Programmatically click the first H3 to open it
+    }
+
+
     updateNextButtonState();
 
     if (stickyTimeAttempt !== null) {
