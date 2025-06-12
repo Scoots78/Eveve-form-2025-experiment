@@ -6,62 +6,76 @@ document.addEventListener('DOMContentLoaded', () => {
     const coversIncrement = document.getElementById('covers-increment');
     const selectedCoversValueSpan = document.getElementById('selectedCoversValue');
 
-    // Retrieve min/max from data attributes set by main.js
-    // These attributes should be set by main.js before this script runs or accesses them.
-    // If main.js's DOMContentLoaded runs after this, dataset attributes might not be immediately available.
-    // However, typical script execution order should make them available.
-    const minGuests = parseInt(coversDisplay.dataset.min) || 0; // Allow 0 as a valid min for initial state
-    const maxGuests = parseInt(coversDisplay.dataset.max) || 12; // Default max, e.g. 12, if not found
+    // It's safer to get these from window.bookingConfig if main.js guarantees it's populated.
+    // For now, assuming dataset attributes are correctly set by main.js before this script runs.
+    const minGuestsFromDataset = parseInt(coversDisplay.dataset.min); // This is the 'floor' for the input (e.g., 0 or 1)
+    const maxGuestsFromDataset = parseInt(coversDisplay.dataset.max);
+
+    // Operational minimum for booking (cannot be 0)
+    const operationalMinGuests = window.bookingConfig && typeof window.bookingConfig.minGuests === 'number'
+        ? window.bookingConfig.minGuests
+        : 1; // Default operational min if not in config (should always be >= 1)
+
+    const maxGuests = !isNaN(maxGuestsFromDataset) ? maxGuestsFromDataset : 12;
 
     let currentCovers = 0; // Initial value set to 0
+    let isInitialCoversState = true; // Flag for initial state
 
-    // Adjust initial currentCovers based on min/max (though 0 should be fine if minGuests is 0)
-    if (currentCovers < minGuests && minGuests !== 0) { // If minGuests is not 0, enforce it.
-        currentCovers = minGuests;
-    }
-    if (currentCovers > maxGuests) {
-        currentCovers = maxGuests;
+    // No initial adjustment based on minGuests needed here as currentCovers starts at 0,
+    // and minGuests (from dataset) is used as the floor for user interaction.
+
+    function updateButtonStates() {
+        // Decrement button logic:
+        if (isInitialCoversState) {
+            coversDecrement.disabled = (currentCovers === 0);
+        } else {
+            // Once initial state is passed, cannot go below operationalMinGuests
+            coversDecrement.disabled = (currentCovers <= operationalMinGuests);
+        }
+        // Increment button logic:
+        coversIncrement.disabled = (currentCovers >= maxGuests);
     }
 
-    // Function to toggle time selection visibility (will be properly defined in event_handlers.js)
-    // For now, this is a placeholder to ensure it's called.
-    // It will be replaced by an import later if we move its definition.
     function toggleTimeSelectionVisibilityLocal(value) {
         const timeSelectionSection = document.getElementById('time-selection-section');
         if (timeSelectionSection) {
-            timeSelectionSection.style.display = value > 0 ? '' : 'none'; // Show if value > 0, else hide
+            // Show if value >= operationalMinGuests, else hide.
+            // Or, more simply, if value > 0 (because 0 is the "reset" state)
+            timeSelectionSection.style.display = value >= operationalMinGuests ? '' : 'none';
         }
     }
 
     function updateCoversDisplayAndSummary() {
         coversDisplay.value = currentCovers;
         if (selectedCoversValueSpan) {
-            // Display '-' if covers is 0, otherwise the number
-            selectedCoversValueSpan.textContent = currentCovers === 0 ? '-' : currentCovers;
+            selectedCoversValueSpan.textContent = (currentCovers === 0 && isInitialCoversState) ? '-' : currentCovers;
         }
-        toggleTimeSelectionVisibilityLocal(currentCovers); // Update visibility whenever covers change
+        toggleTimeSelectionVisibilityLocal(currentCovers);
+        updateButtonStates(); // Update button states whenever covers change
     }
 
     function triggerAvailabilityUpdate() {
-        // Only trigger if covers > 0, as per new logic where time selection is hidden for 0 covers
-        if (currentCovers > 0) {
+        // Only trigger if covers are at a bookable level (>= operationalMinGuests)
+        // The visibility of the time section is already handled by toggleTimeSelectionVisibilityLocal
+        // which uses operationalMinGuests.
+        // The call to handleCoversChangeGlobal itself has logic for covers === 0 (from previous step),
+        // which means it won't fetch if covers is 0.
+        // So, this check might be redundant if handleCoversChangeGlobal is robust.
+        // However, explicit is good.
+        if (currentCovers >= operationalMinGuests) {
             if (window.handleCoversChangeGlobal) {
                 window.handleCoversChangeGlobal();
             } else {
                 console.warn('handleCoversChangeGlobal is not defined on window. Availability check skipped.');
             }
-        } else {
-            // If covers is 0, we might want to clear existing time slots or show a message.
-            // This part can be expanded based on desired behavior. For now, handled by toggleTimeSelectionVisibility.
-            // Potentially, explicitly call a reset function from ui_manager if needed.
+        } else { // Covers are 0 (initial state) or less than operationalMin (should not happen if logic is correct)
             const timeSelectorContainer = document.getElementById('timeSelectorContainer');
-            if (timeSelectorContainer) timeSelectorContainer.innerHTML = ''; // Clear time slots
+            if (timeSelectorContainer) timeSelectorContainer.innerHTML = '';
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
             if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
-             // Also reset addons and next button if covers go to 0
-            if (window.resetAddonsAndNextButtonGlobal) { // Assuming a global reset function might be useful
+            if (window.resetAddonsAndNextButtonGlobal) {
                 window.resetAddonsAndNextButtonGlobal();
-            } else { // or call individual parts if not bundled
+            } else {
                 const addonsDisplayArea = document.getElementById('addonsDisplayArea');
                 if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
                 const nextButton = document.getElementById('nextButton');
@@ -73,47 +87,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const debouncedTriggerAvailabilityUpdate = debounce(triggerAvailabilityUpdate, 500);
 
     coversDecrement.addEventListener('click', () => {
-        // Allow decrementing to 0. minGuests should be 0 for this.
-        if (currentCovers > minGuests) { // If minGuests is 0, this allows currentCovers to become 0.
+        const targetMin = isInitialCoversState ? 0 : operationalMinGuests;
+        if (currentCovers > targetMin) {
             currentCovers--;
-            updateCoversDisplayAndSummary(); // This will call toggleTimeSelectionVisibilityLocal
-            debouncedTriggerAvailabilityUpdate(); // This will check if currentCovers > 0
+            // isInitialCoversState remains true if currentCovers becomes 0 again from operationalMinGuests
+            // This specific edge case (decrementing from operationalMin to 0) might need refinement
+            // based on desired behavior (should it revert to initial state or stick to opMin floor?).
+            // For now, assume if it hits 0, it's like the initial state for display purposes.
+            if (currentCovers === 0 && !isInitialCoversState) {
+                // This path should ideally not be hit if decrement is disabled at operationalMinGuests
+                // but if it is, treat 0 as initial display state.
+            }
+            updateCoversDisplayAndSummary();
+            debouncedTriggerAvailabilityUpdate();
         }
+        updateButtonStates(); // Ensure buttons update even if value doesn't change (e.g. at boundary)
     });
 
     coversIncrement.addEventListener('click', () => {
         if (currentCovers < maxGuests) {
-            currentCovers++;
-            updateCoversDisplayAndSummary(); // This will call toggleTimeSelectionVisibilityLocal
-            debouncedTriggerAvailabilityUpdate(); // This will check if currentCovers > 0
+            if (isInitialCoversState && currentCovers === 0) {
+                // First increment from 0: set currentCovers to operationalMinGuests
+                currentCovers = operationalMinGuests;
+                isInitialCoversState = false;
+            } else {
+                currentCovers++;
+                if (isInitialCoversState) { // Should be false now unless opMin was 0
+                    isInitialCoversState = false;
+                }
+            }
+            updateCoversDisplayAndSummary();
+            debouncedTriggerAvailabilityUpdate();
         }
+        updateButtonStates(); // Ensure buttons update
     });
 
     coversDisplay.addEventListener('change', () => { // Using 'change' event
         let newValue = parseInt(coversDisplay.value);
+        const floorValue = isInitialCoversState ? 0 : operationalMinGuests;
 
-        // Validate against true operational min (e.g. 1 if you can't book for 0) vs. initial display min (0)
-        const operationalMinGuests = 1; // Example: cannot actually book for 0 guests.
-                                      // Or, if minGuests from config is >0, use that.
-                                      // For now, assume 0 is a "reset" state, not a bookable quantity.
-
-        if (isNaN(newValue) || newValue < minGuests) { // minGuests here is the absolute floor (0)
-            newValue = minGuests;
+        if (isNaN(newValue) || newValue < floorValue) {
+            newValue = floorValue;
         } else if (newValue > maxGuests) {
             newValue = maxGuests;
         }
+
+        if (isInitialCoversState && newValue >= operationalMinGuests) {
+            isInitialCoversState = false;
+        }
+        // If user types 0 after being in non-initial state, what happens?
+        // Current logic: if newValue is 0, and was not initial, it will be set to operationalMinGuests by floorValue logic above.
+        // If it *was* initial, 0 is fine.
+
         currentCovers = newValue;
-        updateCoversDisplayAndSummary(); // This will call toggleTimeSelectionVisibilityLocal
-        // For direct input changes, debounce might also be desired, or immediate depending on UX preference.
-        // Using debounced version for consistency here.
-        debouncedTriggerAvailabilityUpdate(); // This will check if currentCovers > 0
+        updateCoversDisplayAndSummary();
+        debouncedTriggerAvailabilityUpdate();
+        updateButtonStates();
     });
 
-    // Initial setup: Set the display value and hide time selection.
-    updateCoversDisplayAndSummary(); // This sets coversDisplay.value to 0 and calls toggleTimeSelectionVisibilityLocal
-
-    // console.log(`booking_page.js: Initial covers set to ${currentCovers}. Min: ${minGuests}, Max: ${maxGuests}`);
-    // The first call to handleCoversChangeGlobal (if covers > 0) will be triggered by main.js
-    // or by user interaction if initial covers is 0.
-    // after all initial setup (including config loading) is complete.
+    // Initial setup
+    updateCoversDisplayAndSummary(); // Sets display, summary, and initial button states.
 });
+// Note: The logic for minGuests (from dataset, floor for input) vs operationalMinGuests (from config, actual booking min)
+// is now more complex. Ensure window.bookingConfig is populated by main.js before this script runs.
+// If window.bookingConfig.minGuests is not available, it defaults to 1.
+// The minGuests from dataset (e.g. coversDisplay.dataset.min) should ideally be 0 to allow the "reset" state.
+// If coversDisplay.dataset.min is 1, then currentCovers cannot be initialized to 0 effectively through user interaction.
+// This assumes main.js sets coversDisplay.dataset.min to "0" if this "initial zero" state is desired.
