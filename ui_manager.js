@@ -11,8 +11,7 @@ import {
     getIsInitialRenderCycle,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getCurrentAvailabilityData,
-    getCurrentSelectedAreaUID // Ensure this is imported if used directly, though it's already available via state_manager
+    getCurrentAvailabilityData
     // setCurrentSelectedAreaUID // Removed import
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
