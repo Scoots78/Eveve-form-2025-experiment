@@ -13,7 +13,7 @@ import {
     getCurrentAvailabilityData,
     getCurrentSelectedAreaUID,
     getCurrentSelectedDecimalTime,
-    getCurrentSelectedShiftName, // Added for handleAreaChange
+    getCurrentSelectedShiftName,
     getIsInitialRenderCycle
 } from './state_manager.js';
 import {
@@ -27,8 +27,8 @@ import {
     displayErrorMessageInTimesContainer,
     resetTimeRelatedUI,
     showTimeSelectionSummary,
-    showTimeSelectionAccordion // Explicitly call if needed
-} from './ui_manager.js'; // Removed resetTimeRelatedUIFromManager alias as direct call is fine
+    showTimeSelectionAccordion
+} from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
 // --- Helper Functions ---
@@ -169,8 +169,8 @@ export async function handleDateOrCoversChange() {
     const localCurrentEstName = getCurrentEstName();
 
     updateDailyRotaMessage('');
-    resetTimeRelatedUI(); // Clears HTML, summary text, and calls showTimeSelectionAccordion
-    setCurrentShiftUsagePolicy(null); // Reset before fetching
+    resetTimeRelatedUI();
+    setCurrentShiftUsagePolicy(null);
 
     if (!selectedDateStr || selectedDateStr < getTodayDateString()) {
         const messageKey = !selectedDateStr ? 'errorInvalidInput' : 'errorDateInPast';
@@ -189,7 +189,7 @@ export async function handleDateOrCoversChange() {
     if(selectedDateValueSpan) selectedDateValueSpan.textContent = selectedDateStr || '-';
     if(selectedCoversValueSpan && coversDisplay) selectedCoversValueSpan.textContent = coversDisplay.value;
 
-    setCurrentSelectedDecimalTime(null); // Reset selected time and shift name
+    setCurrentSelectedDecimalTime(null);
     setCurrentSelectedAreaUID(null);
     updateAreaDisplayUI();
     updateNextBtnUI();
@@ -216,13 +216,13 @@ export async function handleDateOrCoversChange() {
     try {
         const availabilityData = await fetchAvailableTimes(localCurrentEstName, selectedDateStr, coversValue);
         setCurrentAvailabilityData(availabilityData);
-        setIsInitialRenderCycle(true); // For displayTimeSlots logic if needed
+        setIsInitialRenderCycle(true);
 
-        const currentAvailData = getCurrentAvailabilityData(); // Re-fetch after setting
+        const currentAvailData = getCurrentAvailabilityData();
         updateDailyRotaMessage(currentAvailData ? currentAvailData.message : '');
 
         if (currentAvailData) {
-            displayTimeSlots(currentAvailData); // Pass full new data
+            displayTimeSlots(currentAvailData);
         } else {
             displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times. Please try again.');
             setCurrentShiftUsagePolicy(null);
@@ -237,6 +237,7 @@ export async function handleDateOrCoversChange() {
 }
 
 export async function handleAreaChange() {
+    // 1. Initial setup
     const timeSelectionLabel = document.getElementById('timeSelectionLabel');
     const wasInSummaryMode = timeSelectionLabel?.classList.contains('summary-mode-active');
     const previouslySelectedTime = getCurrentSelectedDecimalTime();
@@ -244,84 +245,84 @@ export async function handleAreaChange() {
     const localLanguageStrings = getLanguageStrings();
 
     setIsInitialRenderCycle(false);
-    updateAreaDisplayUI();
+    updateSelectedAreaDisplay();
 
+    // DOM elements needed for validation and API call
     const estName = getCurrentEstName();
     const calendarTopBar = document.getElementById('calendar-top-bar');
     const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
     const coversDisplay = document.getElementById('covers-display');
     const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0;
+    // const newAreaId = getCurrentSelectedAreaUID(); // Already set in state by the event listener calling this
 
-    if (!estName || !selectedDateStr || isNaN(coversValue) || coversValue <= 0) {
-        displayErrorMessageInTimesContainer('errorInvalidInput', localLanguageStrings.errorInvalidInput || 'Please select date and covers first.');
+    // 2. Basic validation
+    if (!selectedDateStr || coversValue <= 0) {
+        displayErrorMessageInTimesContainer('errorInvalidInput', localLanguageStrings.errorInvalidInput || 'Please select a date and number of guests first.');
+        setCurrentSelectedDecimalTime(null);
+        resetTimeRelatedUI();
+        // Addons are cleared within resetTimeRelatedUI via showTimeSelectionAccordion -> resetCurrentAddonsUICallback
         updateNextBtnUI();
-        // Ensure accordion is visible if we bail early
-        showTimeSelectionAccordion();
         return;
     }
 
-    showLoadingTimes(); // Show loading message in time slot container
+    showLoadingTimes();
 
     let newAvailabilityData;
     try {
+        // 3. Fetch new availability data
         newAvailabilityData = await fetchAvailableTimes(estName, selectedDateStr, coversValue);
-        setCurrentAvailabilityData(newAvailabilityData); // Update state with fresh data
-    } catch (error) {
-        console.error("Error fetching new availability data in handleAreaChange:", error);
-        displayErrorMessageInTimesContainer('errorLoadingTimes', localLanguageStrings.errorLoadingTimes || 'Could not load times for the new area.');
-        setCurrentSelectedDecimalTime(null); // Clear selection
-        setCurrentShiftUsagePolicy(null);
-        showTimeSelectionAccordion(); // Ensure accordion is shown on error
-        updateNextBtnUI();
-        return;
-    }
+        setCurrentAvailabilityData(newAvailabilityData);
+        updateDailyRotaMessage(newAvailabilityData.message || '');
 
-    updateDailyRotaMessage(newAvailabilityData.message || ''); // Update daily rota message
+        let selectionStillValid = false;
+        let selectedShiftObject = null; // Store the shift object if found
 
-    let selectionStillValid = false;
-    let selectedShiftObject = null;
-
-    if (wasInSummaryMode && previouslySelectedTime !== null && previouslySelectedShiftName) {
-        selectedShiftObject = newAvailabilityData.shifts.find(s => s.name === previouslySelectedShiftName);
-        if (selectedShiftObject && selectedShiftObject.times.includes(previouslySelectedTime)) {
-            const currentAreaUID = getCurrentSelectedAreaUID(); // UID of the NEWLY selected area
-            if (getConfig().arSelect === "true" && currentAreaUID && currentAreaUID !== "any") {
-                const areaData = newAvailabilityData.areas.find(a => a.uid.toString() === currentAreaUID);
-                if (areaData && areaData.times.includes(previouslySelectedTime)) {
+        // 4. Conditional logic
+        if (wasInSummaryMode && previouslySelectedTime !== null && previouslySelectedShiftName) {
+            selectedShiftObject = newAvailabilityData.shifts.find(s => s.name === previouslySelectedShiftName);
+            if (selectedShiftObject && selectedShiftObject.times && selectedShiftObject.times.includes(previouslySelectedTime)) {
+                const currentAreaUIDFromState = getCurrentSelectedAreaUID();
+                if (getConfig().arSelect === "true" && currentAreaUIDFromState && currentAreaUIDFromState !== "any") {
+                    const areaData = newAvailabilityData.areas.find(a => a.uid.toString() === currentAreaUIDFromState);
+                    if (areaData && areaData.times && areaData.times.includes(previouslySelectedTime)) {
+                        selectionStillValid = true;
+                    }
+                } else {
                     selectionStillValid = true;
                 }
-            } else {
-                selectionStillValid = true;
             }
         }
-    }
 
-    if (selectionStillValid && selectedShiftObject) {
-        // Time/Shift is still valid. Update policy, addons, keep summary view.
-        setCurrentShiftUsagePolicy(selectedShiftObject.usage);
+        // 5. Update UI
+        if (selectionStillValid && selectedShiftObject) {
+            setCurrentShiftUsagePolicy(selectedShiftObject.usage);
 
-        const addonsDisplayArea = document.getElementById('addonsDisplayArea');
-        if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
+            const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+            if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
 
-        if (selectedShiftObject.addons && Array.isArray(selectedShiftObject.addons) && selectedShiftObject.addons.length > 0) {
-            renderAddons(selectedShiftObject.addons, selectedShiftObject.usage, coversValue, selectedShiftObject.name);
+            if (selectedShiftObject.addons && Array.isArray(selectedShiftObject.addons) && selectedShiftObject.addons.length > 0) {
+                renderAddons(selectedShiftObject.addons, selectedShiftObject.usage, coversValue, selectedShiftObject.name);
+            } else {
+                if (addonsDisplayArea) addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+            }
+            updateAddonsDisplayUI();
+
+            displayTimeSlots(newAvailabilityData);
+            showTimeSelectionSummary(previouslySelectedShiftName, formatTime(previouslySelectedTime));
+            updateNextBtnUI();
         } else {
-            if (addonsDisplayArea) addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+            setCurrentSelectedDecimalTime(null);
+            resetTimeRelatedUI();
+            displayTimeSlots(newAvailabilityData);
+            // updateNextBtnUI(); // Called by resetTimeRelatedUI
         }
-        updateAddonsDisplayUI();
-        updateNextBtnUI();
 
-        // Summary label remains. Accordion remains hidden.
-        // Refresh the hidden accordion's data. displayTimeSlots will use current state.
-        displayTimeSlots(newAvailabilityData);
-        // Re-apply summary view because displayTimeSlots->resetTimeRelatedUI->showTimeSelectionAccordion would have shown accordion
-        showTimeSelectionSummary(previouslySelectedShiftName, formatTime(previouslySelectedTime));
-
-    } else {
+    } catch (error) {
+        console.error("Error during availability fetch/processing in handleAreaChange:", error);
         setCurrentSelectedDecimalTime(null);
-        resetTimeRelatedUI(); // This calls showTimeSelectionAccordion
-        displayTimeSlots(newAvailabilityData);
-        // updateNextBtnUI(); // Called by resetTimeRelatedUI
+        resetTimeRelatedUI();
+        displayErrorMessageInTimesContainer('errorLoadingTimes', error.message || localLanguageStrings.errorLoadingTimes || "Error fetching times for the selected area.");
+        updateNextBtnUI();
     }
 }
 
@@ -465,8 +466,8 @@ export function initializeEventHandlers() {
     if (areaRadioGroupContainer) {
         areaRadioGroupContainer.addEventListener('change', (event) => {
             if (event.target.name === 'areaSelection') {
-                setCurrentSelectedAreaUID(event.target.value); // This sets the new area UID
-                handleAreaChange(); // Then this is called
+                setCurrentSelectedAreaUID(event.target.value);
+                handleAreaChange();
             }
         });
     }
