@@ -27,7 +27,8 @@ import {
     displayErrorMessageInTimesContainer,
     resetTimeRelatedUI,
     showTimeSelectionSummary,
-    showTimeSelectionAccordion
+    showTimeSelectionAccordion,
+    updateAllUsage2ButtonStatesUI // Added import
 } from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
