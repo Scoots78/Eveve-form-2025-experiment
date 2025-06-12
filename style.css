@@ -11,7 +11,7 @@ body {
 
 /* Form Container */
 .form-container {
-    max-width: 700px;
+    max-width: 800px; /* Increased max-width to better accommodate columns */
     margin: 30px auto;
     padding: 25px;
     background-color: #ffffff;
@@ -57,10 +57,56 @@ input[type="number"] {
     font-size: 1em;
 }
 
-/* Form Selectors Grouping */
-.form-selectors > div {
-    margin-bottom: 15px;
+/* Form Layout - New Two-Column Structure */
+.form-layout {
+    display: flex;
+    flex-wrap: wrap; /* Allows columns to stack on smaller screens */
+    gap: 20px; /* Space between columns */
+    margin-bottom: 20px; /* Space before the "Next" button */
 }
+
+.form-column-left {
+    flex: 1 1 280px; /* Grow, Shrink, Basis - aiming for slightly smaller left column */
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Space between items in the left column */
+}
+
+.form-column-right {
+    flex: 2 1 380px; /* Grow, Shrink, Basis - aiming for a larger right column */
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Space between items in the right column */
+}
+
+/* Adjusting input widths for flex items */
+.form-column-left input[type="date"],
+.form-column-right input[type="number"],
+.form-column-right #areaSelectorContainer, /* Ensuring containers also take full width */
+.form-column-right #timeSelectorContainer,
+.form-column-right .addons-container,
+.form-column-right .selection-display {
+    width: 100%; /* Make inputs and containers take full width of their column */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+/* Removing specific width from general input type date/number as it's now handled by column context */
+input[type="date"],
+input[type="number"] {
+    /* width: calc(100% - 22px); */ /* Removed this line */
+    padding: 10px;
+    margin-bottom: 0; /* Adjusted as gap is now provided by column or specific containers */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
+
+/* Form Selectors Grouping - This might be obsolete or need re-evaluation if .form-selectors is removed/refactored */
+/* .form-selectors > div {
+    margin-bottom: 15px;
+} */
 
 /* Time Slot Container */
 #timeSelectorContainer.time-slots {
@@ -126,7 +172,7 @@ input[type="number"] {
 
 /* Selected Details Display */
 #selectedDetails {
-    margin-top: 25px;
+    margin-top: 0; /* Adjusted as gap is now provided by .form-column-right */
     padding: 15px;
     background-color: #e9ecef;
     border: 1px solid #ced4da;
@@ -243,7 +289,7 @@ input[type="number"] {
 
 /* Addons Styling */
 .addons-container { 
-    margin-top: 20px;
+    margin-top: 0; /* Adjusted as gap is now provided by .form-column-right */
     padding: 15px;
     border: 1px solid #ddd;
     background-color: #fdfdfd;
@@ -359,5 +405,37 @@ input[type="radio"].addon-radio-btn {
 }
 
 input[type="text"].qty-input[readonly] {
-    background-color: #f8f9fa; 
+    background-color: #f8f9fa;
+}
+
+/* Responsive Design for Columns */
+@media (max-width: 768px) {
+    .form-layout {
+        flex-direction: column; /* Stack columns vertically */
+        gap: 0; /* Remove gap when stacked, or adjust as needed */
+    }
+
+    .form-column-left,
+    .form-column-right {
+        flex-basis: 100%; /* Each column takes full width */
+        margin-bottom: 20px; /* Add some space between stacked sections */
+    }
+
+    .form-column-right {
+        margin-bottom: 0; /* No extra margin for the last stacked item before "Next" button */
+    }
+
+    /* Ensure form elements within columns don't have conflicting margins */
+    .form-column-left > div,
+    .form-column-right > div,
+    .form-column-right #areaSelectorContainer,
+    .form-column-right #timeSelectorContainer,
+    .form-column-right .addons-container,
+    .form-column-right .selection-display {
+        margin-bottom: 15px; /* Consistent spacing for items within stacked columns */
+    }
+    .form-column-left input[type="date"],
+    .form-column-right input[type="number"] {
+        margin-bottom: 0; /* Inputs themselves don't need bottom margin if parent div has it */
+    }
 }
