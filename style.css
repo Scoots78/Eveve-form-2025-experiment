@@ -11,7 +11,7 @@ body {
 
 /* Form Container */
 .form-container {
-    max-width: 800px; /* Increased max-width to better accommodate columns */
+    max-width: 700px;
     margin: 30px auto;
     padding: 25px;
     background-color: #ffffff;
@@ -57,56 +57,30 @@ input[type="number"] {
     font-size: 1em;
 }
 
-/* Form Layout - New Two-Column Structure */
-.form-layout {
-    display: flex;
-    flex-wrap: wrap; /* Allows columns to stack on smaller screens */
-    gap: 20px; /* Space between columns */
-    margin-bottom: 20px; /* Space before the "Next" button */
+/* Form Selectors Grouping */
+.form-selectors {
+    display: flex; /* Enable flexbox for desktop layout */
+    /* No gap here, columns will manage their own margins/padding for spacing */
 }
 
-.form-column-left {
-    flex: 1 1 280px; /* Grow, Shrink, Basis - aiming for slightly smaller left column */
-    display: flex;
-    flex-direction: column;
-    gap: 15px; /* Space between items in the left column */
-}
-
-.form-column-right {
-    flex: 2 1 380px; /* Grow, Shrink, Basis - aiming for a larger right column */
-    display: flex;
-    flex-direction: column;
-    gap: 15px; /* Space between items in the right column */
-}
-
-/* Adjusting input widths for flex items */
-.form-column-left input[type="date"],
-.form-column-right input[type="number"],
-.form-column-right #areaSelectorContainer, /* Ensuring containers also take full width */
-.form-column-right #timeSelectorContainer,
-.form-column-right .addons-container,
-.form-column-right .selection-display {
-    width: 100%; /* Make inputs and containers take full width of their column */
-    box-sizing: border-box; /* Include padding and border in the element's total width and height */
-}
-
-/* Removing specific width from general input type date/number as it's now handled by column context */
-input[type="date"],
-input[type="number"] {
-    /* width: calc(100% - 22px); */ /* Removed this line */
-    padding: 10px;
-    margin-bottom: 0; /* Adjusted as gap is now provided by column or specific containers */
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-
-/* Form Selectors Grouping - This might be obsolete or need re-evaluation if .form-selectors is removed/refactored */
-/* .form-selectors > div {
+.form-selectors > div:not(.calendar-column):not(.details-column) { /* Re-target old rule if direct children are not columns */
     margin-bottom: 15px;
-} */
+}
+
+/* New Column Styles */
+.calendar-column {
+    flex-basis: 340px; /* Accommodate calendar width (330px) + some spacing */
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-right: 20px; /* Space between calendar and details */
+    /* Add other styling as needed, e.g., border for visual separation */
+}
+
+.details-column {
+    flex-grow: 1; /* Takes up remaining space */
+    min-width: 0; /* Prevents overflow issues with flex items */
+    /* Add other styling as needed */
+}
+
 
 /* Time Slot Container */
 #timeSelectorContainer.time-slots {
@@ -172,7 +146,7 @@ input[type="number"] {
 
 /* Selected Details Display */
 #selectedDetails {
-    margin-top: 0; /* Adjusted as gap is now provided by .form-column-right */
+    margin-top: 25px;
     padding: 15px;
     background-color: #e9ecef;
     border: 1px solid #ced4da;
@@ -289,7 +263,7 @@ input[type="number"] {
 
 /* Addons Styling */
 .addons-container { 
-    margin-top: 0; /* Adjusted as gap is now provided by .form-column-right */
+    margin-top: 20px;
     padding: 15px;
     border: 1px solid #ddd;
     background-color: #fdfdfd;
@@ -342,12 +316,6 @@ input[type="radio"].addon-radio-btn {
     font-size: 0.85em;
     color: #555;
     margin-top: 3px;
-}
-
-/* Usage 1 - Radio Group Specifics */
-.addon-radio-group {
-}
-.addon-item.usage1-radio { 
 }
 
 .area-radio-item {
@@ -408,34 +376,358 @@ input[type="text"].qty-input[readonly] {
     background-color: #f8f9fa;
 }
 
-/* Responsive Design for Columns */
+/* Covers Selector Styling */
+.covers-control {
+    margin-bottom: 20px; /* Same as other form elements */
+}
+
+.covers-control label {
+    display: block;
+    margin-bottom: 8px; /* Same as other labels */
+    font-weight: bold;
+    color: #444;
+}
+
+.covers-input-area {
+    display: flex;
+    align-items: center;
+}
+
+#covers-display {
+    width: 60px; /* Adjust as needed */
+    text-align: center;
+    font-size: 1em;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0 10px; /* Space between buttons and input */
+    box-sizing: border-box;
+}
+
+#covers-decrement,
+#covers-increment {
+    width: 36px; /* Fixed width for a more circular button with padding */
+    height: 36px; /* Fixed height */
+    font-size: 1.2em;
+    font-weight: bold;
+    color: white;
+    background-color: #007bff;
+    border: 1px solid #007bff;
+    border-radius: 18px; /* Half of width/height for a circle */
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0; /* Remove default padding to help with centering */
+    line-height: 1; /* Ensure text is vertically centered */
+}
+
+#covers-decrement:hover,
+#covers-increment:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+#covers-decrement:active,
+#covers-increment:active {
+    background-color: #004085;
+    border-color: #004085;
+}
+
+/* Custom Calendar Styling */
+#custom-calendar-container {
+    max-width: 330px;
+    /* margin: 0 20px 20px 0; */ /* Removed: Right and bottom margin now handled by .calendar-column or flex container gap */
+    margin: 0; /* Resetting margins */
+    position: relative; /* For potential absolute positioning of children if needed */
+}
+
+#calendar-top-bar {
+    background-color: #f05a28;
+    color: white;
+    padding: 10px 15px;
+    font-size: 1.1em;
+    border-radius: 4px; /* Optional: slightly rounded corners for the bar */
+    cursor: pointer; /* To indicate it's clickable for show/hide */
+    text-align: center; /* Default text alignment */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#flatpickr-calendar-host {
+    /* Initially hidden, prepared for slide animation */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out; /* Animation for show/hide */
+    /* Styles to ensure Flatpickr itself looks okay when visible will be in Step 5 */
+    border-top: none; /* Optional: if top-bar acts as top border */
+    border-radius: 0 0 4px 4px; /* Match top bar if it's rounded */
+    box-sizing: border-box; /* If any padding/border is added directly to host later */
+    width: 100%; /* Explicitly set, though div usually defaults to this */
+}
+
+/* Class to be added by JS to show the calendar */
+#flatpickr-calendar-host.calendar-visible {
+    max-height: 500px; /* Adjust as needed to fit calendar content */
+    /* border color/style might need adjustment when flatpickr is themed */
+}
+
+/* Flatpickr Theme Styling */
+
+/* Ensure the calendar itself respects the container width */
+#custom-calendar-container .flatpickr-calendar {
+    width: 100% !important; /* Override inline styles if any */
+    max-width: 100%; /* Ensure it fits in #custom-calendar-container */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* soft shadow */ /* Remove default shadow if not desired */
+    border: none !important; /* Remove default border if #flatpickr-calendar-host handles it */
+    background-color: #fff; /* Base background for the calendar */
+    margin-top:10px;
+
+}
+
+/* Month and Year navigation */
+#custom-calendar-container .flatpickr-months {
+    background-color: transparent; /* Theme color for the month/year header */
+    color: #000000;
+    padding: 10px 0;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.flatpickr-months .flatpickr-month {
+    color: white;
+    fill: white; /* For SVG icons within month display */
+}
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    color: white; /* Year input text color */
+}
+.flatpickr-months .flatpickr-current-month .numInputWrapper {
+    color: white; /* wrapper for year input */
+}
+
+
+.flatpickr-prev-month,
+.flatpickr-next-month {
+    color: #000000 !important; /* Arrow color */
+    fill: #000000 !important; /* SVG arrow fill */
+    padding: 0 10px; /* Add some padding around arrows */
+    display: flex;
+    align-items: center;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg , .flatpickr-months .flatpickr-next-month:hover svg {
+    color: #272727 !important;
+    fill: #272727 !important;
+}
+
+.flatpickr-months .flatpickr-prev-month svg, .flatpickr-months .flatpickr-next-month svg {
+    width: 20px;
+    height: 20px;
+}
+
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+    color: rgb(19, 19, 19) !important; /* Maintain original color from base style */
+    fill: rgb(19, 19, 19) !important;   /* Maintain original fill from base style */
+}
+
+
+/* Weekdays header (Mon, Tue, etc.) */
+.flatpickr-weekdays {
+    background-color: none; /* Light background for weekday header */
+    padding: 5px 2px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+span.flatpickr-weekday {
+    color: #333; /* Dark text for weekdays */
+    font-weight: bold;
+    text-transform: uppercase; /* Optional: MON TUE WED */
+}
+
+/* Days container */
+.dayContainer {
+    padding: 5px 2px; /* Or adjust/remove if gap is preferred for all spacing */
+    background-color: transparent;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+
+    display: grid !important; /* Use grid for 7 columns */
+    grid-template-columns: repeat(7, 1fr); /* Each column takes equal fraction of space */
+    gap: 4px; /* Spacing between day cells, adjust as desired */
+}
+
+/* Individual days */
+.dayContainer .flatpickr-day {
+    display: flex;           /* For centering content (the day number) */
+    align-items: center;     /* Vertically center */
+    justify-content: center; /* Horizontally center */
+    position: relative;      /* In case pseudo-elements are ever needed for styling */
+    box-sizing: border-box;  /* Border & padding included in width/height */
+    border: 1px solid transparent; /* Base border, modified by selected/today states */
+    border-radius: 50%;      /* Makes it a circle if width/height are equal */
+    aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
+    border-radius: 50%;      /* The border-radius then makes this square a circle */
+    color: #333;
+    font-weight: normal;
+    margin: 0;               /* Removed margin, using 'gap' in .dayContainer now */
+    padding: 0;              /* No internal padding needed for the cell itself */
+    cursor: pointer;
+    max-width:unset;
+    width: max-content;
+    height:auto;
+}
+
+.flatpickr-day.flatpickr-disabled {
+    color:#cecece;
+}
+
+.flatpickr-day:hover {
+    background-color: #e9e9e9;
+    color: #000;
+}
+
+/* Ensure selected/today styles still work and look good on the responsive circle */
+.flatpickr-day.today {
+    border-color: #f05a28;
+    color: #f05a28;
+    font-weight: bold;
+}
+.flatpickr-day.today:not(.selected):hover {
+     background-color: #fde2d8;
+     color: white;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background-color: #f05a28 !important;
+    color: white !important;
+    border-color: #f05a28 !important;
+    font-weight: bold;
+}
+
+.flatpickr-day.today.selected {
+    background-color: #f05a28 !important;
+    color: white !important;
+    border-color: #f05a28 !important;
+}
+
+.flatpickr-day.disabled,
+.flatpickr-day.disabled:hover {
+    color: #ccc !important;
+    background-color: #f8f8f8 !important;
+    cursor: not-allowed !important;
+    border-color: transparent !important;
+    font-weight: normal; /* Ensure disabled days are not bold if today/selected was also disabled somehow */
+}
+
+/* Hide days not in the current month */
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    visibility: hidden; /* Makes the element invisible but it still occupies space */
+    height:0px;
+}
+
+/* Make sure the month/year input fields in the header are also styled if needed */
+.flatpickr-current-month input.cur-year {
+    font-weight: bold;
+}
+.flatpickr-current-month span.cur-month, .flatpickr-months .flatpickr-current-month input.cur-year {
+    font-weight: 400;
+}
+
+/* Adjust padding/margins if the calendar content feels too cramped or too spaced out */
+.flatpickr-innerContainer {
+    /* background-color: #fff; */ /* Already white from .flatpickr-calendar */
+}
+
+.flatpickr-rContainer {
+    /* background-color: #fff; */
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
+    padding: 0px 6px 4px 6px;
+}
+
+/* This is the direct container for dayContainer usually */
+.flatpickr-days {
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
+}
+
+/* Simplify Flatpickr Header - No Dropdowns/Spinners */
+
+/* Hide the dropdown arrow for months if it appears */
+.flatpickr-months .flatpickr-month .flatpickr-current-month span.flatpickr-monthDropdown-arrow {
+    display: none !important;
+}
+
+/* Hide the up/down arrows for the year input */
+.flatpickr-months .flatpickr-current-month .numInputWrapper span.arrowUp,
+.flatpickr-months .flatpickr-current-month .numInputWrapper span.arrowDown {
+    display: none !important;
+}
+
+/* Optionally, make the year input look like static text if it's still an input field. */
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important; /* Adjust if needed */
+    pointer-events: none !important; /* Makes it non-interactive */
+    /* color: white; /* Should inherit from .flatpickr-months .flatpickr-month */
+}
+
+/* Ensure the month text itself is not styled like a dropdown */
+.flatpickr-months .flatpickr-month .flatpickr-current-month .cur-month {
+    /* Default styling is usually fine if not a dropdown */
+    padding: 0; /* Remove any padding that suggests it's clickable */
+}
+
+/* Adjust spacing for the month/year text if necessary after hiding elements */
+.flatpickr-current-month {
+   display: flex;
+   align-items: center;
+   justify-content: center; /* Center the "Month Year" text */
+   padding: 0; /* Reset padding from flatpickr themes */
+   color:#000;
+}
+
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    color: #000000;
+}
+.flatpickr-current-month .numInputWrapper {
+   margin-left: 0.25em; /* Small space between month and year */
+}
+
+.numInputWrapper:hover, .flatpickr-current-month span.cur-month:hover {
+    background: none;
+}
+
+/* Responsive Styles for Mobile */
 @media (max-width: 768px) {
-    .form-layout {
+    .form-selectors {
         flex-direction: column; /* Stack columns vertically */
-        gap: 0; /* Remove gap when stacked, or adjust as needed */
     }
 
-    .form-column-left,
-    .form-column-right {
-        flex-basis: 100%; /* Each column takes full width */
-        margin-bottom: 20px; /* Add some space between stacked sections */
+    .calendar-column {
+        width: 100%; /* Take full width */
+        flex-basis: auto; /* Reset flex-basis */
+        margin-right: 0; /* Remove right margin */
+        margin-bottom: 20px; /* Add bottom margin for spacing when stacked */
     }
 
-    .form-column-right {
-        margin-bottom: 0; /* No extra margin for the last stacked item before "Next" button */
+    .details-column {
+        width: 100%; /* Take full width */
+        /* min-width reset is not strictly necessary here as flex-direction is column,
+           but it doesn't hurt if other properties were to interact with it. */
     }
 
-    /* Ensure form elements within columns don't have conflicting margins */
-    .form-column-left > div,
-    .form-column-right > div,
-    .form-column-right #areaSelectorContainer,
-    .form-column-right #timeSelectorContainer,
-    .form-column-right .addons-container,
-    .form-column-right .selection-display {
-        margin-bottom: 15px; /* Consistent spacing for items within stacked columns */
-    }
-    .form-column-left input[type="date"],
-    .form-column-right input[type="number"] {
-        margin-bottom: 0; /* Inputs themselves don't need bottom margin if parent div has it */
+    /* Adjust calendar container max-width for mobile if it was previously constrained by column */
+    #custom-calendar-container {
+        max-width: 100%; /* Allow calendar to use full width of its column */
     }
 }
+
+[end of style.css]

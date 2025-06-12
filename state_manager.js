@@ -1,0 +1,112 @@
+// --- State Manager ---
+
+let state = {
+    currentShiftUsagePolicy: null,
+    currentSelectedAreaUID: null,
+    currentAvailabilityData: null,
+    isInitialRenderCycle: true,
+    currentSelectedDecimalTime: null,
+    currentSelectedAddons: {
+        usage1: null,
+        usage2: [],
+        usage3: []
+    },
+    showUnavailableSlots: true // Default value
+};
+
+// --- Getter and Setter Functions ---
+
+export function getCurrentShiftUsagePolicy() {
+    return state.currentShiftUsagePolicy;
+}
+export function setCurrentShiftUsagePolicy(policy) {
+    state.currentShiftUsagePolicy = policy;
+}
+
+export function getCurrentSelectedAreaUID() {
+    return state.currentSelectedAreaUID;
+}
+export function setCurrentSelectedAreaUID(uid) {
+    state.currentSelectedAreaUID = uid;
+}
+
+export function getCurrentAvailabilityData() {
+    return state.currentAvailabilityData;
+}
+export function setCurrentAvailabilityData(data) {
+    state.currentAvailabilityData = data;
+}
+
+export function getIsInitialRenderCycle() {
+    return state.isInitialRenderCycle;
+}
+export function setIsInitialRenderCycle(flag) {
+    state.isInitialRenderCycle = flag;
+}
+
+export function getCurrentSelectedDecimalTime() {
+    return state.currentSelectedDecimalTime;
+}
+export function setCurrentSelectedDecimalTime(time) {
+    state.currentSelectedDecimalTime = time;
+}
+
+export function getSelectedAddons() {
+    return JSON.parse(JSON.stringify(state.currentSelectedAddons)); // Return a deep copy to prevent direct modification
+}
+
+export function setSelectedAddons(newAddons) {
+    // Expects a complete addons object, or can be extended for partial updates
+    state.currentSelectedAddons = JSON.parse(JSON.stringify(newAddons));
+}
+
+export function resetSelectedAddons() {
+    state.currentSelectedAddons = {
+        usage1: null,
+        usage2: [],
+        usage3: []
+    };
+}
+
+// Example of more granular update, if needed in the future.
+// For now, form_logic.js seems to replace parts of the object directly or resets it.
+/*
+export function updateSelectedAddonItem(usageType, item, quantity = null) {
+    if (usageType === 'usage1') {
+        state.currentSelectedAddons.usage1 = item ? { ...item } : null;
+    } else if (usageType === 'usage2') {
+        if (item && quantity !== null && quantity > 0) {
+            const existingIndex = state.currentSelectedAddons.usage2.findIndex(a => a.uid === item.uid);
+            if (existingIndex > -1) {
+                state.currentSelectedAddons.usage2[existingIndex] = { ...item, quantity };
+            } else {
+                state.currentSelectedAddons.usage2.push({ ...item, quantity });
+            }
+        } else if (item && quantity === 0) { // Remove item
+            state.currentSelectedAddons.usage2 = state.currentSelectedAddons.usage2.filter(a => a.uid !== item.uid);
+        }
+    } else if (usageType === 'usage3') {
+        if (item) { // Assuming item has a 'checked' like property or just needs to be added/removed
+            const existingIndex = state.currentSelectedAddons.usage3.findIndex(a => a.uid === item.uid);
+            if (item.checked && existingIndex === -1) { // Add if checked and not present
+                state.currentSelectedAddons.usage3.push({ ...item });
+            } else if (!item.checked && existingIndex > -1) { // Remove if unchecked and present
+                state.currentSelectedAddons.usage3.splice(existingIndex, 1);
+            }
+        }
+    }
+}
+*/
+
+export function getShowUnavailableSlots() {
+    return state.showUnavailableSlots;
+}
+
+export function setShowUnavailableSlots(flag) {
+    state.showUnavailableSlots = flag;
+}
+
+// Function to get a snapshot of the entire state, primarily for debugging
+export function _getFullStateSnapshot() {
+    return JSON.parse(JSON.stringify(state));
+}

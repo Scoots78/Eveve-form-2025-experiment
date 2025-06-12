@@ -5,24 +5,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Booking Form</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="form-container">
         <h1>Book at <span id="restaurantName">[Restaurant Name Placeholder]</span></h1>
 
-        <div class="form-layout"> <div class="form-column-left">
-            <div>
-                <label for="dateSelector">Select Date:</label>
-                <input type="date" id="dateSelector" name="bookingDate">
+        <div class="form-selectors">
+            <div class="calendar-column">
+                <div id="custom-calendar-container">
+                    <div id="calendar-top-bar">
+                        <!-- Date will be displayed here by JavaScript -->
+                    Select a Date
+                </div>
+                <div id="flatpickr-calendar-host">
+                    <!-- Flatpickr will render its calendar here -->
+                </div>
             </div>
-            <div id="dailyRotaMessage" class="api-message daily-message"></div>
-        </div>
+            </div>
+            <div class="details-column">
+                <div id="dailyRotaMessage" class="api-message daily-message"></div>
 
-        <div class="form-column-right">
-            <div>
-                <label for="coversSelector">Number of Guests:</label>
-                <input type="number" id="coversSelector" name="numberOfGuests" min="1">
+                <div class="covers-control">
+                <label for="covers-display">Number of Guests:</label>
+                <div class="covers-input-area">
+                    <button type="button" id="covers-decrement">-</button>
+                    <input type="text" id="covers-display" name="numberOfGuests" value="1">
+                    <button type="button" id="covers-increment">+</button>
+                </div>
             </div>
 
             <div id="areaSelectorContainer" style="display: none;">
@@ -36,17 +47,19 @@
             <div>
                 <label for="timeSelectorContainer">Select Time:</label>
                 <div id="timeSelectorContainer" class="time-slots">
-                    <!-- Time slots will be populated by form_logic.js -->
+                    <!-- Time slots will be populated by JavaScript -->
                 </div>
             </div>
 
             <div id="addonsDisplayArea" class="addons-container">
                 <!-- Addons for the selected shift will be rendered here by JavaScript -->
             </div>
+            </div>
+        </div>
 
-            <div class="selection-display">
-                <h2>Your Selection:</h2>
-                <div id="selectedDetails">
+        <div class="selection-display">
+            <h2>Your Selection:</h2>
+            <div id="selectedDetails">
                 <p>Date: <span id="selectedDateValue">-</span></p>
                 <p>Guests: <span id="selectedCoversValue">-</span></p>
                 <p>Time: <span id="selectedTimeValue">-</span></p>
@@ -54,7 +67,6 @@
                 <p>Addons: <span id="selectedAddonsValue">-</span></p>
             </div>
         </div>
-    </div> </div>
 
         <div class="form-row" style="text-align: center; padding: 20px;">
             <button type="button" id="nextButton" disabled style="padding: 10px 20px; font-size: 16px;">Next</button>
@@ -62,7 +74,16 @@
 
         <!-- Removed script tag with id="configData" -->
 
-        <script src="form_logic.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="calendar_control.js"></script>
+        <script src="booking_page.js"></script>
+        <script src="dom_utils.js" type="module"></script>
+        <script src="config_manager.js" type="module"></script>
+        <script src="state_manager.js" type="module"></script>
+        <script src="api_service.js" type="module"></script>
+        <script src="ui_manager.js" type="module"></script>
+        <script src="event_handlers.js" type="module"></script>
+        <script src="main.js" type="module"></script>
     </div>
 </body>
 </html>
