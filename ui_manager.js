@@ -538,18 +538,23 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
     const localConfig = getConfig();
     const localLanguageStrings = getLanguageStrings();
 
-    if (areaSelectorContainer) {
-        if (localConfig.arSelect === "true") {
-            areaSelectorContainer.style.display = 'block';
-        } else {
-            areaSelectorContainer.style.display = 'none';
-            if (areaRadioGroupContainer) areaRadioGroupContainer.innerHTML = '';
-            if (areaAvailabilityMessage) {
-                areaAvailabilityMessage.textContent = '';
-                areaAvailabilityMessage.style.display = 'none';
-            }
+    // Visibility of areaSelectorContainer is now handled by:
+    // 1. main.js initial hideAreaSelector()
+    // 2. event_handlers.js timeSlotDelegatedListener -> showAreaSelector() if arSelect is true
+    // 3. resetTimeRelatedUI() / showTimeSelectionAccordion() -> hideAreaSelector()
+    // This function (displayTimeSlots) should only populate it if arSelect is true, not manage its visibility.
+    if (localConfig.arSelect !== "true") {
+        // If area selection is globally disabled, ensure container is definitively hidden
+        // and clear any related elements just in case.
+        if (areaSelectorContainer) areaSelectorContainer.style.display = 'none';
+        if (areaRadioGroupContainer) areaRadioGroupContainer.innerHTML = '';
+        if (areaAvailabilityMessage) {
+            areaAvailabilityMessage.textContent = '';
+            areaAvailabilityMessage.style.display = 'none';
         }
     }
+    // If arSelect IS true, we don't touch areaSelectorContainer.style.display here.
+    // We still proceed to populate its contents (radio buttons) further down if areas exist.
 
     timeSelectorContainer.innerHTML = '';
 
