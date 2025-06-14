@@ -8,7 +8,7 @@
     --containerBorderColor:#e0e0e0; /* border around info erro containers default light grey */
     --buttonText:#fff;
     --buttonHoover: #f9764b; 
-
+    --particleAvailabilityColor: #cf8168; /* Added */
 }
 
 body {
@@ -793,6 +793,52 @@ span.flatpickr-weekday {
     #custom-calendar-container {
         max-width: 100%; /* Allow calendar to use full width of its column */
     }
+}
+
+/* Styles for Partially Available Time Slots */
+.time-slot-button.time-slot-partial-area {
+    background-color: var(--particleAvailabilityColor);
+    color: white; /* Or another suitable text color like #FFFFFF */
+    /* If buttons have borders that should also change color: */
+    /* border-color: var(--particleAvailabilityColor); */
+}
+
+/* Styles for Per-Shift Availability Legend */
+.shift-availability-legend {
+    margin-top: 10px;
+    padding: 8px;
+    border: 1px solid #eee; /* Consider using existing border color variables if defined in :root */
+    border-radius: 4px; /* Consider using existing border-radius variables if defined in :root */
+    font-size: 0.9em;
+    /* Add other styling as needed to match overall UI, e.g., background-color if needed */
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px; /* Add a small space between legend items */
+}
+
+.legend-item:last-child {
+    margin-bottom: 0; /* Remove margin from the last item */
+}
+
+.legend-color-box {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border: 1px solid #ccc; /* Consider using existing border color variables */
+    display: inline-block; /* Changed from flex to inline-block for simplicity */
+}
+
+/* Color swatch for 'partial availability' in the legend */
+.legend-color-box.time-slot-partial-area {
+    background-color: var(--particleAvailabilityColor);
+}
+
+/* Color swatch for 'full availability' in the legend */
+.legend-color-box.time-slot-available {
+     background-color: var(--mainThemeColor, #007bff); /* Default to a blue if not defined */
 }
 
 [end of style.css]
