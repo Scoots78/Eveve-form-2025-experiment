@@ -602,6 +602,12 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
 
         let areaAvailabilityInfo = []; // To store { uid, name, radioEl, labelEl, isAvailable, isOriginallySelected }
 
+        // DEBUG: Log all shifts and areas for availability check
+        if (typeof console !== 'undefined' && console.log) {
+            console.log('[DEBUG] All shifts for availability check:', allShiftsForAvailabilityCheck ? JSON.parse(JSON.stringify(allShiftsForAvailabilityCheck)) : 'undefined');
+            console.log('[DEBUG] All areas for availability check:', areas ? JSON.parse(JSON.stringify(areas)) : 'undefined');
+        }
+
         // Create "Any Area" radio first if applicable
         let anyAreaRadio = null;
         let anyAreaLabel = null;
@@ -650,23 +656,62 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 const label = document.createElement('label');
                 label.htmlFor = radioId; label.textContent = area.name;
 
+                if (typeof console !== 'undefined' && console.log) {
+                    console.log(`[DEBUG] Processing Area: ${area.name} (UID: ${area.uid})`, area.times ? JSON.parse(JSON.stringify(area.times)) : 'no times');
+                }
+
                 let isAreaAvailableForAnyShift = false;
                 if (area.times && area.times.length > 0 && allShiftsForAvailabilityCheck && allShiftsForAvailabilityCheck.length > 0) {
                     for (const shift of allShiftsForAvailabilityCheck) {
-                        if (shift.times && shift.times.some(st => st >= 0 && area.times.includes(st))) {
+                        if (typeof console !== 'undefined' && console.log && (area.name === "Outside area" || area.short === "Outside")) {
+                            console.log(`[DEBUG] Area "${area.name}" checking against Shift: ${shift.name}`, shift.times ? JSON.parse(JSON.stringify(shift.times)) : 'no shift times');
+                        }
+
+                        let commonTimesFoundDebug = [];
+                        if (shift.times && shift.times.some(st => {
+                            if (st >= 0 && area.times.includes(st)) {
+                                commonTimesFoundDebug.push(st);
+                                return true;
+                            }
+                            return false;
+                        })) {
                             isAreaAvailableForAnyShift = true;
                             atLeastOneSpecificAreaIsAvailable = true;
+                            if (typeof console !== 'undefined' && console.log && (area.name === "Outside area" || area.short === "Outside")) {
+                                console.log(`[DEBUG] Area "${area.name}" FOUND overlap with Shift "${shift.name}". Common:`, JSON.parse(JSON.stringify(commonTimesFoundDebug)));
+                            }
                             break;
+                        } else {
+                            if (typeof console !== 'undefined' && console.log && (area.name === "Outside area" || area.short === "Outside")) {
+                                 console.log(`[DEBUG] Area "${area.name}" NO overlap with Shift "${shift.name}". Common:`, JSON.parse(JSON.stringify(commonTimesFoundDebug)));
+                            }
                         }
                     }
                 }
 
+                if (typeof console !== 'undefined' && console.log) {
+                    console.log(`[DEBUG] Area "${area.name}" - isAreaAvailableForAnyShift: ${isAreaAvailableForAnyShift}`);
+                }
+
                 if (!isAreaAvailableForAnyShift) {
                     radio.disabled = true;
+                    if (typeof console !== 'undefined' && console.log) {
+                        console.log(`[DEBUG] Area "${area.name}" - radio.disabled SET TO TRUE`);
+                    }
                     const unavailableMsgSpan = document.createElement('span');
                     unavailableMsgSpan.className = 'area-unavailability-message';
-                    unavailableMsgSpan.textContent = ` (${localLanguageStrings.noAvailabilityForAreaInSession || `No availability for ${area.name} for this session`})`;
+                    // Using {0} placeholder as specified in the example.
+                    // Parentheses removed from the message string itself.
+                    unavailableMsgSpan.textContent = (localLanguageStrings.noAvailabilityForAreaInSession ? localLanguageStrings.noAvailabilityForAreaInSession.replace('{0}', area.name) : `No availability for ${area.name} for this session`);
+
                     label.appendChild(unavailableMsgSpan); // Append to label for inline display
+                    if (typeof console !== 'undefined' && console.log) {
+                        console.log(`[DEBUG] Area "${area.name}" - Message span appended with text: "${unavailableMsgSpan.textContent}"`);
+                    }
+                } else {
+                    if (typeof console !== 'undefined' && console.log) {
+                        console.log(`[DEBUG] Area "${area.name}" - radio.disabled REMAINS FALSE (or default)`);
+                    }
                 }
 
                 radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
@@ -697,7 +742,9 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 anyAreaEntry.radioElement.disabled = true;
                  const unavailableMsgSpan = document.createElement('span');
                  unavailableMsgSpan.className = 'area-unavailability-message';
-                 unavailableMsgSpan.textContent = ` (${localLanguageStrings.noAvailabilityForAreaInSession || `No availability for Any Area for this session`})`; // Generic message
+                 // Corrected placeholder for Any Area name and removed parentheses
+                 const anyAreaName = anyAreaEntry.name || (localLanguageStrings.anyAreaText || "Any Area");
+                 unavailableMsgSpan.textContent = (localLanguageStrings.noAvailabilityForAreaInSession ? localLanguageStrings.noAvailabilityForAreaInSession.replace('{0}', anyAreaName) : `No availability for ${anyAreaName} for this session`);
                  if (anyAreaEntry.labelElement) anyAreaEntry.labelElement.appendChild(unavailableMsgSpan);
             }
         }
