@@ -239,91 +239,51 @@ export async function handleDateOrCoversChange() {
     }
 }
 
-export async function handleAreaChange() {
-    const timeSelectionLabel = document.getElementById('timeSelectionLabel');
-    const wasInSummaryMode = timeSelectionLabel?.classList.contains('summary-mode-active');
-    const previouslySelectedTime = getCurrentSelectedDecimalTime();
-    const previouslySelectedShiftName = getCurrentSelectedShiftName();
-    const localLanguageStrings = getLanguageStrings();
-
-    setIsInitialRenderCycle(false);
-    // updateSelectedAreaDisplay(); // Removed: Called by direct event listener now.
-
-    const estName = getCurrentEstName();
-    const calendarTopBar = document.getElementById('calendar-top-bar');
-    const selectedDateStr = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
+export function handleAreaChange() { // No longer async
     const coversDisplay = document.getElementById('covers-display');
     const coversValue = coversDisplay ? parseInt(coversDisplay.value, 10) : 0;
 
-    if (!selectedDateStr || coversValue <= 0) {
-        displayErrorMessageInTimesContainer('errorInvalidInput', localLanguageStrings.errorInvalidInput || 'Please select a date and number of guests first.');
-        setCurrentSelectedDecimalTime(null);
-        resetTimeRelatedUI();
+    const selectedTime = getCurrentSelectedDecimalTime();
+    const selectedShiftName = getCurrentSelectedShiftName();
+    const availabilityData = getCurrentAvailabilityData();
+    const newlySelectedAreaUID = getCurrentSelectedAreaUID();
+    const localLanguageStrings = getLanguageStrings(); // For addon messages
+
+    // If critical data is missing, update button and exit
+    if (selectedTime === null || !selectedShiftName || !availabilityData || !availabilityData.shifts) {
+        console.warn("handleAreaChange: Missing critical data (time, shift name, or availability data). Cannot update addons.");
         updateNextBtnUI();
         return;
     }
 
-    showLoadingTimes();
+    const shiftObject = availabilityData.shifts.find(s => s.name === selectedShiftName);
 
-    let newAvailabilityData;
-    try {
-        newAvailabilityData = await fetchAvailableTimes(estName, selectedDateStr, coversValue);
-        setCurrentAvailabilityData(newAvailabilityData);
-        updateDailyRotaMessage(newAvailabilityData.message || '');
-
-        let selectionStillValid = false;
-        let selectedShiftObject = null;
-
-        if (wasInSummaryMode && previouslySelectedTime !== null && previouslySelectedShiftName) {
-            selectedShiftObject = newAvailabilityData.shifts.find(s => s.name === previouslySelectedShiftName);
-            if (selectedShiftObject && selectedShiftObject.times && selectedShiftObject.times.includes(previouslySelectedTime)) {
-                const currentAreaUIDFromState = getCurrentSelectedAreaUID();
-                if (getConfig().arSelect === "true" && currentAreaUIDFromState && currentAreaUIDFromState !== "any") {
-                    const areaData = newAvailabilityData.areas.find(a => a.uid.toString() === currentAreaUIDFromState);
-                    if (areaData && areaData.times && areaData.times.includes(previouslySelectedTime)) {
-                        selectionStillValid = true;
-                    }
-                } else {
-                    selectionStillValid = true;
-                }
-            }
-        }
-
-        if (selectionStillValid && selectedShiftObject) {
-            setCurrentShiftUsagePolicy(selectedShiftObject.usage);
-
-            const currentAreaUIDFromState = getCurrentSelectedAreaUID(); // Already available, just for clarity
-
-            // Render addons for the new area context
-            if (selectedShiftObject.addons && Array.isArray(selectedShiftObject.addons)) { // Check if addons array exists
-                renderAddons(selectedShiftObject.addons, selectedShiftObject.usage, coversValue, selectedShiftObject.name, currentAreaUIDFromState);
-            } else {
-                const addonsDisplayArea = document.getElementById('addonsDisplayArea');
-                if (addonsDisplayArea) { // Ensure area exists before trying to set its content
-                    addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailableTime || 'No addons available for this time or area.'}</p>`;
-                    addonsDisplayArea.style.display = 'block'; // Make sure it's visible
-                }
-            }
-            updateAddonsDisplayUI();
-
-            // Re-display time slots but preserve the addons that were just rendered
-            displayTimeSlots(newAvailabilityData, true); // Pass true to preserveAddons
-            showTimeSelectionSummary(previouslySelectedShiftName, formatTime(previouslySelectedTime));
-            updateNextBtnUI();
-        } else {
-            // Selection not valid or not in summary mode - normal reset and display
-            setCurrentSelectedDecimalTime(null);
-            resetTimeRelatedUI(); // This will clear addons
-            displayTimeSlots(newAvailabilityData); // Default behavior, preserveAddons is false
-        }
-
-    } catch (error) {
-        console.error("Error during availability fetch/processing in handleAreaChange:", error);
-        setCurrentSelectedDecimalTime(null);
-        resetTimeRelatedUI(); // This will clear addons
-        displayErrorMessageInTimesContainer('errorLoadingTimes', error.message || localLanguageStrings.errorLoadingTimes || "Error fetching times for the selected area.");
+    if (!shiftObject) {
+        console.warn(`handleAreaChange: Shift object not found for name: ${selectedShiftName}. Cannot update addons.`);
         updateNextBtnUI();
+        return;
     }
+
+    // 1. Re-render Addons based on the new area
+    resetStateAddons(); // Clear previous addon choices for the new area context
+
+    if (shiftObject.addons && Array.isArray(shiftObject.addons)) {
+        renderAddons(shiftObject.addons, shiftObject.usage, coversValue, shiftObject.name, newlySelectedAreaUID);
+    } else {
+        const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+        if (addonsDisplayArea) {
+            addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+            addonsDisplayArea.style.display = 'block';
+        }
+    }
+    updateAddonsDisplayUI(); // Update the summary of selected addons
+
+    // 2. Update Next Button state
+    updateNextBtnUI();
+
+    // Note: displayTimeSlots() and fetchAvailableTimes() are NOT called here.
+    // The area radio button states are updated by timeSlotDelegatedListener when a new time is picked.
+    // updateSelectedAreaDisplay() is handled by the 'change' event listener on areaRadioGroupContainer.
 }
 
 
