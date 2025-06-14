@@ -421,12 +421,123 @@ function timeSlotDelegatedListener(event) {
             showTimeSelectionSummary(shiftObject.name, formattedTime);
 
             const localConfig = getConfig();
-            if (localConfig.arSelect === "true") {
-                showAreaSelector();
+            const localLanguageStrings = getLanguageStrings(); // Get language strings
+            const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
+
+            if (localConfig.arSelect === "true" && areaRadioGroupContainer) {
+                const selectedTime = timeValue; // Already available as timeValue
+                // const availabilityData = getCurrentAvailabilityData(); // Already available
+
+                const allAreaRadioItems = areaRadioGroupContainer.querySelectorAll('.area-radio-item');
+                let areaWasSelectedThisCycle = false; // To track if any radio gets selected
+
+                allAreaRadioItems.forEach(item => {
+                    const radio = item.querySelector('input[type="radio"]');
+                    const messageSpan = item.querySelector('.area-availability-message-span');
+                    if (!radio || !messageSpan) return;
+
+                    let isAvailable = false;
+                    let areaNameForMessage = '';
+
+                    if (radio.value === 'any') {
+                        isAvailable = shiftObject?.times?.includes(selectedTime) ?? false;
+                        areaNameForMessage = localLanguageStrings.anyAreaText || "Any Area";
+                    } else {
+                        const areaUid = radio.value;
+                        const areaObject = availabilityData.areas?.find(a => a.uid.toString() === areaUid);
+                        isAvailable = areaObject?.times?.includes(selectedTime) ?? false;
+                        areaNameForMessage = areaObject?.name || areaUid;
+                    }
+
+                    radio.disabled = !isAvailable;
+                    if (isAvailable) {
+                        messageSpan.textContent = '';
+                        messageSpan.style.display = 'none';
+                    } else {
+                        const msgTemplate = localLanguageStrings.noAvailabilityForAreaAtTime || "No availability for {0} for this time";
+                        messageSpan.textContent = msgTemplate.replace('{0}', areaNameForMessage);
+                        messageSpan.style.display = 'inline';
+                    }
+                });
+
+                // Default Area Selection Logic
+                let uidToSelect = null;
+                const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
+
+                // Attempt 1: Pre-selected area from state (if still valid)
+                if (currentSelectedAreaFromState) {
+                    const currentRadio = areaRadioGroupContainer.querySelector(`input[name="areaSelection"][value="${currentSelectedAreaFromState}"]`);
+                    if (currentRadio && !currentRadio.disabled) {
+                        uidToSelect = currentSelectedAreaFromState;
+                    }
+                }
+
+                // Attempt 2: "Any Area" (if not already chosen and is available & preferred default)
+                if (uidToSelect === null && localConfig.areaAny === "true") {
+                    const anyAreaRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
+                    if (anyAreaRadio && !anyAreaRadio.disabled && localConfig.areaAnySelected === "true") {
+                        uidToSelect = "any";
+                    }
+                }
+
+                // Attempt 3: First available specific area
+                if (uidToSelect === null) {
+                    const specificRadios = areaRadioGroupContainer.querySelectorAll('input[name="areaSelection"]:not([value="any"])');
+                    for (const specificRadio of specificRadios) {
+                        if (!specificRadio.disabled) {
+                            uidToSelect = specificRadio.value;
+                            break;
+                        }
+                    }
+                }
+
+                // Attempt 4: "Any Area" (if not chosen yet and is available - fallback)
+                if (uidToSelect === null && localConfig.areaAny === "true") {
+                    const anyAreaRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
+                    if (anyAreaRadio && !anyAreaRadio.disabled) {
+                        uidToSelect = "any";
+                    }
+                }
+
+                // Apply Selection and Update Summary Display
+                let selectedLabelText = null;
+                allAreaRadioItems.forEach(item => {
+                    const radio = item.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.checked = (radio.value === uidToSelect);
+                        if (radio.checked) {
+                            areaWasSelectedThisCycle = true;
+                            const label = item.querySelector('label');
+                            selectedLabelText = label ? label.textContent : radio.value; // Fallback to value if label missing
+                        }
+                    }
+                });
+
+                setCurrentSelectedAreaUID(uidToSelect); // Update state with the final selection
+
+                if (areaWasSelectedThisCycle && selectedLabelText) {
+                    // Remove message from label if it was part of it (it's now in its own span)
+                    const mainLabelText = selectedLabelText.split(" (")[0]; // Get text before any potential old message
+                    updateSelectedAreaDisplay(mainLabelText);
+                } else {
+                    updateSelectedAreaDisplay(localLanguageStrings.noAreaAvailableForTimeSlot || "No areas available for this time.");
+                }
+
+                showAreaSelector(); // Show the updated area selector
+            } else if (localConfig.arSelect !== "true") {
+                // If area selection is not active, ensure area specific things are cleared from state/UI
+                setCurrentSelectedAreaUID(null);
+                updateSelectedAreaDisplay(null);
+                hideAreaSelector(); // Ensure it's hidden
             }
+
 
         } else {
             console.warn(`Shift object not found for time slot button. Attempted UID: ${shiftUidFromDataset}, Attempted Name: ${shiftNameFromDataset}`, button);
+            // If shift object not found, perhaps hide area selector and clear relevant state
+            hideAreaSelector();
+            setCurrentSelectedAreaUID(null);
+            updateSelectedAreaDisplay(null);
         }
     }
 }
