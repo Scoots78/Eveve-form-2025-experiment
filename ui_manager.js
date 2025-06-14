@@ -761,10 +761,56 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                     }
                 });
                 panelDiv.appendChild(shiftButtonContainer);
+
+                // Per-Shift Legend Logic (for specific area selected context)
+                const shiftLegendDiv = document.createElement('div');
+                shiftLegendDiv.className = 'shift-availability-legend'; // New class
+                shiftLegendDiv.style.display = 'none'; // Initially hidden
+                panelDiv.appendChild(shiftLegendDiv);
+
+                let partialSlotsInThisShiftCount = 0;
+                shiftButtonContainer.querySelectorAll('.time-slot-button.time-slot-partial-area').forEach(() => partialSlotsInThisShiftCount++);
+
+                if (partialSlotsInThisShiftCount > 0) {
+                    shiftLegendDiv.innerHTML = ''; // Clear previous items
+                    const currentAreaUIDFromState = getCurrentSelectedAreaUID(); // Already in scope as currentAreaUID
+
+                    let legendFullText = localLanguageStrings.legendFull || "Available";
+                    if (currentAreaUID && currentAreaUID !== "any") { // currentAreaUID is the specific selected one here
+                        const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUID);
+                        const areaName = selectedAreaObject ? selectedAreaObject.name : currentAreaUID;
+                        legendFullText = (localLanguageStrings.legendFullForArea || "Available for {areaName}").replace('{areaName}', areaName);
+                    } else { // Should not happen in this loop, but as fallback
+                        legendFullText = localLanguageStrings.legendFullAnyArea || "Available (matches selection)";
+                    }
+
+                    const itemFull = document.createElement('div');
+                    itemFull.className = 'legend-item';
+                    const boxFull = document.createElement('span');
+                    boxFull.className = 'legend-color-box time-slot-available';
+                    const textFull = document.createElement('span');
+                    textFull.textContent = legendFullText;
+                    itemFull.appendChild(boxFull); itemFull.appendChild(textFull);
+                    shiftLegendDiv.appendChild(itemFull);
+
+                    const itemPartial = document.createElement('div');
+                    itemPartial.className = 'legend-item';
+                    const boxPartial = document.createElement('span');
+                    boxPartial.className = 'legend-color-box time-slot-partial-area';
+                    const textPartial = document.createElement('span');
+                    textPartial.textContent = localLanguageStrings.legendPartial || "Available (other areas/times)";
+                    itemPartial.appendChild(boxPartial); itemPartial.appendChild(textPartial);
+                    shiftLegendDiv.appendChild(itemPartial);
+
+                    shiftLegendDiv.style.display = 'block';
+                } else {
+                    shiftLegendDiv.innerHTML = '';
+                    shiftLegendDiv.style.display = 'none';
+                }
                 timeSelectorContainer.appendChild(panelDiv);
             }
         });
-    } else {
+    } else { // "Any Area" selected or no area selection mode
         allShifts.forEach(shift => {
             if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
 
@@ -830,6 +876,45 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                     }
                 });
                 panelDiv.appendChild(shiftButtonContainer);
+
+                // Per-Shift Legend Logic (for "Any Area" or no area selection context)
+                const shiftLegendDiv = document.createElement('div');
+                shiftLegendDiv.className = 'shift-availability-legend';
+                shiftLegendDiv.style.display = 'none';
+                panelDiv.appendChild(shiftLegendDiv);
+
+                let partialSlotsInThisShiftCount = 0;
+                shiftButtonContainer.querySelectorAll('.time-slot-button.time-slot-partial-area').forEach(() => partialSlotsInThisShiftCount++);
+
+                if (partialSlotsInThisShiftCount > 0) {
+                    shiftLegendDiv.innerHTML = '';
+                    // In "Any Area" context, "full" means available in the shift (potentially across multiple areas or as a general slot)
+                    // "partial" means available in some specific areas but not all (if areas are defined).
+                    const legendFullText = localLanguageStrings.legendFullAnyContext || (localLanguageStrings.legendFull || "Available");
+
+                    const itemFull = document.createElement('div');
+                    itemFull.className = 'legend-item';
+                    const boxFull = document.createElement('span');
+                    boxFull.className = 'legend-color-box time-slot-available';
+                    const textFull = document.createElement('span');
+                    textFull.textContent = legendFullText;
+                    itemFull.appendChild(boxFull); itemFull.appendChild(textFull);
+                    shiftLegendDiv.appendChild(itemFull);
+
+                    const itemPartial = document.createElement('div');
+                    itemPartial.className = 'legend-item';
+                    const boxPartial = document.createElement('span');
+                    boxPartial.className = 'legend-color-box time-slot-partial-area';
+                    const textPartial = document.createElement('span');
+                    textPartial.textContent = localLanguageStrings.legendPartial || "Available (some areas)"; // Slightly adjusted text for clarity in "Any" mode
+                    itemPartial.appendChild(boxPartial); itemPartial.appendChild(textPartial);
+                    shiftLegendDiv.appendChild(itemPartial);
+
+                    shiftLegendDiv.style.display = 'block';
+                } else {
+                    shiftLegendDiv.innerHTML = '';
+                    shiftLegendDiv.style.display = 'none';
+                }
                 timeSelectorContainer.appendChild(panelDiv);
             }
         });
@@ -841,66 +926,6 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
 
     const allAccordionPanels = timeSelectorContainer.querySelectorAll('.shift-accordion-panel');
     if (allAccordionPanels.length > 0) {
-        // Legend Management
-        let legendDiv = document.getElementById('timeAvailabilityLegend');
-        const hasPartialSlots = timeSelectorContainer.querySelector('.time-slot-button.time-slot-partial-area');
-
-        if (hasPartialSlots) {
-            if (!legendDiv) {
-                legendDiv = document.createElement('div');
-                legendDiv.id = 'timeAvailabilityLegend';
-                // Insert legend before the first shift panel, or at the end of timeSelectorContainer
-                const firstShiftPanel = timeSelectorContainer.querySelector('.shift-accordion-panel');
-                if (firstShiftPanel) {
-                    timeSelectorContainer.insertBefore(legendDiv, firstShiftPanel);
-                } else {
-                    timeSelectorContainer.appendChild(legendDiv);
-                }
-            }
-            legendDiv.innerHTML = ''; // Clear previous legend items
-
-            const currentAreaUIDFromState = getCurrentSelectedAreaUID();
-            let legendFullText = localLanguageStrings.legendFull || "Available";
-
-            if (localConfig.arSelect === "true" && currentAreaUIDFromState && currentAreaUIDFromState !== "any") {
-                const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUIDFromState);
-                const areaName = selectedAreaObject ? selectedAreaObject.name : currentAreaUIDFromState;
-                legendFullText = (localLanguageStrings.legendFullForArea || "Available for {areaName}").replace('{areaName}', areaName);
-            } else if (localConfig.arSelect === "true") {
-                 legendFullText = localLanguageStrings.legendFullAnyArea || "Available (matches selection)";
-            }
-
-
-            // Legend Item 1 (Fully Available)
-            const itemFull = document.createElement('div');
-            itemFull.className = 'legend-item';
-            const boxFull = document.createElement('span');
-            boxFull.className = 'legend-color-box time-slot-available'; // Assumes .time-slot-available sets desired bg
-            const textFull = document.createElement('span');
-            textFull.textContent = legendFullText;
-            itemFull.appendChild(boxFull);
-            itemFull.appendChild(textFull);
-            legendDiv.appendChild(itemFull);
-
-            // Legend Item 2 (Partially Available)
-            const itemPartial = document.createElement('div');
-            itemPartial.className = 'legend-item';
-            const boxPartial = document.createElement('span');
-            boxPartial.className = 'legend-color-box time-slot-partial-area'; // Assumes .time-slot-partial-area sets desired bg
-            const textPartial = document.createElement('span');
-            textPartial.textContent = localLanguageStrings.legendPartial || "Available (other areas/times)";
-            itemPartial.appendChild(boxPartial);
-            itemPartial.appendChild(textPartial);
-            legendDiv.appendChild(itemPartial);
-
-            legendDiv.style.display = 'block';
-        } else {
-            if (legendDiv) {
-                legendDiv.style.display = 'none';
-                legendDiv.innerHTML = ''; // Clear it if not needed
-            }
-        }
-
         allAccordionPanels.forEach(panel => {
             const h3El = panel.querySelector('h3');
             const msgEl = panel.querySelector('.shift-message');
