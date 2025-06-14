@@ -569,49 +569,76 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
     }
 
     let currentSelectedAreaTextInSummary = '-'; // Default for summary
+    const allShiftsForAvailabilityCheck = availabilityData.shifts; // Used for area availability
 
     if (localConfig.arSelect === "true" && areaRadioGroupContainer) {
         const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
         areaRadioGroupContainer.innerHTML = '';
         const areas = availabilityData.areas;
         let radiosPopulated = false;
-        let uidToSelect = currentSelectedAreaFromState;
+        let initialUidToSelect = currentSelectedAreaFromState; // Rename to avoid confusion later
 
+        // Validate initialUidToSelect against available areas and "any" option
         let SPUIDIsValidInNewData = false;
-        if (uidToSelect) {
-            if (uidToSelect === "any" && localConfig.areaAny === "true") {
+        if (initialUidToSelect) {
+            if (initialUidToSelect === "any" && localConfig.areaAny === "true") {
                 SPUIDIsValidInNewData = true;
-            } else if (uidToSelect !== "any" && areas && Array.isArray(areas)) {
-                SPUIDIsValidInNewData = areas.some(area => area.uid.toString() === uidToSelect);
+            } else if (initialUidToSelect !== "any" && areas && Array.isArray(areas)) {
+                SPUIDIsValidInNewData = areas.some(area => area.uid.toString() === initialUidToSelect);
             }
         }
 
         if (!SPUIDIsValidInNewData) {
-            if (localConfig.areaAny === "true") {
-                uidToSelect = "any";
+            if (localConfig.areaAny === "true" && localConfig.areaAnySelected === "true") { // Prefer "any" if configured to be default
+                initialUidToSelect = "any";
             } else if (areas && Array.isArray(areas) && areas.length > 0) {
-                uidToSelect = areas[0].uid.toString();
+                initialUidToSelect = areas[0].uid.toString(); // Fallback to first specific area
+            } else if (localConfig.areaAny === "true") { // If no specific areas, but "any" is an option
+                initialUidToSelect = "any";
             } else {
-                uidToSelect = null;
+                initialUidToSelect = null; // No valid initial selection
             }
-            // setCurrentSelectedAreaUID(uidToSelect); // Removed: displayTimeSlots should not set this state.
         }
 
+        let areaAvailabilityInfo = []; // To store { uid, name, radioEl, labelEl, isAvailable, isOriginallySelected }
+
+        // Create "Any Area" radio first if applicable
+        let anyAreaRadio = null;
+        let anyAreaLabel = null;
         if (localConfig.areaAny === "true") {
             const radioId = "area-any";
             const radioItemContainer = document.createElement('div');
             radioItemContainer.className = 'area-radio-item';
-            const radio = document.createElement('input');
-            radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = 'any';
-            radio.checked = (uidToSelect === 'any');
-            const label = document.createElement('label');
-            label.htmlFor = radioId; label.textContent = localLanguageStrings.anyAreaText || "Any Area";
-            radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
+            anyAreaRadio = document.createElement('input');
+            anyAreaRadio.type = 'radio'; anyAreaRadio.name = 'areaSelection'; anyAreaRadio.id = radioId; anyAreaRadio.value = 'any';
+            // anyAreaRadio.checked will be set later after all availability is known
+            anyAreaLabel = document.createElement('label');
+            anyAreaLabel.htmlFor = radioId; anyAreaLabel.textContent = localLanguageStrings.anyAreaText || "Any Area";
+            radioItemContainer.appendChild(anyAreaRadio); radioItemContainer.appendChild(anyAreaLabel);
             areaRadioGroupContainer.appendChild(radioItemContainer);
             radiosPopulated = true;
-            if (radio.checked) currentSelectedAreaTextInSummary = label.textContent;
+
+            // For "Any Area", availability means at least one specific area OR any shift has times if no specific areas.
+            // Simplified: assume "Any Area" is available if any shift has times, or if any specific area is available.
+            // This will be refined later if needed. For now, assume true if it exists.
+            // A better check: isAvailable if any shift has times (for non-area specific slots) OR any of the specific areas are available.
+            let isAnyAreaEffectivelyAvailable = false;
+            if (allShiftsForAvailabilityCheck && allShiftsForAvailabilityCheck.some(s => s.times && s.times.some(t => t >=0))) {
+                 isAnyAreaEffectivelyAvailable = true; // General times available
+            }
+            // This will be ORed later with specific area availabilities for a more robust "Any Area" availability.
+
+            areaAvailabilityInfo.push({
+                uid: "any",
+                name: anyAreaLabel.textContent,
+                radioElement: anyAreaRadio,
+                labelElement: anyAreaLabel,
+                isAvailable: true, // Placeholder, will be refined
+                isOriginallySelected: (initialUidToSelect === 'any')
+            });
         }
 
+        let atLeastOneSpecificAreaIsAvailable = false;
         if (areas && Array.isArray(areas) && areas.length > 0) {
             areas.forEach((area) => {
                 const radioId = `area-${area.uid}`;
@@ -619,27 +646,120 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 radioItemContainer.className = 'area-radio-item';
                 const radio = document.createElement('input');
                 radio.type = 'radio'; radio.name = 'areaSelection'; radio.id = radioId; radio.value = area.uid.toString();
-                radio.checked = (uidToSelect === area.uid.toString());
+                // radio.checked will be set later
                 const label = document.createElement('label');
                 label.htmlFor = radioId; label.textContent = area.name;
+
+                let isAreaAvailableForAnyShift = false;
+                if (area.times && area.times.length > 0 && allShiftsForAvailabilityCheck && allShiftsForAvailabilityCheck.length > 0) {
+                    for (const shift of allShiftsForAvailabilityCheck) {
+                        if (shift.times && shift.times.some(st => st >= 0 && area.times.includes(st))) {
+                            isAreaAvailableForAnyShift = true;
+                            atLeastOneSpecificAreaIsAvailable = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isAreaAvailableForAnyShift) {
+                    radio.disabled = true;
+                    const unavailableMsgSpan = document.createElement('span');
+                    unavailableMsgSpan.className = 'area-unavailability-message';
+                    unavailableMsgSpan.textContent = ` (${localLanguageStrings.noAvailabilityForAreaInSession || `No availability for ${area.name} for this session`})`;
+                    label.appendChild(unavailableMsgSpan); // Append to label for inline display
+                }
+
                 radioItemContainer.appendChild(radio); radioItemContainer.appendChild(label);
                 areaRadioGroupContainer.appendChild(radioItemContainer);
                 radiosPopulated = true;
-                if (radio.checked) currentSelectedAreaTextInSummary = label.textContent;
+
+                areaAvailabilityInfo.push({
+                    uid: area.uid.toString(),
+                    name: area.name,
+                    radioElement: radio,
+                    labelElement: label,
+                    isAvailable: isAreaAvailableForAnyShift,
+                    isOriginallySelected: (initialUidToSelect === area.uid.toString())
+                });
             });
         }
 
+        // Refine "Any Area" availability: it's available if there are general slots OR any specific area is available.
+        const anyAreaEntry = areaAvailabilityInfo.find(a => a.uid === "any");
+        if (anyAreaEntry) {
+            // Check if any shift has general times (not area-specific)
+            const generalSlotsExist = allShiftsForAvailabilityCheck && allShiftsForAvailabilityCheck.some(shift =>
+                shift.times && shift.times.some(time => time >= 0) &&
+                (!availabilityData.areas || availabilityData.areas.length === 0) // No areas means all slots are general
+            );
+            anyAreaEntry.isAvailable = generalSlotsExist || atLeastOneSpecificAreaIsAvailable;
+            if (!anyAreaEntry.isAvailable && anyAreaEntry.radioElement) {
+                anyAreaEntry.radioElement.disabled = true;
+                 const unavailableMsgSpan = document.createElement('span');
+                 unavailableMsgSpan.className = 'area-unavailability-message';
+                 unavailableMsgSpan.textContent = ` (${localLanguageStrings.noAvailabilityForAreaInSession || `No availability for Any Area for this session`})`; // Generic message
+                 if (anyAreaEntry.labelElement) anyAreaEntry.labelElement.appendChild(unavailableMsgSpan);
+            }
+        }
+
+
+        // Determine final uidToSelect based on availability
+        let finalUidToSelect = null;
+        const originalSelection = areaAvailabilityInfo.find(a => a.uid === initialUidToSelect);
+
+        if (originalSelection && originalSelection.isAvailable) {
+            finalUidToSelect = initialUidToSelect;
+        } else {
+            // Original selection is not available or was invalid
+            const anyAreaSelectable = anyAreaEntry && anyAreaEntry.isAvailable;
+            if (anyAreaSelectable && localConfig.areaAnySelected === "true") { // Config prefers "Any Area"
+                finalUidToSelect = "any";
+            } else {
+                // Try first available specific area
+                const firstAvailableSpecific = areaAvailabilityInfo.find(a => a.uid !== "any" && a.isAvailable);
+                if (firstAvailableSpecific) {
+                    finalUidToSelect = firstAvailableSpecific.uid;
+                } else if (anyAreaSelectable) { // Fallback to "Any Area" if no specific ones are available
+                    finalUidToSelect = "any";
+                } else {
+                    finalUidToSelect = null; // No area is available
+                }
+            }
+        }
+
+        // Set checked state and currentSelectedAreaTextInSummary
+        currentSelectedAreaTextInSummary = '-';
+        let anAreaWasSelected = false;
+        areaAvailabilityInfo.forEach(areaInfo => {
+            if (areaInfo.radioElement) {
+                if (areaInfo.uid === finalUidToSelect && areaInfo.isAvailable) {
+                    areaInfo.radioElement.checked = true;
+                    currentSelectedAreaTextInSummary = areaInfo.name; // Use full name, message is part of label now
+                    anAreaWasSelected = true;
+                } else {
+                    areaInfo.radioElement.checked = false;
+                }
+            }
+        });
+
+        if (!anAreaWasSelected) { // If nothing got selected (e.g. all disabled)
+             currentSelectedAreaTextInSummary = localLanguageStrings.noAreaAvailableForSelection || "No areas available";
+             // Potentially select the first disabled radio if that's desired behavior, or leave none selected.
+             // For now, none will be selected if finalUidToSelect is null or points to a disabled one.
+        }
+
         if (!radiosPopulated && localConfig.arSelect === "true") {
-             updateSelectedAreaDisplay(null);
-        } else if (radiosPopulated) {
+             updateSelectedAreaDisplay(localLanguageStrings.noAreasDefined || "No areas defined.");
+        } else { // Covers cases where radios were populated but none might be selected/available
              updateSelectedAreaDisplay(currentSelectedAreaTextInSummary);
         }
-    } else if (areaRadioGroupContainer) {
+
+    } else if (areaRadioGroupContainer) { // arSelect is false, clear display
          updateSelectedAreaDisplay(null);
+         areaRadioGroupContainer.innerHTML = ''; // Ensure it's cleared if arSelect became false
     }
 
-
-    const allShifts = availabilityData.shifts;
+    const allShifts = availabilityData.shifts; // This was misnamed above, ensure it's the correct one for shifts processing
     let foundAnySlotsToShowOverall = false;
 
     if (!allShifts || !Array.isArray(allShifts) || allShifts.length === 0) {
