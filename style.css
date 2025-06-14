@@ -138,6 +138,7 @@ label.summary-mode-active:hover {
     cursor: pointer;
     text-align: center;
     font-size: 0.9em; 
+    max-width: calc(25% - 6px);
     transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
