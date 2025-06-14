@@ -480,12 +480,13 @@ export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shift
     }
 }
 
-export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
+export function createTimeSlotButton(timeValue, shiftObject, status = 'full') { // Changed isActive to status
     const button = document.createElement('button');
-    button.className = 'time-slot-button';
+    button.className = 'time-slot-button'; // Base class
     const localLanguageStrings = getLanguageStrings();
     let hasValidIdentifier = false;
 
+    // Set shift identifiers first
     if (shiftObject && shiftObject.uid != null && String(shiftObject.uid).trim() !== '') {
         button.dataset.shiftUid = String(shiftObject.uid);
         hasValidIdentifier = true;
@@ -496,26 +497,29 @@ export function createTimeSlotButton(timeValue, shiftObject, isActive = true) {
 
     if (!hasValidIdentifier) {
         console.warn("Time slot button created without a valid shift identifier (UID or Name):", shiftObject);
-        button.classList.add('time-slot-no-identifier');
-        isActive = false;
+        // Even without identifier, it might be an "unavailable" slot, so continue processing status
     }
 
-    if (timeValue < 0) {
-        if (!getShowUnavailableSlots()) return null;
+    // Determine button state based on status and timeValue
+    // timeValue < 0 always means 'unavailable' from the perspective of booking, overriding passed status.
+    const effectiveStatus = timeValue < 0 ? 'unavailable' : status;
+
+    if (effectiveStatus === 'unavailable') {
+        if (!getShowUnavailableSlots()) return null; // Do not render if unavailable slots are hidden
         button.textContent = localLanguageStrings.notAvailableText || 'Not Available';
         button.classList.add('time-slot-unavailable');
         button.disabled = true;
     } else {
+        // For 'full' or 'partial' status
         button.textContent = formatTime(timeValue);
-        button.dataset.time = timeValue;
+        button.dataset.time = timeValue; // Ensure dataset.time is set for active buttons
 
-        if (isActive) {
-            button.classList.add('time-slot-available');
-            button.disabled = false;
-        } else {
-            button.classList.add('time-slot-inactive');
-            button.disabled = true;
+        button.classList.add('time-slot-available'); // Base class for active/bookable buttons
+        if (effectiveStatus === 'partial') {
+            button.classList.add('time-slot-partial-area');
         }
+        // If status is 'full', it correctly just has 'time-slot-available'.
+        button.disabled = false;
     }
     return button;
 }
@@ -742,10 +746,15 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 currentShiftSessionTimes.forEach(timeValueFromShift => {
                     if (timeValueFromShift < 0 && !getShowUnavailableSlots()) return;
 
-                    let buttonIsActive = actualBookableTimesForShiftInArea.includes(timeValueFromShift);
-                    if (timeValueFromShift < 0) buttonIsActive = false;
+                    let status = 'full';
+                    if (timeValueFromShift < 0) {
+                        status = 'unavailable';
+                    } else if (!actualBookableTimesForShiftInArea.includes(timeValueFromShift)) {
+                        // Time is in the shift's general list, but not in the selected specific area's times.
+                        status = 'partial';
+                    } // Else, it's in the area and shift, so status remains 'full'.
 
-                    const button = createTimeSlotButton(timeValueFromShift, shift, buttonIsActive);
+                    const button = createTimeSlotButton(timeValueFromShift, shift, status);
                     if (button) {
                         shiftButtonContainer.appendChild(button);
                         foundAnySlotsToShowOverall = true;
@@ -779,8 +788,42 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 const shiftButtonContainer = document.createElement('div');
                 shiftButtonContainer.className = 'shift-times-wrapper';
 
-                displayableTimes.forEach(timeValue => {
-                    const button = createTimeSlotButton(timeValue, shift, timeValue >= 0);
+                displayableTimes.forEach(timeValue => { // displayableTimes are already >= 0 or conform to showUnavailableSlots
+                    let status = 'full';
+                    if (timeValue < 0) { // Should already be handled by displayableTimes, but as a safeguard
+                        status = 'unavailable';
+                    } else {
+                        // When "Any Area" is selected or no areas are involved,
+                        // we need to determine if this time slot is 'full' or 'partial'
+                        // based on its availability across ALL defined areas.
+                        if (localConfig.arSelect === "true" && availabilityData.areas && availabilityData.areas.length > 0) {
+                            const numAllAreas = availabilityData.areas.length;
+                            let areasContainingTime = 0;
+                            for (const area of availabilityData.areas) {
+                                if (area.times?.includes(timeValue)) {
+                                    areasContainingTime++;
+                                }
+                            }
+
+                            if (areasContainingTime === 0 && numAllAreas > 0) {
+                                // Available in shift, but in none of the specific areas.
+                                // This could be 'full' if it's a general slot, or 'partial' if areas are expected.
+                                // For "Any Area" view, if it's in the shift, consider it 'full' for now.
+                                // If it means "available in some area", then this might be 'partial'.
+                                // Let's assume 'full' means available in the current context (shift).
+                                // 'partial' could mean available in shift, but not all sub-contexts (areas).
+                                // If a time is in shift, but in 0 areas, it's a general shift time.
+                                // If a time is in shift, and in some areas but not all, it's partial.
+                                // If a time is in shift, and in all areas, it's full.
+                                status = 'full'; // Default for general shift times not in any specific area.
+                            } else if (areasContainingTime < numAllAreas) {
+                                status = 'partial'; // Available in some specific areas but not all
+                            }
+                            // else status remains 'full' (available in all areas or no areas defined)
+                        }
+                        // If arSelect is false, status remains 'full' as it's just based on shift times.
+                    }
+                    const button = createTimeSlotButton(timeValue, shift, status);
                     if (button) {
                         shiftButtonContainer.appendChild(button);
                         foundAnySlotsToShowOverall = true;
@@ -798,6 +841,66 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
 
     const allAccordionPanels = timeSelectorContainer.querySelectorAll('.shift-accordion-panel');
     if (allAccordionPanels.length > 0) {
+        // Legend Management
+        let legendDiv = document.getElementById('timeAvailabilityLegend');
+        const hasPartialSlots = timeSelectorContainer.querySelector('.time-slot-button.time-slot-partial-area');
+
+        if (hasPartialSlots) {
+            if (!legendDiv) {
+                legendDiv = document.createElement('div');
+                legendDiv.id = 'timeAvailabilityLegend';
+                // Insert legend before the first shift panel, or at the end of timeSelectorContainer
+                const firstShiftPanel = timeSelectorContainer.querySelector('.shift-accordion-panel');
+                if (firstShiftPanel) {
+                    timeSelectorContainer.insertBefore(legendDiv, firstShiftPanel);
+                } else {
+                    timeSelectorContainer.appendChild(legendDiv);
+                }
+            }
+            legendDiv.innerHTML = ''; // Clear previous legend items
+
+            const currentAreaUIDFromState = getCurrentSelectedAreaUID();
+            let legendFullText = localLanguageStrings.legendFull || "Available";
+
+            if (localConfig.arSelect === "true" && currentAreaUIDFromState && currentAreaUIDFromState !== "any") {
+                const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUIDFromState);
+                const areaName = selectedAreaObject ? selectedAreaObject.name : currentAreaUIDFromState;
+                legendFullText = (localLanguageStrings.legendFullForArea || "Available for {areaName}").replace('{areaName}', areaName);
+            } else if (localConfig.arSelect === "true") {
+                 legendFullText = localLanguageStrings.legendFullAnyArea || "Available (matches selection)";
+            }
+
+
+            // Legend Item 1 (Fully Available)
+            const itemFull = document.createElement('div');
+            itemFull.className = 'legend-item';
+            const boxFull = document.createElement('span');
+            boxFull.className = 'legend-color-box time-slot-available'; // Assumes .time-slot-available sets desired bg
+            const textFull = document.createElement('span');
+            textFull.textContent = legendFullText;
+            itemFull.appendChild(boxFull);
+            itemFull.appendChild(textFull);
+            legendDiv.appendChild(itemFull);
+
+            // Legend Item 2 (Partially Available)
+            const itemPartial = document.createElement('div');
+            itemPartial.className = 'legend-item';
+            const boxPartial = document.createElement('span');
+            boxPartial.className = 'legend-color-box time-slot-partial-area'; // Assumes .time-slot-partial-area sets desired bg
+            const textPartial = document.createElement('span');
+            textPartial.textContent = localLanguageStrings.legendPartial || "Available (other areas/times)";
+            itemPartial.appendChild(boxPartial);
+            itemPartial.appendChild(textPartial);
+            legendDiv.appendChild(itemPartial);
+
+            legendDiv.style.display = 'block';
+        } else {
+            if (legendDiv) {
+                legendDiv.style.display = 'none';
+                legendDiv.innerHTML = ''; // Clear it if not needed
+            }
+        }
+
         allAccordionPanels.forEach(panel => {
             const h3El = panel.querySelector('h3');
             const msgEl = panel.querySelector('.shift-message');

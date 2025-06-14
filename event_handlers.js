@@ -377,7 +377,7 @@ function timeSlotDelegatedListener(event) {
         const timeValue = parseFloat(button.dataset.time);
         const shiftUidFromDataset = button.dataset.shiftUid;
         const shiftNameFromDataset = button.dataset.shiftName;
-        const availabilityData = getCurrentAvailabilityData();
+        const availabilityData = getCurrentAvailabilityData(); // Keep this for use in auto-switch and later
         let shiftObject = null;
 
         if (shiftUidFromDataset && shiftUidFromDataset !== 'undefined') {
@@ -387,6 +387,45 @@ function timeSlotDelegatedListener(event) {
         if (!shiftObject && shiftNameFromDataset) {
             shiftObject = availabilityData?.shifts?.find(s => s && s.name != null && String(s.name).trim() !== '' && s.name === shiftNameFromDataset);
         }
+
+        // --- NEW LOGIC FOR AREA AUTO-SWITCH ---
+        if (shiftObject && button.classList.contains('time-slot-partial-area')) {
+            let newAreaUidToSelect = null;
+            const localConfig = getConfig(); // Needed for localConfig.areaAny
+            const selectedTime = timeValue; // Already parsed
+
+            if (localConfig.areaAny === "true") {
+                const anyAreaRadio = document.getElementById('area-any');
+                if (anyAreaRadio) { // Check if "Any Area" UI element exists
+                    // If a partial button is clicked, "Any Area" becomes a prime candidate
+                    // assuming the time itself is valid for the shift (which it is, as button was clickable)
+                    newAreaUidToSelect = "any";
+                }
+            }
+
+            if (newAreaUidToSelect === null) { // If "Any Area" was not selected (e.g. not configured or UI element missing)
+                if (availabilityData && availabilityData.areas && Array.isArray(availabilityData.areas)) {
+                    for (const area of availabilityData.areas) {
+                        if (area.times && area.times.includes(selectedTime)) {
+                            newAreaUidToSelect = area.uid.toString();
+                            break; // Found the first available specific area
+                        }
+                    }
+                }
+            }
+
+            // If newAreaUidToSelect is still null here, it implies that the time slot marked 'partial'
+            // (meaning it wasn't available in the *previously* selected specific area)
+            // is also not available in "Any Area" (if applicable) and not in any *other* specific area.
+            // This state should ideally not occur if 'partial' is set correctly by displayTimeSlots.
+            // The subsequent area UI update will correctly show no area as available if this happens.
+
+            if (newAreaUidToSelect !== null) {
+                setCurrentSelectedAreaUID(newAreaUidToSelect);
+                // The existing area update logic later in this function will use this new UID.
+            }
+        }
+        // --- END OF NEW LOGIC ---
 
         if (shiftObject) {
             const selectedTimeValueSpan = document.getElementById('selectedTimeValue');

@@ -7,6 +7,45 @@
     <title>New Booking Form</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            /* Assuming --mainThemeColor is already defined elsewhere, if not, use a sensible default for the example */
+            /* For example: --mainThemeColor: #007bff; */
+            /* If --mainThemeColor is not defined in style.css, uncomment the line below or define it in style.css */
+            /* --mainThemeColor: #007bff; */
+            --particleAvailabilityColor: #cf8168;
+        }
+
+        .time-slot-button.time-slot-partial-area {
+            background-color: var(--particleAvailabilityColor);
+            color: white; /* Assuming white text looks good on #cf8168 */
+            /* Add other properties if they need to differ from .time-slot-available */
+            /* e.g., border-color: var(--particleAvailabilityColor); */
+        }
+
+        /* Basic styling for the legend */
+        #timeAvailabilityLegend { /* Assuming this ID will be used for the legend container */
+            margin-top: 10px;
+            padding: 8px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .legend-color-box {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+            display: inline-block; /* Or flex if aligning content within the box */
+        }
+    </style>
 </head>
 <body>
     <div class="form-container">
