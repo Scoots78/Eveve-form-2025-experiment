@@ -835,39 +835,14 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 shiftButtonContainer.className = 'shift-times-wrapper';
 
                 displayableTimes.forEach(timeValue => { // displayableTimes are already >= 0 or conform to showUnavailableSlots
-                    let status = 'full';
-                    if (timeValue < 0) { // Should already be handled by displayableTimes, but as a safeguard
+                    let status;
+                    // currentAreaUID is implicitly "any" or null, or arSelect is false in this block.
+                    if (timeValue < 0) {
                         status = 'unavailable';
                     } else {
-                        // When "Any Area" is selected or no areas are involved,
-                        // we need to determine if this time slot is 'full' or 'partial'
-                        // based on its availability across ALL defined areas.
-                        if (localConfig.arSelect === "true" && availabilityData.areas && availabilityData.areas.length > 0) {
-                            const numAllAreas = availabilityData.areas.length;
-                            let areasContainingTime = 0;
-                            for (const area of availabilityData.areas) {
-                                if (area.times?.includes(timeValue)) {
-                                    areasContainingTime++;
-                                }
-                            }
-
-                            if (areasContainingTime === 0 && numAllAreas > 0) {
-                                // Available in shift, but in none of the specific areas.
-                                // This could be 'full' if it's a general slot, or 'partial' if areas are expected.
-                                // For "Any Area" view, if it's in the shift, consider it 'full' for now.
-                                // If it means "available in some area", then this might be 'partial'.
-                                // Let's assume 'full' means available in the current context (shift).
-                                // 'partial' could mean available in shift, but not all sub-contexts (areas).
-                                // If a time is in shift, but in 0 areas, it's a general shift time.
-                                // If a time is in shift, and in some areas but not all, it's partial.
-                                // If a time is in shift, and in all areas, it's full.
-                                status = 'full'; // Default for general shift times not in any specific area.
-                            } else if (areasContainingTime < numAllAreas) {
-                                status = 'partial'; // Available in some specific areas but not all
-                            }
-                            // else status remains 'full' (available in all areas or no areas defined)
-                        }
-                        // If arSelect is false, status remains 'full' as it's just based on shift times.
+                        // For "Any Area" or no specific area selection, all bookable times are 'full'.
+                        // The concept of 'partial' does not apply here as per new requirement.
+                        status = 'full';
                     }
                     const button = createTimeSlotButton(timeValue, shift, status);
                     if (button) {
