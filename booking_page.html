@@ -17,14 +17,14 @@
         }
 
         .time-slot-button.time-slot-partial-area {
-            background-color: var(--particleAvailabilityColor);
-            color: white; /* Assuming white text looks good on #cf8168 */
-            /* Add other properties if they need to differ from .time-slot-available */
-            /* e.g., border-color: var(--particleAvailabilityColor); */
+            background-color: var(--particleAvailabilityColor) !important;
+            color: white !important;
+            /* If your buttons have borders that should also change color: */
+            /* border-color: var(--particleAvailabilityColor) !important; */
         }
 
         /* Basic styling for the legend */
-        #timeAvailabilityLegend { /* Assuming this ID will be used for the legend container */
+        #timeAvailabilityLegend, .shift-availability-legend { /* Target both old and new legend containers */
             margin-top: 10px;
             padding: 8px;
             border: 1px solid #eee;
@@ -43,7 +43,16 @@
             height: 16px;
             margin-right: 8px;
             border: 1px solid #ccc;
-            display: inline-block; /* Or flex if aligning content within the box */
+            display: inline-block;
+        }
+        /* Ensure legend color boxes also get their colors if they use these classes */
+        .legend-color-box.time-slot-available {
+            /* background-color: var(--mainThemeColor); Example */
+            /* This will be styled by the .time-slot-available class if its background is set via CSS variable */
+            /* Or, if .time-slot-available uses a hardcoded color, replicate it here or ensure --mainThemeColor is used. */
+        }
+        .legend-color-box.time-slot-partial-area {
+            background-color: var(--particleAvailabilityColor);
         }
     </style>
 </head>
