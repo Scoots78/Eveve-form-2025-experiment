@@ -1,12 +1,23 @@
 /* Version: 20240507-140000 */
 /* Body/General */
+:root{
+    --formBackground: #f7f7f7;
+    --mainThemeColor: #f05a28;  /* main identity color */
+    --textColor: #333;
+    --daily-message: #e6f4ea;     /* Light green background */
+    --containerBorderColor:#e0e0e0; /* border around info erro containers default light grey */
+    --buttonText:#fff;
+    --buttonHoover: #f9764b; 
+
+}
+
 body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
     margin: 0;
     padding: 20px;
     background-color: #f4f4f4;
-    color: #333;
+    color: var(--textColor);
 }
 
 /* Form Container */
@@ -81,12 +92,34 @@ input[type="number"] {
     /* Add other styling as needed */
 }
 
+label.summary-mode-active
+ {
+    //text-decoration: underline;
+    text-align: center;
+    padding:5px;
+    border-radius:5px;
+    background-color:var(--daily-message);
+    border: 1px solid #e0e0e0;
+}
+
+label.summary-mode-active::after{
+    display: block;
+    font-style: italic;
+    font-size:0.6em;
+    content: "click to change";
+}
+
+label.summary-mode-active:hover {
+  background-color: #f0f0f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
 
 /* Time Slot Container */
 #timeSelectorContainer.time-slots {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px; 
+    gap: 8px 20px; 
     margin-top: 10px;
     margin-bottom: 20px;
     padding: 10px;
@@ -98,7 +131,6 @@ input[type="number"] {
 /* Base Time Slot Button Styling */
 .time-slot-button {
     padding: 8px 12px;
-    margin: 4px; 
     border: 1px solid #ccc; 
     border-radius: 4px;
     background-color: #f0f0f0; 
@@ -111,14 +143,14 @@ input[type="number"] {
 
 /* Available Time Slot Styling */
 .time-slot-available {
-    background-color: #007bff; 
-    color: white;
-    border-color: #007bff;
+    background-color: var(--mainThemeColor); 
+    color: var(--buttonText);
+    border-color: var(--mainThemeColor);
 }
 
 .time-slot-available:hover {
-    background-color: #0056b3; 
-    border-color: #0056b3;
+    background-color: var(--buttonHoover); 
+    border-color: var(--buttonHoover); 
 }
 
 /* Unavailable Time Slot Styling */
@@ -163,11 +195,6 @@ input[type="number"] {
     color: #007bff;
 }
 
-/* Restaurant Name Span in H1 */
-#restaurantName {
-    color: #007bff; 
-}
-
 /* General Message Styling */
 .loading-message,
 .error-message,
@@ -186,7 +213,8 @@ input[type="number"] {
 .api-message {
     border: 1px solid #e0e0e0;
     background-color: #f9f9f9;
-    color: #333; 
+    color: var(--textColor);
+    width:auto;
 }
 
 /* Specific Message Type Styling */
@@ -214,17 +242,18 @@ input[type="number"] {
 
 .daily-message { /* Specific to #dailyRotaMessage if it has .api-message */
     text-align: center; 
+    background-color: var(--daily-message);
 }
 
 .shift-message { /* Specific to shift messages if they have .api-message */
-    margin-left: 20px; 
-    margin-top: 5px; 
+    margin-top: 10px; 
     margin-bottom: 10px; 
     font-style: italic;
     font-size: 0.85em;
     border-style: dashed; 
     border-color: #ccc;
     background-color: #fafafa; 
+    width:auto;
 }
 
 /* Critical error message for form init failure */
@@ -238,17 +267,24 @@ input[type="number"] {
     border-radius: 4px;
 }
 
+[class*="-message"]:empty, #addonsDisplayArea:empty {
+  background: none;
+  padding: 0;
+  border: none;
+}
+
 /* Style for shift titles (h3) within the time selector */
 #timeSelectorContainer h3 {
-    width: 100%; 
+    width: 100%;
     font-size: 1.1em;
-    color: #333;
+    color: #333333;
     margin-top: 15px;
     margin-bottom: 5px;
-    padding-bottom: 3px;
-    border-bottom: 1px solid #ddd;
-    cursor: pointer; /* Make H3 look clickable */
-    transition: color 0.2s ease-in-out; /* Smooth hover text color */
+    padding-bottom: 1px;
+    border-bottom: 2px solid #333333;
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+    padding-right: 0;
 }
 
 #timeSelectorContainer h3:hover {
@@ -256,7 +292,7 @@ input[type="number"] {
 }
 
 #timeSelectorContainer h3.active-shift-title {
-    color: #f05a28; /* Use the calendar's highlight color for active shift */
+    color: var(--mainThemeColor); /* Use the calendar's highlight color for active shift */
     font-weight: bold; /* Make active title bold */
 }
 
@@ -440,8 +476,8 @@ input[type="text"].qty-input[readonly] {
     font-size: 1.2em;
     font-weight: bold;
     color: white;
-    background-color: #007bff;
-    border: 1px solid #007bff;
+    background-color: var(--mainThemeColor);
+    border: 1px solid var(--mainThemeColor);
     border-radius: 18px; /* Half of width/height for a circle */
     cursor: pointer;
     display: flex;
@@ -453,8 +489,8 @@ input[type="text"].qty-input[readonly] {
 
 #covers-decrement:hover,
 #covers-increment:hover {
-    background-color: #0056b3;
-    border-color: #0056b3;
+    background-color: var(--buttonHoover);
+    border-color: var(--buttonHoover);
 }
 
 #covers-decrement:active,
