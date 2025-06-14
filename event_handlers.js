@@ -460,11 +460,13 @@ function timeSlotDelegatedListener(event) {
                     }
                 });
 
-                // Default Area Selection Logic
+                // New Default Area Selection Logic
                 let uidToSelect = null;
                 const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
+                const anyAreaRadioElement = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
+                const anyAreaIsEnabled = anyAreaRadioElement && !anyAreaRadioElement.disabled;
 
-                // Attempt 1: Pre-selected area from state (if still valid)
+                // 1. Preserve Previous Valid Selection:
                 if (currentSelectedAreaFromState) {
                     const currentRadio = areaRadioGroupContainer.querySelector(`input[name="areaSelection"][value="${currentSelectedAreaFromState}"]`);
                     if (currentRadio && !currentRadio.disabled) {
@@ -472,34 +474,25 @@ function timeSlotDelegatedListener(event) {
                     }
                 }
 
-                // Attempt 2: "Any Area" (if not already chosen and is available & preferred default)
-                if (uidToSelect === null && localConfig.areaAny === "true") {
-                    const anyAreaRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
-                    if (anyAreaRadio && !anyAreaRadio.disabled && localConfig.areaAnySelected === "true") {
-                        uidToSelect = "any";
-                    }
+                // 2. Default to "Any Area" (if available and no prior valid choice):
+                if (uidToSelect === null && anyAreaIsEnabled) {
+                    uidToSelect = "any";
                 }
 
-                // Attempt 3: First available specific area
+                // 3. Fallback to First Available Specific Area (if no prior valid choice and "Any Area" not chosen/available):
                 if (uidToSelect === null) {
-                    const specificRadios = areaRadioGroupContainer.querySelectorAll('input[name="areaSelection"]:not([value="any"])');
-                    for (const specificRadio of specificRadios) {
+                    // Query all specific radio buttons directly
+                    const specificAreaRadios = areaRadioGroupContainer.querySelectorAll('input[name="areaSelection"]:not([value="any"])');
+                    for (const specificRadio of specificAreaRadios) {
                         if (!specificRadio.disabled) {
                             uidToSelect = specificRadio.value;
                             break;
                         }
                     }
                 }
+                // Step 4 (No selection) is implicit if uidToSelect remains null.
 
-                // Attempt 4: "Any Area" (if not chosen yet and is available - fallback)
-                if (uidToSelect === null && localConfig.areaAny === "true") {
-                    const anyAreaRadio = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
-                    if (anyAreaRadio && !anyAreaRadio.disabled) {
-                        uidToSelect = "any";
-                    }
-                }
-
-                // Apply Selection and Update Summary Display
+                // Apply Selection and Update Summary Display (this part remains mostly the same)
                 let selectedLabelText = null;
                 allAreaRadioItems.forEach(item => {
                     const radio = item.querySelector('input[type="radio"]');
