@@ -14,7 +14,8 @@ import {
     getCurrentSelectedAreaUID,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getIsInitialRenderCycle
+    getIsInitialRenderCycle,
+    setCurrentSelectedShiftName // Added for explicit shift name reset
 } from './state_manager.js';
 import {
     displayTimeSlots,
@@ -49,6 +50,33 @@ export function toggleTimeSelectionVisibility(coversValueStr) {
             if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
         }
     }
+}
+
+// --- Shift Change Specific Handler ---
+export function handleShiftChangeClearSelection() {
+    // 1. Reset selected time and shift name in state
+    setCurrentSelectedDecimalTime(null);
+    setCurrentSelectedShiftName(null); // Explicitly clear shift name
+
+    // 2. Update selected time display in summary
+    const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
+    if (selectedTimeValueSpan) {
+        selectedTimeValueSpan.textContent = '-';
+    }
+
+    // 3. Reset selected addons
+    resetStateAddons();
+    updateAddonsDisplayUI();
+
+    // 4. Hide area selector and clear area state/display
+    hideAreaSelector();
+    setCurrentSelectedAreaUID(null);
+    updateSelectedAreaDisplay(null);
+
+    // 5. Update Next button state
+    updateNextBtnUI();
+
+    // 6. Accordion visibility is handled by the caller in ui_manager.js (h3 click listener)
 }
 
 function getTodayDateString() {

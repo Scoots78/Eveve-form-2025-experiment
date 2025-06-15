@@ -15,6 +15,7 @@ import {
     // setCurrentSelectedAreaUID // Removed import
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
+import { handleShiftChangeClearSelection } from './event_handlers.js'; // Added import
 
 // DOM Element Getters
 const getCoversSelector = () => document.getElementById('covers-display');
@@ -915,9 +916,27 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                     const clickedPanel = h3El.closest('.shift-accordion-panel');
                     if (!clickedPanel) return;
 
+                    const clickedPanel = h3El.closest('.shift-accordion-panel');
+                    if (!clickedPanel) return;
+
+                    // --- NEW LOGIC ---
+                    const selectedButton = document.querySelector('.time-slot-button.time-slot-button-selected');
+                    if (selectedButton) {
+                        const selectedButtonPanel = selectedButton.closest('.shift-accordion-panel');
+                        if (selectedButtonPanel && clickedPanel !== selectedButtonPanel) {
+                            selectedButton.classList.remove('time-slot-button-selected');
+                            handleShiftChangeClearSelection();
+                        }
+                    }
+                    // --- END OF NEW LOGIC ---
+
+                    // Existing accordion expand/collapse logic:
                     const clickedMsg = clickedPanel.querySelector('.shift-message');
                     const clickedWrap = clickedPanel.querySelector('.shift-times-wrapper');
 
+                    const isAlreadyActive = h3El.classList.contains('active-shift-title');
+
+                    // First, reset all panels
                     allAccordionPanels.forEach(otherPanel => {
                         const otherH3 = otherPanel.querySelector('h3');
                         const otherMsg = otherPanel.querySelector('.shift-message');
@@ -928,9 +947,13 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                         if (otherWrap) otherWrap.classList.add('shift-content-hidden');
                     });
 
-                    if (clickedMsg) clickedMsg.classList.remove('shift-content-hidden');
-                    if (clickedWrap) clickedWrap.classList.remove('shift-content-hidden');
-                    h3El.classList.add('active-shift-title');
+                    // Then, if the clicked panel was not already active, activate it
+                    if (!isAlreadyActive) {
+                        if (clickedMsg) clickedMsg.classList.remove('shift-content-hidden');
+                        if (clickedWrap) clickedWrap.classList.remove('shift-content-hidden');
+                        h3El.classList.add('active-shift-title');
+                    }
+                    // If it was active, it's now closed by the reset loop above, achieving toggle behavior.
                 });
             }
         });
