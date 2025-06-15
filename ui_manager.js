@@ -54,7 +54,8 @@ function handleSummaryLabelClick() {
 
     const currentAvailData = getCurrentAvailabilityData();
     if (currentAvailData) {
-        displayTimeSlots(currentAvailData);
+        const timeIsSelected = getCurrentSelectedDecimalTime() !== null;
+        displayTimeSlots(currentAvailData, timeIsSelected); // Pass timeIsSelected as preserveAddons
     } else {
         console.warn("No current availability data to re-display slots on summary click. Forcing full refresh.");
         if (window.handleCoversChangeGlobal) {
