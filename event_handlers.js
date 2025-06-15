@@ -65,7 +65,16 @@ export function handleShiftChangeClearSelection() {
 
     // 3. Reset selected addons
     resetStateAddons();
-    updateAddonsDisplayUI();
+    updateAddonsDisplayUI(); // Updates summary text for addons
+
+    // --- NEW DOM CLEARING LOGIC for addonsDisplayArea ---
+    const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+    if (addonsDisplayArea) {
+        const lang = getLanguageStrings();
+        addonsDisplayArea.innerHTML = `<p>${lang.noAddonsAvailable || 'No addons available for this selection.'}</p>`;
+        addonsDisplayArea.style.display = 'block'; // Make sure this container is visible to show the message
+    }
+    // --- END OF NEW LOGIC ---
 
     // 4. Hide area selector and clear area state/display
     hideAreaSelector();
