@@ -15,8 +15,14 @@ import {
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
     getIsInitialRenderCycle,
-    setCurrentBookingUid // Added import
-    // setCurrentSelectedShiftName // Removed as per new understanding
+    setCurrentBookingUid, // Existing import
+    setEstForConfirmation,
+    setLngForConfirmation,
+    setRestaurantFullNameFromHold,
+    getCurrentBookingUid,
+    getEstForConfirmation,
+    getLngForConfirmation,
+    clearConfirmationContext // Added import
 } from './state_manager.js';
 import {
     displayTimeSlots,
@@ -34,7 +40,9 @@ import {
     showAreaSelector, // Added import
     hideAreaSelector, // Added import
     showLoadingOverlay,
-    hideLoadingOverlay
+    hideLoadingOverlay,
+    showCustomerDetailsView, // Existing import
+    showBookingSelectionView // Added import
 } from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
@@ -357,29 +365,39 @@ export async function handleNextButtonClick() {
         console.log("Event Handlers - Hold API Response:", holdResponse);
 
         if (holdResponse && holdResponse.ok === true) {
+            // Store all necessary context from the successful hold
             setCurrentBookingUid(holdResponse.uid);
-            const successMessage = `Your spot at ${holdResponse.full} is held! Preparing for details...`;
-            showLoadingOverlay(successMessage); // Update loading message
+            setEstForConfirmation(localCurrentEstName); // est is localCurrentEstName
+            setLngForConfirmation(language);           // lng is language
+            setRestaurantFullNameFromHold(holdResponse.full);
 
-            // Redirect to customer details page
-            window.location.href = `customer_details.html?bookingUid=${holdResponse.uid}&est=${localCurrentEstName}&lng=${language}`;
-            // Note: hideLoadingOverlay() will not be called here due to redirection.
-            // If redirection fails or is very fast, the finally block will handle it.
+            // The loading overlay ("holding your spot...") will be hidden by the 'finally' block.
+            // Then, switch to the customer details view.
+            showCustomerDetailsView();
+
+            // Optional: If a brief "Spot held!" message is desired on the overlay before it's hidden
+            // and the view switches, it could be done here:
+            // showLoadingOverlay('Your spot is held! Please provide your details.');
+            // However, the 'finally' block will hide it. If the transition is quick,
+            // this message might not be visible for long or might cause a flicker.
+            // For now, relying on the finally block to hide the "holding..." message
+            // and then immediately showing the new view is cleaner.
+
         } else {
             // Handle business logic errors (e.g., spot no longer available)
             const errorMessage = (holdResponse && holdResponse.msg) ? holdResponse.msg : 'Failed to hold your spot. Please try again.';
+            // The loading overlay will be hidden by the 'finally' block.
             alert(errorMessage);
-            hideLoadingOverlay(); // Hide overlay on business error
+            // No view change, stay on booking selection.
         }
     } catch (error) {
         console.error("Event Handlers - Error during holdBooking call:", error);
         const localLanguageStrings = getLanguageStrings();
         alert(localLanguageStrings.errorGeneric || "An error occurred while trying to complete your booking. Please try again.");
-        // The finally block will ensure hideLoadingOverlay is called for network/unexpected errors.
+        // The 'finally' block handles hiding the overlay.
     } finally {
-        // This ensures the overlay is hidden if no redirection occurs or if an error occurs
-        // before redirection but after showLoadingOverlay was initially called.
-        // If redirection happens, this might not execute in the current page context, which is fine.
+        // This ensures the overlay is hidden if no redirection occurs (e.g. error)
+        // or before switching to the customer details view on success.
         hideLoadingOverlay();
     }
 }
@@ -665,5 +683,123 @@ export function initializeEventHandlers() {
     if (addonsDisplayArea) {
         addonsDisplayArea.addEventListener('change', addonsDelegatedListener);
         addonsDisplayArea.addEventListener('click', addonsDelegatedListener);
+    }
+
+    const customerDetailsForm = document.getElementById('customerDetailsFormSPA');
+    if (customerDetailsForm) {
+        customerDetailsForm.addEventListener('submit', handleConfirmBookingSubmit);
+    }
+
+    const goBackButton = document.getElementById('goBackButton');
+    if (goBackButton) {
+        goBackButton.addEventListener('click', handleGoBackToBookingSelection);
+    }
+}
+
+export function handleGoBackToBookingSelection() {
+    console.log('Go Back button clicked. Returning to booking selection.');
+    showBookingSelectionView();
+    clearConfirmationContext();
+}
+
+export async function handleConfirmBookingSubmit(event) {
+    event.preventDefault();
+
+    const bookingUid = getCurrentBookingUid();
+    const est = getEstForConfirmation();
+    const lng = getLngForConfirmation();
+
+    if (!bookingUid || !est || !lng) {
+        alert('Error: Booking session details are missing. Please try again from the start.');
+        // Consider additional logic here, e.g., showBookingSelectionView();
+        return;
+    }
+
+    const firstName = document.getElementById('firstNameSPA').value;
+    const lastName = document.getElementById('lastNameSPA').value;
+    const phone = document.getElementById('phoneSPA').value;
+    const email = document.getElementById('emailSPA').value;
+    const notes = document.getElementById('notesSPA').value;
+    const mailOptIn = document.getElementById('mailOptInSPA').checked;
+    const optem = mailOptIn ? '1' : '0';
+
+    if (!(firstName || lastName) || !(phone || email)) {
+        alert('Please provide either a first or last name, and either a phone number or an email address.');
+        return;
+    }
+
+    const baseUrl = 'https://nz.eveve.com/web/update';
+    const queryParams = new URLSearchParams({
+        est: est,
+        uid: bookingUid,
+        lng: lng,
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+        email: email,
+        notes: notes,
+        optem: optem
+    });
+    const apiUrl = `${baseUrl}?${queryParams.toString()}`;
+    console.log("Confirm Booking API URL:", apiUrl);
+
+    const confirmButton = document.getElementById('confirmBookingButtonSPA');
+    const goBackButton = document.getElementById('goBackButton');
+    const confirmationMessageArea = document.getElementById('confirmationMessageArea');
+
+    if (confirmButton) {
+        confirmButton.disabled = true;
+        confirmButton.textContent = 'Confirming...';
+    }
+    if (goBackButton) goBackButton.style.display = 'none';
+
+    if (confirmationMessageArea) {
+        confirmationMessageArea.textContent = '';
+        confirmationMessageArea.style.display = 'none';
+    }
+
+    try {
+        const response = await fetch(apiUrl, { method: 'PATCH' });
+        const responseData = await response.json();
+
+        if (response.ok && responseData.ok === true) {
+            if (confirmationMessageArea) {
+                confirmationMessageArea.textContent = 'Booking confirmed successfully!';
+                confirmationMessageArea.className = 'api-message success-message';
+                confirmationMessageArea.style.display = 'block';
+            } else {
+                alert('Booking confirmed successfully!');
+            }
+            if (confirmButton) confirmButton.textContent = 'Booking Confirmed!';
+            // document.getElementById('customerDetailsFormSPA').style.display = 'none'; // Optionally hide form
+        } else {
+            const errorMessage = responseData.msg || responseData.message || 'Failed to confirm booking.';
+            if (confirmationMessageArea) {
+                confirmationMessageArea.textContent = `Error: ${errorMessage}`;
+                confirmationMessageArea.className = 'api-message error-message';
+                confirmationMessageArea.style.display = 'block';
+            } else {
+                alert(`Error: ${errorMessage}`);
+            }
+            if (confirmButton) {
+                confirmButton.disabled = false;
+                confirmButton.textContent = 'Confirm Booking';
+            }
+            if (goBackButton) goBackButton.style.display = '';
+        }
+    } catch (error) {
+        console.error('Error confirming booking:', error);
+        if (confirmationMessageArea) {
+            confirmationMessageArea.textContent = 'An unexpected error occurred. Please try again.';
+            confirmationMessageArea.className = 'api-message error-message';
+            confirmationMessageArea.style.display = 'block';
+        } else {
+            alert('An unexpected error occurred. Please try again.');
+        }
+        if (confirmButton) {
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Confirm Booking';
+        }
+        if (goBackButton) goBackButton.style.display = '';
     }
 }

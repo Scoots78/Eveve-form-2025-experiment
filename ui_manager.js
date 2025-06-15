@@ -64,6 +64,42 @@ function handleSummaryLabelClick() {
     }
 }
 
+// --- View Switching Functions ---
+
+export function showBookingSelectionView() {
+    const bookingSelectors = document.querySelector('.form-selectors');
+    const selectionDisplay = document.querySelector('.selection-display');
+    const nextButtonElem = document.getElementById('nextButton'); // Get the button itself
+    const nextButtonRow = nextButtonElem ? nextButtonElem.closest('.form-row') : null; // Then find its parent row
+    const customerDetailsSection = document.getElementById('customerDetailsSection');
+    const confirmationMessageArea = document.getElementById('confirmationMessageArea');
+
+    if (bookingSelectors) bookingSelectors.style.display = ''; // Revert to default (likely flex)
+    if (selectionDisplay) selectionDisplay.style.display = ''; // Revert to default
+    if (nextButtonRow) nextButtonRow.style.display = ''; // Revert to default (likely block or flex based on CSS)
+
+    if (customerDetailsSection) customerDetailsSection.style.display = 'none';
+
+    if (confirmationMessageArea) {
+        confirmationMessageArea.style.display = 'none';
+        confirmationMessageArea.textContent = '';
+    }
+}
+
+export function showCustomerDetailsView() {
+    const bookingSelectors = document.querySelector('.form-selectors');
+    const selectionDisplay = document.querySelector('.selection-display');
+    const nextButtonElem = document.getElementById('nextButton'); // Get the button itself
+    const nextButtonRow = nextButtonElem ? nextButtonElem.closest('.form-row') : null; // Then find its parent row
+    const customerDetailsSection = document.getElementById('customerDetailsSection');
+
+    if (bookingSelectors) bookingSelectors.style.display = 'none';
+    if (selectionDisplay) selectionDisplay.style.display = 'none';
+    if (nextButtonRow) nextButtonRow.style.display = 'none';
+
+    if (customerDetailsSection) customerDetailsSection.style.display = 'block'; // Or '' to revert to stylesheet default
+}
+
 // --- Loading Overlay ---
 const LOADING_OVERLAY_ID = 'loading-overlay';
 

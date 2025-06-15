@@ -38,11 +38,6 @@ def serve_booking_page():
     # If booking_page.html is in the same directory as app.py, app.static_folder ('.') is correct.
     return send_from_directory(app.static_folder, 'booking_page.html')
 
-# Serve customer_details.html
-@app.route('/customer_details.html')
-def serve_customer_details_page():
-    return send_from_directory(app.static_folder, 'customer_details.html')
-
 # Flask's static file handling will automatically serve:
 # - form_logic.js (if requested as /form_logic.js)
 # - style.css (if requested as /style.css)

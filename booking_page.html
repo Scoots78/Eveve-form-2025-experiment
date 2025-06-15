@@ -81,6 +81,48 @@
         <script src="ui_manager.js" type="module"></script>
         <script src="event_handlers.js" type="module"></script>
         <script src="main.js" type="module"></script>
+
+        <div id="customerDetailsSection" style="display:none;">
+            <h2>Confirm Your Details</h2>
+            <form id="customerDetailsFormSPA">
+                <!-- First Name -->
+                <div>
+                    <label for="firstNameSPA">First Name:</label>
+                    <input type="text" id="firstNameSPA" name="firstNameSPA" required>
+                </div>
+                <!-- Last Name -->
+                <div>
+                    <label for="lastNameSPA">Last Name:</label>
+                    <input type="text" id="lastNameSPA" name="lastNameSPA" required>
+                </div>
+                <!-- Phone -->
+                <div>
+                    <label for="phoneSPA">Phone:</label>
+                    <input type="tel" id="phoneSPA" name="phoneSPA" required>
+                </div>
+                <!-- Email -->
+                <div>
+                    <label for="emailSPA">Email:</label>
+                    <input type="email" id="emailSPA" name="emailSPA" required>
+                </div>
+                <!-- Notes -->
+                <div>
+                    <label for="notesSPA">Notes/Requests:</label>
+                    <textarea id="notesSPA" name="notesSPA"></textarea>
+                </div>
+                <!-- Mail Opt-In -->
+                <div>
+                    <input type="checkbox" id="mailOptInSPA" name="mailOptInSPA" value="1">
+                    <label for="mailOptInSPA">I would like to receive updates about news and upcoming events.</label>
+                </div>
+                <!-- Buttons -->
+                <div class="form-row" style="text-align: center; padding: 20px;">
+                    <button type="button" id="goBackButton" style="margin-right: 10px;">Go Back</button>
+                    <button type="submit" id="confirmBookingButtonSPA">Confirm Booking</button>
+                </div>
+            </form>
+            <div id="confirmationMessageArea" class="api-message" style="display:none;"></div>
+        </div>
     </div>
 </body>
 </html>

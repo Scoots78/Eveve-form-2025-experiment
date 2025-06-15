@@ -13,7 +13,10 @@ let state = {
         usage3: []
     },
     showUnavailableSlots: true, // Default value
-    currentBookingUid: null // Added for booking UID
+    currentBookingUid: null, // Added for booking UID
+    estForConfirmation: null,
+    lngForConfirmation: null,
+    restaurantFullNameFromHold: null
 };
 
 // --- Getter and Setter Functions ---
@@ -118,6 +121,34 @@ export function getCurrentBookingUid() {
 }
 export function setCurrentBookingUid(uid) {
     state.currentBookingUid = uid;
+}
+
+export function getEstForConfirmation() {
+    return state.estForConfirmation;
+}
+export function setEstForConfirmation(est) {
+    state.estForConfirmation = est;
+}
+
+export function getLngForConfirmation() {
+    return state.lngForConfirmation;
+}
+export function setLngForConfirmation(lng) {
+    state.lngForConfirmation = lng;
+}
+
+export function getRestaurantFullNameFromHold() {
+    return state.restaurantFullNameFromHold;
+}
+export function setRestaurantFullNameFromHold(name) {
+    state.restaurantFullNameFromHold = name;
+}
+
+export function clearConfirmationContext() {
+    state.currentBookingUid = null;
+    state.estForConfirmation = null;
+    state.lngForConfirmation = null;
+    state.restaurantFullNameFromHold = null;
 }
 
 // Function to get a snapshot of the entire state, primarily for debugging
