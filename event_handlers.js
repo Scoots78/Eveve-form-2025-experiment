@@ -22,7 +22,10 @@ import {
     getCurrentBookingUid,
     getEstForConfirmation,
     getLngForConfirmation,
-    clearConfirmationContext // Added import
+    clearConfirmationContext, // Existing import
+    setSelectedDateForSummary,
+    setSelectedCoversForSummary,
+    setSelectedAreaNameForSummary
 } from './state_manager.js';
 import {
     displayTimeSlots,
@@ -367,9 +370,32 @@ export async function handleNextButtonClick() {
         if (holdResponse && holdResponse.ok === true) {
             // Store all necessary context from the successful hold
             setCurrentBookingUid(holdResponse.uid);
-            setEstForConfirmation(localCurrentEstName); // est is localCurrentEstName
-            setLngForConfirmation(language);           // lng is language
+            setEstForConfirmation(localCurrentEstName);
+            setLngForConfirmation(language);
             setRestaurantFullNameFromHold(holdResponse.full);
+
+            // Capture details for summary display
+            const pageCalendarTopBar = document.getElementById('calendar-top-bar'); // Renamed to avoid conflict
+            const dateForSummary = pageCalendarTopBar ? pageCalendarTopBar.dataset.selectedDate : null;
+            setSelectedDateForSummary(dateForSummary);
+
+            const pageCoversDisplay = document.getElementById('covers-display'); // Renamed to avoid conflict
+            const coversForSummary = pageCoversDisplay ? parseInt(pageCoversDisplay.value) : null;
+            setSelectedCoversForSummary(coversForSummary);
+
+            const currentSelectedAreaUID = getCurrentSelectedAreaUID(); // Renamed to avoid conflict
+            const currentAvailabilityData = getCurrentAvailabilityData(); // Renamed to avoid conflict
+            let areaNameForSummary = null;
+            if (currentSelectedAreaUID && currentSelectedAreaUID !== 'any' && currentAvailabilityData && currentAvailabilityData.areas) {
+                const areaObject = currentAvailabilityData.areas.find(a => a.uid.toString() === currentSelectedAreaUID);
+                if (areaObject) {
+                    areaNameForSummary = areaObject.name;
+                }
+            } else if (currentSelectedAreaUID === 'any') {
+                const langStrings = getLanguageStrings();
+                areaNameForSummary = langStrings.anyAreaSelectedText || 'Any Available';
+            }
+            setSelectedAreaNameForSummary(areaNameForSummary);
 
             // The loading overlay ("holding your spot...") will be hidden by the 'finally' block.
             // Then, switch to the customer details view.

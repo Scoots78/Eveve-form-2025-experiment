@@ -16,7 +16,10 @@ let state = {
     currentBookingUid: null, // Added for booking UID
     estForConfirmation: null,
     lngForConfirmation: null,
-    restaurantFullNameFromHold: null
+    restaurantFullNameFromHold: null,
+    selectedDateForSummary: null,
+    selectedCoversForSummary: null,
+    selectedAreaNameForSummary: null
 };
 
 // --- Getter and Setter Functions ---
@@ -149,6 +152,30 @@ export function clearConfirmationContext() {
     state.estForConfirmation = null;
     state.lngForConfirmation = null;
     state.restaurantFullNameFromHold = null;
+    state.selectedDateForSummary = null;
+    state.selectedCoversForSummary = null;
+    state.selectedAreaNameForSummary = null;
+}
+
+export function getSelectedDateForSummary() {
+    return state.selectedDateForSummary;
+}
+export function setSelectedDateForSummary(dateStr) {
+    state.selectedDateForSummary = dateStr;
+}
+
+export function getSelectedCoversForSummary() {
+    return state.selectedCoversForSummary;
+}
+export function setSelectedCoversForSummary(covers) {
+    state.selectedCoversForSummary = covers;
+}
+
+export function getSelectedAreaNameForSummary() {
+    return state.selectedAreaNameForSummary;
+}
+export function setSelectedAreaNameForSummary(areaName) {
+    state.selectedAreaNameForSummary = areaName;
 }
 
 // Function to get a snapshot of the entire state, primarily for debugging

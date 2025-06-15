@@ -841,4 +841,146 @@ span.flatpickr-weekday {
      background-color: var(--mainThemeColor, #007bff); /* Default to a blue if not defined */
 }
 
-[end of style.css]
+/* --- Customer Details Section & Booking Summary --- */
+
+#customerDetailsSection {
+    padding: 20px; /* Add some padding to the overall section */
+    border-top: 1px solid #eee; /* Optional: a separator from booking selection */
+    margin-top: 20px; /* Optional: space above */
+}
+
+.details-wrapper {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping for mobile */
+    gap: 20px; /* Space between summary and form */
+}
+
+#bookingSummaryDisplay {
+    flex: 1; /* Allows it to take up space */
+    min-width: 280px; /* Minimum width before stacking */
+    padding: 15px;
+    background-color: #f9f9f9; /* Light background for summary */
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+#bookingSummaryDisplay h3 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+#bookingSummaryDisplay p {
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    color: #555;
+}
+
+#bookingSummaryDisplay p strong {
+    color: #333;
+}
+
+#customerDetailsFormSPA {
+    flex: 2; /* Allows it to take more space than summary */
+    min-width: 300px; /* Minimum width before stacking */
+    padding: 15px;
+    /* Optional: if a border is desired around the form too */
+    /* background-color: #fff; */
+    /* border-radius: 8px; */
+    /* border: 1px solid #e0e0e0; */
+}
+
+/* Minimalist styling for form elements within customerDetailsFormSPA */
+#customerDetailsFormSPA div {
+    margin-bottom: 15px;
+}
+
+#customerDetailsFormSPA label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #444;
+}
+
+#customerDetailsFormSPA input[type="text"],
+#customerDetailsFormSPA input[type="tel"],
+#customerDetailsFormSPA input[type="email"],
+#customerDetailsFormSPA textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important for width: 100% */
+    font-size: 1em;
+}
+
+#customerDetailsFormSPA textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+#customerDetailsFormSPA input[type="checkbox"] {
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+#customerDetailsFormSPA .form-row { /* For the button container */
+    text-align: left; /* Or 'center' / 'right' as preferred */
+    padding-top: 10px; /* Space above buttons */
+}
+
+/* Style for buttons if they don't inherit nicely already */
+#goBackButton,
+#confirmBookingButtonSPA {
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#goBackButton {
+    background-color: #6c757d; /* Greyish */
+    color: white;
+    margin-right: 10px;
+}
+#goBackButton:hover {
+    background-color: #5a6268;
+}
+
+#confirmBookingButtonSPA {
+    background-color: #007bff; /* Primary button color */
+    color: white;
+}
+#confirmBookingButtonSPA:hover {
+    background-color: #0056b3;
+}
+#confirmBookingButtonSPA:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Message Area Styling (already added in a previous step, but good to have here for context) */
+.api-message { padding: 10px; margin-top: 15px; border-radius: 4px; text-align: center; }
+.success-message { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.error-message { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+
+/* --- Responsive Adjustments --- */
+/* Stack columns on smaller screens */
+@media (max-width: 768px) {
+    .details-wrapper {
+        flex-direction: column;
+    }
+
+    #bookingSummaryDisplay,
+    #customerDetailsFormSPA {
+        flex: 1 1 100%; /* Allow them to take full width when stacked */
+        min-width: auto; /* Reset min-width for stacking */
+    }
+}

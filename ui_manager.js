@@ -11,7 +11,11 @@ import {
     getIsInitialRenderCycle,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getCurrentAvailabilityData
+    getCurrentAvailabilityData,
+    getRestaurantFullNameFromHold, // Added
+    getSelectedDateForSummary,    // Added
+    getSelectedCoversForSummary,   // Added
+    getSelectedAreaNameForSummary  // Added
     // setCurrentSelectedAreaUID // Removed import
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
@@ -98,6 +102,33 @@ export function showCustomerDetailsView() {
     if (nextButtonRow) nextButtonRow.style.display = 'none';
 
     if (customerDetailsSection) customerDetailsSection.style.display = 'block'; // Or '' to revert to stylesheet default
+
+    // Populate the booking summary
+    const restaurantName = getRestaurantFullNameFromHold();
+    const selectedDate = getSelectedDateForSummary();
+    const decimalTime = getCurrentSelectedDecimalTime();
+    const shiftName = getCurrentSelectedShiftName();
+    const covers = getSelectedCoversForSummary();
+    const areaName = getSelectedAreaNameForSummary();
+
+    let formattedTime = '-';
+    if (decimalTime !== null) {
+        formattedTime = formatTime(decimalTime);
+    } else if (shiftName) {
+        formattedTime = shiftName; // Fallback, though ideally decimalTime is always set if a time is selected
+    }
+
+    const summaryRestaurantNameEl = document.getElementById('summaryRestaurantName');
+    const summaryDateEl = document.getElementById('summaryDate');
+    const summaryTimeEl = document.getElementById('summaryTime');
+    const summaryCoversEl = document.getElementById('summaryCovers');
+    const summaryAreaEl = document.getElementById('summaryArea');
+
+    if (summaryRestaurantNameEl) summaryRestaurantNameEl.textContent = restaurantName || '-';
+    if (summaryDateEl) summaryDateEl.textContent = selectedDate || '-';
+    if (summaryTimeEl) summaryTimeEl.textContent = formattedTime;
+    if (summaryCoversEl) summaryCoversEl.textContent = covers !== null ? covers.toString() : '-';
+    if (summaryAreaEl) summaryAreaEl.textContent = areaName || '-';
 }
 
 // --- Loading Overlay ---
