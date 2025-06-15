@@ -171,6 +171,12 @@ label.summary-mode-active:hover {
     border-color: #ced4da;
 }
 
+ @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(255, 87, 34, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 87, 34, 0); }
+    }
+
 /* Selected State for Available Time Slots */
 .time-slot-button.time-slot-button-selected, 
 .time-slot-available.time-slot-button-selected {
@@ -178,6 +184,8 @@ label.summary-mode-active:hover {
     color: white;
     border-color: #1e7e34; 
     font-weight: bold;
+    animation: pulse 1.5s infinite;
+    
 }
 
 
