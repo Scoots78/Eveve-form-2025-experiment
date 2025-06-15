@@ -425,22 +425,22 @@ export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shift
     const addonsDisplayArea = getAddonsDisplayArea();
     const localLanguageStrings = getLanguageStrings();
     if (!addonsDisplayArea) { console.error('Addons display area not found.'); return; }
-    addonsDisplayArea.innerHTML = ''; // Clear previous addons
+
+    addonsDisplayArea.innerHTML = ''; // Clear previous content in all scenarios at the start
 
     // Area ID is passed, but current assumption is addons are pre-filtered by API.
     // If not, filtering logic based on areaId and addon.area_uids (or similar) would go here.
     // console.log(`Rendering addons for Area ID: ${areaId}, Shift: ${shiftName}, Guests: ${guestCount}`);
 
     if (!originalAddonsArray || originalAddonsArray.length === 0) {
-        addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsAvailable || 'No addons available for this selection.'}</p>`;
-        addonsDisplayArea.style.display = 'block'; // Ensure container is visible for the message
+        addonsDisplayArea.style.display = 'none'; // Hide if no addons from API
         return;
     }
     const numericGuestCount = parseInt(guestCount);
     if (isNaN(numericGuestCount)) {
         console.error("Invalid guestCount provided to renderAddons:", guestCount);
-        addonsDisplayArea.innerHTML = `<p class="error-message">Error: Invalid guest count for addons.</p>`;
-        addonsDisplayArea.style.display = 'block'; // Ensure container is visible for the message
+        // addonsDisplayArea.innerHTML is already cleared
+        addonsDisplayArea.style.display = 'none'; // Hide on error too
         return;
     }
 
@@ -461,13 +461,15 @@ export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shift
     }
 
 
-    if (addonsToRender.length === 0) {
-        addonsDisplayArea.innerHTML = `<p>${localLanguageStrings.noAddonsForGuestCount || 'No addons currently available for the selected number of guests or area.'}</p>`;
-        addonsDisplayArea.style.display = 'block'; // Ensure container is visible for the message
+    if (addonsToRender.length === 0) { // Check after all filtering
+        // addonsDisplayArea.innerHTML is already cleared
+        addonsDisplayArea.style.display = 'none'; // Hide if no addons after filtering
         return;
     }
 
-    addonsDisplayArea.style.display = 'block'; // Ensure container is visible
+    // If we reach here, means addonsToRender.length > 0
+    addonsDisplayArea.style.display = 'block'; // Or 'flex', or default visible style for the container
+
     const title = document.createElement('h4');
     title.textContent = localLanguageStrings.availableAddonsTitle || 'Available Addons:';
     addonsDisplayArea.appendChild(title);
