@@ -14,8 +14,8 @@ import {
     getCurrentSelectedAreaUID,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getIsInitialRenderCycle,
-    setCurrentSelectedShiftName // Added for explicit shift name reset
+    getIsInitialRenderCycle
+    // setCurrentSelectedShiftName // Removed as per new understanding
 } from './state_manager.js';
 import {
     displayTimeSlots,
@@ -55,8 +55,7 @@ export function toggleTimeSelectionVisibility(coversValueStr) {
 // --- Shift Change Specific Handler ---
 export function handleShiftChangeClearSelection() {
     // 1. Reset selected time and shift name in state
-    setCurrentSelectedDecimalTime(null);
-    setCurrentSelectedShiftName(null); // Explicitly clear shift name
+    setCurrentSelectedDecimalTime(null); // This should also clear the shift name in state_manager
 
     // 2. Update selected time display in summary
     const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
