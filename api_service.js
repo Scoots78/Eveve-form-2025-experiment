@@ -52,28 +52,30 @@ export async function fetchAvailableTimes(estNameForApi, date, covers) {
  * @returns {Promise<object|null>} A promise that resolves to the hold API response, or null/throws error.
  */
 export async function holdBooking(holdApiData) {
-    const holdUrl = `https://nz.eveve.com/restaurants/${holdApiData.est}/books`;
+    const baseUrl = 'https://nz.eveve.com/web/hold';
+    const queryParams = new URLSearchParams();
 
-    const bodyData = {
-        lng: holdApiData.lng,
-        covers: holdApiData.covers,
-        date: holdApiData.date,
-        time: holdApiData.time,
-        area: holdApiData.area, // Will be null if not provided, which is fine for JSON
-        addons: holdApiData.addons
-    };
+    // Append required parameters
+    queryParams.append('est', holdApiData.est);
+    queryParams.append('lng', holdApiData.lng);
+    queryParams.append('covers', holdApiData.covers);
+    queryParams.append('date', holdApiData.date);
+    queryParams.append('time', holdApiData.time);
 
-    console.log("API Service - Hold API URL being called (POST):", holdUrl);
-    console.log("API Service - Hold API Body being sent:", bodyData);
+    // Append area if it's provided and not null
+    if (holdApiData.area) {
+        queryParams.append('area', holdApiData.area);
+    }
+
+    // *** Addons are explicitly NOT appended ***
+
+    const holdUrl = `${baseUrl}?${queryParams.toString()}`;
+
+    console.log("API Service - Hold API URL being called (GET):", holdUrl);
 
     try {
-        const response = await fetch(holdUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(bodyData)
-        });
+        // Default fetch is GET, no need for method, headers, or body for this GET request
+        const response = await fetch(holdUrl);
 
         if (!response.ok) {
             let errorData;

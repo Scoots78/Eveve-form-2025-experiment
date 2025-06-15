@@ -350,7 +350,7 @@ export async function handleNextButtonClick() {
     const loadingMessage = `One moment, we're holding your spot at ${localCurrentEstName}...`;
     showLoadingOverlay(loadingMessage);
 
-    const holdApiData = { est, lng: language, covers: parseInt(numCovers, 10), date: selectedDate, time: timeToSubmit, area: areaToSubmit, addons: addonsString };
+    const holdApiData = { est, lng: language, covers: parseInt(numCovers, 10), date: selectedDate, time: timeToSubmit, area: areaToSubmit };
     console.log("Event Handlers - Hold API Call Data to be sent:", holdApiData);
     try {
         const holdResponse = await holdBooking(holdApiData);
