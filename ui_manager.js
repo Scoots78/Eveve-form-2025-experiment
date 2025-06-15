@@ -913,10 +913,7 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
 
             if (h3El) {
                 h3El.addEventListener('click', () => {
-                    const clickedPanel = h3El.closest('.shift-accordion-panel');
-                    if (!clickedPanel) return;
-
-                    const clickedPanel = h3El.closest('.shift-accordion-panel');
+                    const clickedPanel = h3El.closest('.shift-accordion-panel'); // Correct single declaration
                     if (!clickedPanel) return;
 
                     // --- NEW LOGIC ---
