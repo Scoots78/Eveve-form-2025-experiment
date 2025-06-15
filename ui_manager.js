@@ -64,6 +64,39 @@ function handleSummaryLabelClick() {
     }
 }
 
+// --- Loading Overlay ---
+const LOADING_OVERLAY_ID = 'loading-overlay';
+
+export function showLoadingOverlay(message) {
+    let overlay = document.getElementById(LOADING_OVERLAY_ID);
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = LOADING_OVERLAY_ID;
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        overlay.style.color = 'white';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '10000'; // Ensure it's on top
+        overlay.style.textAlign = 'center';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `<p style="padding: 20px; font-size: 1.2em;">${message}</p>`;
+    overlay.style.display = 'flex'; // Show it if it was hidden
+}
+
+export function hideLoadingOverlay() {
+    const overlay = document.getElementById(LOADING_OVERLAY_ID);
+    if (overlay) {
+        overlay.style.display = 'none'; // Hide it instead of removing, for faster re-show
+    }
+}
+
 export function showTimeSelectionAccordion(event) {
     if (event && typeof event.preventDefault === 'function') {
         event.preventDefault();

@@ -52,23 +52,29 @@ export async function fetchAvailableTimes(estNameForApi, date, covers) {
  * @returns {Promise<object|null>} A promise that resolves to the hold API response, or null/throws error.
  */
 export async function holdBooking(holdApiData) {
-    // Construct the base URL
-    let holdUrl = `https://nz.eveve.com/web/hold?est=${holdApiData.est}&lng=${holdApiData.lng}&covers=${holdApiData.covers}&date=${holdApiData.date}&time=${holdApiData.time}`;
+    const holdUrl = `https://nz.eveve.com/restaurants/${holdApiData.est}/books`;
 
-    // Append area if it's provided and not null
-    if (holdApiData.area) {
-        holdUrl += `&area=${holdApiData.area}`;
-    }
+    const bodyData = {
+        lng: holdApiData.lng,
+        covers: holdApiData.covers,
+        date: holdApiData.date,
+        time: holdApiData.time,
+        area: holdApiData.area, // Will be null if not provided, which is fine for JSON
+        addons: holdApiData.addons
+    };
 
-    // Append addons if they are provided and not an empty string
-    if (holdApiData.addons && holdApiData.addons.trim() !== "") {
-        holdUrl += `&addons=${encodeURIComponent(holdApiData.addons)}`;
-    }
-
-    console.log("API Service - Hold API URL being called:", holdUrl); // Log the final URL
+    console.log("API Service - Hold API URL being called (POST):", holdUrl);
+    console.log("API Service - Hold API Body being sent:", bodyData);
 
     try {
-        const response = await fetch(holdUrl); // Using GET as per the logged example URL structure
+        const response = await fetch(holdUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(bodyData)
+        });
+
         if (!response.ok) {
             let errorData;
             try {

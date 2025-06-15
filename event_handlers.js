@@ -14,7 +14,8 @@ import {
     getCurrentSelectedAreaUID,
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
-    getIsInitialRenderCycle
+    getIsInitialRenderCycle,
+    setCurrentBookingUid // Added import
     // setCurrentSelectedShiftName // Removed as per new understanding
 } from './state_manager.js';
 import {
@@ -31,7 +32,9 @@ import {
     showTimeSelectionAccordion,
     updateAllUsage2ButtonStatesUI, // Added import
     showAreaSelector, // Added import
-    hideAreaSelector // Added import
+    hideAreaSelector, // Added import
+    showLoadingOverlay,
+    hideLoadingOverlay
 } from './ui_manager.js';
 import { formatSelectedAddonsForApi, formatTime } from './dom_utils.js';
 
@@ -343,20 +346,41 @@ export async function handleNextButtonClick() {
         console.error("Missing required data for hold call:", { selectedDate, timeToSubmit, numCovers, est, areaToSubmit, addonsString });
         return;
     }
+
+    const loadingMessage = `One moment, we're holding your spot at ${localCurrentEstName}...`;
+    showLoadingOverlay(loadingMessage);
+
     const holdApiData = { est, lng: language, covers: parseInt(numCovers, 10), date: selectedDate, time: timeToSubmit, area: areaToSubmit, addons: addonsString };
     console.log("Event Handlers - Hold API Call Data to be sent:", holdApiData);
     try {
         const holdResponse = await holdBooking(holdApiData);
         console.log("Event Handlers - Hold API Response:", holdResponse);
-        if (holdResponse && holdResponse.url) {
-            alert(`Booking successful (simulated). URL for next step: ${holdResponse.url}`);
-        } else if (holdResponse && holdResponse.error) {
-            alert(`Booking failed: ${holdResponse.error.message || 'Unknown error'}`);
+
+        if (holdResponse && holdResponse.ok === true) {
+            setCurrentBookingUid(holdResponse.uid);
+            const successMessage = `Your spot at ${holdResponse.full} is held! Preparing for details...`;
+            showLoadingOverlay(successMessage); // Update loading message
+
+            // Redirect to customer details page
+            window.location.href = `customer_details.html?bookingUid=${holdResponse.uid}&est=${localCurrentEstName}&lng=${language}`;
+            // Note: hideLoadingOverlay() will not be called here due to redirection.
+            // If redirection fails or is very fast, the finally block will handle it.
+        } else {
+            // Handle business logic errors (e.g., spot no longer available)
+            const errorMessage = (holdResponse && holdResponse.msg) ? holdResponse.msg : 'Failed to hold your spot. Please try again.';
+            alert(errorMessage);
+            hideLoadingOverlay(); // Hide overlay on business error
         }
     } catch (error) {
         console.error("Event Handlers - Error during holdBooking call:", error);
         const localLanguageStrings = getLanguageStrings();
         alert(localLanguageStrings.errorGeneric || "An error occurred while trying to complete your booking. Please try again.");
+        // The finally block will ensure hideLoadingOverlay is called for network/unexpected errors.
+    } finally {
+        // This ensures the overlay is hidden if no redirection occurs or if an error occurs
+        // before redirection but after showLoadingOverlay was initially called.
+        // If redirection happens, this might not execute in the current page context, which is fine.
+        hideLoadingOverlay();
     }
 }
 

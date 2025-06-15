@@ -12,7 +12,8 @@ let state = {
         usage2: [],
         usage3: []
     },
-    showUnavailableSlots: true // Default value
+    showUnavailableSlots: true, // Default value
+    currentBookingUid: null // Added for booking UID
 };
 
 // --- Getter and Setter Functions ---
@@ -110,6 +111,13 @@ export function getShowUnavailableSlots() {
 
 export function setShowUnavailableSlots(flag) {
     state.showUnavailableSlots = flag;
+}
+
+export function getCurrentBookingUid() {
+    return state.currentBookingUid;
+}
+export function setCurrentBookingUid(uid) {
+    state.currentBookingUid = uid;
 }
 
 // Function to get a snapshot of the entire state, primarily for debugging
