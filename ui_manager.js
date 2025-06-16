@@ -12,10 +12,11 @@ import {
     getCurrentSelectedDecimalTime,
     getCurrentSelectedShiftName,
     getCurrentAvailabilityData,
-    getRestaurantFullNameFromHold, // Added
-    getSelectedDateForSummary,    // Added
-    getSelectedCoversForSummary,   // Added
-    getSelectedAreaNameForSummary  // Added
+    getRestaurantFullNameFromHold,
+    getSelectedDateForSummary,
+    getSelectedCoversForSummary,
+    getSelectedAreaNameForSummary,
+    getSelectedAddonsForContext  // Added
     // setCurrentSelectedAreaUID // Removed import
 } from './state_manager.js';
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
@@ -123,12 +124,41 @@ export function showCustomerDetailsView() {
     const summaryTimeEl = document.getElementById('summaryTime');
     const summaryCoversEl = document.getElementById('summaryCovers');
     const summaryAreaEl = document.getElementById('summaryArea');
+    const summaryAddonsEl = document.getElementById('summaryAddons'); // Added
 
     if (summaryRestaurantNameEl) summaryRestaurantNameEl.textContent = restaurantName || '-';
     if (summaryDateEl) summaryDateEl.textContent = selectedDate || '-';
     if (summaryTimeEl) summaryTimeEl.textContent = formattedTime;
     if (summaryCoversEl) summaryCoversEl.textContent = covers !== null ? covers.toString() : '-';
     if (summaryAreaEl) summaryAreaEl.textContent = areaName || '-';
+
+    const selectedAddonsCtx = getSelectedAddonsForContext();
+    const formattedAddons = formatAddonsForDisplay(selectedAddonsCtx);
+    if (summaryAddonsEl) summaryAddonsEl.textContent = formattedAddons;
+}
+
+// Helper function to format addons for display in the summary
+function formatAddonsForDisplay(addonsObject) {
+    if (!addonsObject) return '-';
+    const displayItems = [];
+    if (addonsObject.usage1 && addonsObject.usage1.name) {
+        displayItems.push(addonsObject.usage1.name);
+    }
+    if (addonsObject.usage2 && addonsObject.usage2.length > 0) {
+        addonsObject.usage2.forEach(addon => {
+            if (addon.name && addon.quantity > 0) {
+                displayItems.push(`${addon.name} x${addon.quantity}`);
+            }
+        });
+    }
+    if (addonsObject.usage3 && addonsObject.usage3.length > 0) {
+        addonsObject.usage3.forEach(addon => {
+            if (addon.name) {
+                displayItems.push(addon.name);
+            }
+        });
+    }
+    return displayItems.length > 0 ? displayItems.join(', ') : '-';
 }
 
 // --- Loading Overlay ---

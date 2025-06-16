@@ -25,7 +25,9 @@ import {
     clearConfirmationContext, // Existing import
     setSelectedDateForSummary,
     setSelectedCoversForSummary,
-    setSelectedAreaNameForSummary
+    setSelectedAreaNameForSummary,
+    setSelectedAddonsForContext, // Existing import
+    getSelectedAddonsForContext // Added import
 } from './state_manager.js';
 import {
     displayTimeSlots,
@@ -397,6 +399,9 @@ export async function handleNextButtonClick() {
             }
             setSelectedAreaNameForSummary(areaNameForSummary);
 
+            // Store selected addons for context/summary
+            setSelectedAddonsForContext(getSelectedAddons());
+
             // The loading overlay ("holding your spot...") will be hidden by the 'finally' block.
             // Then, switch to the customer details view.
             showCustomerDetailsView();
@@ -734,6 +739,7 @@ export async function handleConfirmBookingSubmit(event) {
     const bookingUid = getCurrentBookingUid();
     const est = getEstForConfirmation();
     const lng = getLngForConfirmation();
+    const addonsContextObject = getSelectedAddonsForContext(); // Get addons context
 
     if (!bookingUid || !est || !lng) {
         alert('Error: Booking session details are missing. Please try again from the start.');
@@ -755,7 +761,9 @@ export async function handleConfirmBookingSubmit(event) {
     }
 
     const baseUrl = 'https://nz.eveve.com/web/update';
-    const queryParams = new URLSearchParams({
+    const formattedAddonsString = formatSelectedAddonsForApi(addonsContextObject);
+
+    const queryParamsData = {
         est: est,
         uid: bookingUid,
         lng: lng,
@@ -765,7 +773,13 @@ export async function handleConfirmBookingSubmit(event) {
         email: email,
         notes: notes,
         optem: optem
-    });
+    };
+
+    if (formattedAddonsString && formattedAddonsString.trim() !== "") {
+        queryParamsData.addons = formattedAddonsString;
+    }
+
+    const queryParams = new URLSearchParams(queryParamsData);
     const apiUrl = `${baseUrl}?${queryParams.toString()}`;
     console.log("Confirm Booking API URL:", apiUrl);
 

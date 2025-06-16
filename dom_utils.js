@@ -117,6 +117,41 @@ export function formatSelectedAddonsForDisplay(selectedAddons, guestCount) {
     };
 }
 
+// This function is identical to formatSelectedAddonsForApi.
+// Consider refactoring to use a single function if their purpose remains the same.
+export function formatAddonsForUpdateApi(addonsObject) {
+    if (!addonsObject) {
+        return '';
+    }
+
+    const apiFormattedAddons = [];
+
+    // Handle usage1 addons (single select radio/checkbox)
+    if (addonsObject.usage1 && addonsObject.usage1.uid) {
+        apiFormattedAddons.push(`${addonsObject.usage1.uid}:1`);
+    }
+
+    // Handle usage2 addons (quantity based)
+    if (addonsObject.usage2 && addonsObject.usage2.length > 0) {
+        addonsObject.usage2.forEach(addon => {
+            if (addon.uid && addon.quantity > 0) {
+                apiFormattedAddons.push(`${addon.uid}:${addon.quantity}`);
+            }
+        });
+    }
+
+    // Handle usage3 addons (multiple checkboxes, typically quantity 1 each)
+    if (addonsObject.usage3 && addonsObject.usage3.length > 0) {
+        addonsObject.usage3.forEach(addon => {
+            if (addon.uid) {
+                apiFormattedAddons.push(`${addon.uid}:1`);
+            }
+        });
+    }
+
+    return apiFormattedAddons.join(',');
+}
+
 /**
  * Formats selected addons into a string suitable for API submission.
  * This is a simpler version of formatSelectedAddonsForDisplay, only returning the API string.

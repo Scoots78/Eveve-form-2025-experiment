@@ -19,7 +19,8 @@ let state = {
     restaurantFullNameFromHold: null,
     selectedDateForSummary: null,
     selectedCoversForSummary: null,
-    selectedAreaNameForSummary: null
+    selectedAreaNameForSummary: null,
+    selectedAddonsForContext: null
 };
 
 // --- Getter and Setter Functions ---
@@ -155,6 +156,15 @@ export function clearConfirmationContext() {
     state.selectedDateForSummary = null;
     state.selectedCoversForSummary = null;
     state.selectedAreaNameForSummary = null;
+    state.selectedAddonsForContext = null;
+}
+
+export function getSelectedAddonsForContext() {
+    return state.selectedAddonsForContext; // Can be a deep copy if addons structure is complex and mutable
+}
+export function setSelectedAddonsForContext(addons) {
+    // Assuming addons is an object/array, store a deep copy if it might be mutated elsewhere
+    state.selectedAddonsForContext = addons ? JSON.parse(JSON.stringify(addons)) : null;
 }
 
 export function getSelectedDateForSummary() {
