@@ -132,34 +132,69 @@ export function showCustomerDetailsView() {
     if (summaryCoversEl) summaryCoversEl.textContent = covers !== null ? covers.toString() : '-';
     if (summaryAreaEl) summaryAreaEl.textContent = areaName || '-';
 
+    // Update to use generateDetailedAddonsString for the summary
     const selectedAddonsCtx = getSelectedAddonsForContext();
-    const formattedAddons = formatAddonsForDisplay(selectedAddonsCtx);
-    if (summaryAddonsEl) summaryAddonsEl.textContent = formattedAddons;
+    const coversForSummary = getSelectedCoversForSummary(); // Already retrieved above as 'covers'
+    const config = getConfig();
+    const currencySymbol = config && config.currSym ? config.currSym.replace(/&[^;]+;/g, '') : '$';
+
+    const detailedAddonsString = generateDetailedAddonsString(selectedAddonsCtx, covers, currencySymbol);
+    if (summaryAddonsEl) summaryAddonsEl.textContent = detailedAddonsString;
 }
 
-// Helper function to format addons for display in the summary
-function formatAddonsForDisplay(addonsObject) {
+// New utility function to generate a detailed string with prices for addons
+export function generateDetailedAddonsString(addonsObject, guestCount, currencySymbol) {
     if (!addonsObject) return '-';
-    const displayItems = [];
-    if (addonsObject.usage1 && addonsObject.usage1.name) {
-        displayItems.push(addonsObject.usage1.name);
+
+    let displayItems = [];
+    let grandTotal = 0;
+
+    // Process usage1 addons
+    if (addonsObject.usage1 && addonsObject.usage1.uid) {
+        const addon = addonsObject.usage1;
+        const basePrice = (addon.price || 0) / 100;
+        const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
+        grandTotal += itemCost;
+        displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
     }
+
+    // Process usage2 addons
     if (addonsObject.usage2 && addonsObject.usage2.length > 0) {
         addonsObject.usage2.forEach(addon => {
-            if (addon.name && addon.quantity > 0) {
-                displayItems.push(`${addon.name} x${addon.quantity}`);
+            if (addon.uid && (addon.quantity || 0) > 0) {
+                const basePrice = (addon.price || 0) / 100;
+                // Clarified logic: itemCost is total for this line item (basePrice * quantity)
+                const itemCost = basePrice * (addon.quantity || 0);
+                grandTotal += itemCost;
+                displayItems.push(`${addon.name} x${addon.quantity || 0} (${currencySymbol}${itemCost.toFixed(2)})`);
             }
         });
     }
+
+    // Process usage3 addons
     if (addonsObject.usage3 && addonsObject.usage3.length > 0) {
         addonsObject.usage3.forEach(addon => {
-            if (addon.name) {
-                displayItems.push(addon.name);
+            if (addon.uid) {
+                const addonData = addon; // Assuming addon is the full object
+                const basePrice = (addonData.price || 0) / 100;
+                const itemCost = (addonData.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
+                grandTotal += itemCost;
+                displayItems.push(`${addonData.name} (${currencySymbol}${itemCost.toFixed(2)})`);
             }
         });
     }
-    return displayItems.length > 0 ? displayItems.join(', ') : '-';
+
+    if (displayItems.length > 0) {
+        let displayText = displayItems.join(', ');
+        displayText += ` --- Total Addons: ${currencySymbol}${grandTotal.toFixed(2)}`;
+        return displayText;
+    } else {
+        return '-';
+    }
 }
+
+// Helper function formatAddonsForDisplay is now removed as it's superseded by generateDetailedAddonsString for all detailed displays.
+// If a simpler, non-priced version is ever needed again, it can be recreated or generateDetailedAddonsString could take a flag.
 
 // --- Loading Overlay ---
 const LOADING_OVERLAY_ID = 'loading-overlay';
@@ -288,44 +323,16 @@ export function updateSelectedAddonsDisplay() {
     if (!selectedAddonsValueSpan) return;
     const coversSelectorEl = getCoversSelector();
     const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) || 0 : 0;
+
     const localConfig = getConfig();
     const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
-    const currentAddons = getSelectedAddons();
-    let displayItems = [];
-    let grandTotal = 0;
-    if (currentAddons.usage1) {
-        const addon = currentAddons.usage1;
-        const basePrice = (addon.price || 0) / 100;
-        const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
-        grandTotal += itemCost;
-        displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
-    }
-    currentAddons.usage2.forEach(addon => {
-        const basePrice = (addon.price || 0) / 100;
-        let itemCost = 0;
-        let itemDisplayString = "";
-        if (addon.per === "Party") {
-            itemCost = basePrice;
-            itemDisplayString = `${addon.name} x${addon.quantity} (${currencySymbol}${basePrice.toFixed(2)} - Per Party)`;
-        } else {
-            itemCost = basePrice * (addon.quantity || 0);
-            itemDisplayString = `${addon.name} x${addon.quantity || 0} (${currencySymbol}${itemCost.toFixed(2)})`;
-        }
-        grandTotal += itemCost;
-        displayItems.push(itemDisplayString);
-    });
-    currentAddons.usage3.forEach(addon => {
-        const basePrice = (addon.price || 0) / 100;
-        const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
-        grandTotal += itemCost;
-        displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
-    });
-    if (displayItems.length > 0) {
-        let displayText = displayItems.join(', ');
-        displayText += ` --- Total Addons: ${currencySymbol}${grandTotal.toFixed(2)}`;
-        selectedAddonsValueSpan.textContent = displayText;
-    } else {
-        selectedAddonsValueSpan.textContent = '-';
+
+    const currentAddons = getSelectedAddons(); // From UI interactions state
+
+    const detailedString = generateDetailedAddonsString(currentAddons, guestCount, currencySymbol);
+
+    if (selectedAddonsValueSpan) {
+        selectedAddonsValueSpan.textContent = detailedString;
     }
 }
 
