@@ -1,12 +1,23 @@
 /* Version: 20240507-140000 */
 /* Body/General */
+:root{
+    --formBackground: #f7f7f7;
+    --mainThemeColor: #f05a28;  /* main identity color */
+    --textColor: #333;
+    --daily-message: #e6f4ea;     /* Light green background */
+    --containerBorderColor:#e0e0e0; /* border around info erro containers default light grey */
+    --buttonText:#fff;
+    --buttonHoover: #f9764b; 
+    --particleAvailabilityColor: #cf8168; /* Added */
+}
+
 body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
     margin: 0;
     padding: 20px;
     background-color: #f4f4f4;
-    color: #333;
+    color: var(--textColor);
 }
 
 /* Form Container */
@@ -58,15 +69,57 @@ input[type="number"] {
 }
 
 /* Form Selectors Grouping */
-.form-selectors > div {
+.form-selectors {
+    display: flex; /* Enable flexbox for desktop layout */
+    /* No gap here, columns will manage their own margins/padding for spacing */
+}
+
+.form-selectors > div:not(.calendar-column):not(.details-column) { /* Re-target old rule if direct children are not columns */
     margin-bottom: 15px;
+}
+
+/* New Column Styles */
+.calendar-column {
+    flex-basis: 340px; /* Accommodate calendar width (330px) + some spacing */
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-right: 20px; /* Space between calendar and details */
+    /* Add other styling as needed, e.g., border for visual separation */
+}
+
+.details-column {
+    flex-grow: 1; /* Takes up remaining space */
+    min-width: 0; /* Prevents overflow issues with flex items */
+    /* Add other styling as needed */
+}
+
+label.summary-mode-active
+ {
+    //text-decoration: underline;
+    text-align: center;
+    padding:5px;
+    border-radius:5px;
+    background-color:var(--daily-message);
+    border: 1px solid #e0e0e0;
+}
+
+label.summary-mode-active::after{
+    display: block;
+    font-style: italic;
+    font-size:0.6em;
+    content: "click to change";
+}
+
+label.summary-mode-active:hover {
+  background-color: #f0f0f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
 /* Time Slot Container */
 #timeSelectorContainer.time-slots {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px; 
+    gap: 8px 20px; 
     margin-top: 10px;
     margin-bottom: 20px;
     padding: 10px;
@@ -77,8 +130,7 @@ input[type="number"] {
 
 /* Base Time Slot Button Styling */
 .time-slot-button {
-    padding: 8px 12px;
-    margin: 4px; 
+    flex: 0 0 25%; /* fixed 4-column layout */
     border: 1px solid #ccc; 
     border-radius: 4px;
     background-color: #f0f0f0; 
@@ -86,19 +138,23 @@ input[type="number"] {
     cursor: pointer;
     text-align: center;
     font-size: 0.9em; 
+    max-width: calc(25% - 6px); 
+    box-sizing: border-box;
+    padding: 8px;
+    text-align: center;
     transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
 /* Available Time Slot Styling */
 .time-slot-available {
-    background-color: #007bff; 
-    color: white;
-    border-color: #007bff;
+    background-color: var(--mainThemeColor); 
+    color: var(--buttonText);
+    border-color: var(--mainThemeColor);
 }
 
 .time-slot-available:hover {
-    background-color: #0056b3; 
-    border-color: #0056b3;
+    background-color: var(--buttonHoover); 
+    border-color: var(--buttonHoover); 
 }
 
 /* Unavailable Time Slot Styling */
@@ -143,11 +199,6 @@ input[type="number"] {
     color: #007bff;
 }
 
-/* Restaurant Name Span in H1 */
-#restaurantName {
-    color: #007bff; 
-}
-
 /* General Message Styling */
 .loading-message,
 .error-message,
@@ -166,7 +217,8 @@ input[type="number"] {
 .api-message {
     border: 1px solid #e0e0e0;
     background-color: #f9f9f9;
-    color: #333; 
+    color: var(--textColor);
+    width:auto;
 }
 
 /* Specific Message Type Styling */
@@ -194,17 +246,18 @@ input[type="number"] {
 
 .daily-message { /* Specific to #dailyRotaMessage if it has .api-message */
     text-align: center; 
+    background-color: var(--daily-message);
 }
 
 .shift-message { /* Specific to shift messages if they have .api-message */
-    margin-left: 20px; 
-    margin-top: 5px; 
+    margin-top: 10px; 
     margin-bottom: 10px; 
     font-style: italic;
     font-size: 0.85em;
     border-style: dashed; 
     border-color: #ccc;
     background-color: #fafafa; 
+    width:auto;
 }
 
 /* Critical error message for form init failure */
@@ -218,18 +271,42 @@ input[type="number"] {
     border-radius: 4px;
 }
 
+[class*="-message"]:empty, #addonsDisplayArea:empty {
+  background: none;
+  padding: 0;
+  border: none;
+}
+
 /* Style for shift titles (h3) within the time selector */
 #timeSelectorContainer h3 {
-    width: 100%; 
+    width: 100%;
     font-size: 1.1em;
-    color: #333;
+    color: #333333;
     margin-top: 15px;
     margin-bottom: 5px;
-    padding-bottom: 3px;
-    border-bottom: 1px solid #ddd;
+    padding-bottom: 1px;
+    border-bottom: 2px solid #333333;
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+    padding-right: 0;
 }
+
+#timeSelectorContainer h3:hover {
+    color: #0056b3; /* Darken text on hover, like a link */
+}
+
+#timeSelectorContainer h3.active-shift-title {
+    color: var(--mainThemeColor); /* Use the calendar's highlight color for active shift */
+    font-weight: bold; /* Make active title bold */
+}
+
 #timeSelectorContainer h3:first-of-type {
     margin-top: 0; 
+}
+
+/* Styles for accordion content visibility */
+.shift-content-hidden {
+    display: none !important;
 }
 
 /* Wrapper for buttons within a shift */
@@ -239,6 +316,18 @@ input[type="number"] {
     gap: 8px; 
     width: 100%; 
     margin-bottom: 10px; 
+}
+
+/* Area Selector Styling */
+#areaSelectorContainer {
+    display: none; /* Default hidden, JS will show it */
+    /* Styles from original inline: margin-top: 20px; padding: 15px; border: 1px solid #ddd; background-color: #fdfdfd; border-radius: 4px; */
+    /* Re-applying relevant styles for when it's visible */
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    background-color: #fdfdfd; /* Light background for the area section */
+    border-radius: 4px;
 }
 
 /* Addons Styling */
@@ -298,12 +387,6 @@ input[type="radio"].addon-radio-btn {
     margin-top: 3px;
 }
 
-/* Usage 1 - Radio Group Specifics */
-.addon-radio-group {
-}
-.addon-item.usage1-radio { 
-}
-
 .area-radio-item {
     display: flex;
     gap: 20px;
@@ -359,5 +442,549 @@ input[type="radio"].addon-radio-btn {
 }
 
 input[type="text"].qty-input[readonly] {
-    background-color: #f8f9fa; 
+    background-color: #f8f9fa;
+}
+
+/* Covers Selector Styling */
+.covers-control {
+    margin-bottom: 20px; /* Same as other form elements */
+}
+
+.covers-control label {
+    display: block;
+    margin-bottom: 8px; /* Same as other labels */
+    font-weight: bold;
+    color: #444;
+}
+
+.covers-input-area {
+    display: flex;
+    align-items: center;
+}
+
+#covers-display {
+    width: 60px; /* Adjust as needed */
+    text-align: center;
+    font-size: 1em;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin: 0 10px; /* Space between buttons and input */
+    box-sizing: border-box;
+}
+
+#covers-decrement,
+#covers-increment {
+    width: 36px; /* Fixed width for a more circular button with padding */
+    height: 36px; /* Fixed height */
+    font-size: 1.2em;
+    font-weight: bold;
+    color: white;
+    background-color: var(--mainThemeColor);
+    border: 1px solid var(--mainThemeColor);
+    border-radius: 18px; /* Half of width/height for a circle */
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0; /* Remove default padding to help with centering */
+    line-height: 1; /* Ensure text is vertically centered */
+}
+
+#covers-decrement:hover,
+#covers-increment:hover {
+    background-color: var(--buttonHoover);
+    border-color: var(--buttonHoover);
+}
+
+#covers-decrement:active,
+#covers-increment:active {
+    background-color: #004085;
+    border-color: #004085;
+}
+
+/* Custom Calendar Styling */
+#custom-calendar-container {
+    max-width: 330px;
+    /* margin: 0 20px 20px 0; */ /* Removed: Right and bottom margin now handled by .calendar-column or flex container gap */
+    margin: 0; /* Resetting margins */
+    position: relative; /* For potential absolute positioning of children if needed */
+}
+
+#calendar-top-bar {
+    background-color: #f05a28;
+    color: white;
+    padding: 10px 15px;
+    font-size: 1.1em;
+    border-radius: 4px; /* Optional: slightly rounded corners for the bar */
+    cursor: pointer; /* To indicate it's clickable for show/hide */
+    text-align: center; /* Default text alignment */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#flatpickr-calendar-host {
+    /* Initially hidden, prepared for slide animation */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out; /* Animation for show/hide */
+    /* Styles to ensure Flatpickr itself looks okay when visible will be in Step 5 */
+    border-top: none; /* Optional: if top-bar acts as top border */
+    border-radius: 0 0 4px 4px; /* Match top bar if it's rounded */
+    box-sizing: border-box; /* If any padding/border is added directly to host later */
+    width: 100%; /* Explicitly set, though div usually defaults to this */
+}
+
+/* Class to be added by JS to show the calendar */
+#flatpickr-calendar-host.calendar-visible {
+    max-height: 500px; /* Adjust as needed to fit calendar content */
+    /* border color/style might need adjustment when flatpickr is themed */
+}
+
+/* Flatpickr Theme Styling */
+
+/* Ensure the calendar itself respects the container width */
+#custom-calendar-container .flatpickr-calendar {
+    width: 100% !important; /* Override inline styles if any */
+    max-width: 100%; /* Ensure it fits in #custom-calendar-container */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* soft shadow */ /* Remove default shadow if not desired */
+    border: none !important; /* Remove default border if #flatpickr-calendar-host handles it */
+    background-color: #fff; /* Base background for the calendar */
+    margin-top:10px;
+
+}
+
+/* Month and Year navigation */
+#custom-calendar-container .flatpickr-months {
+    background-color: transparent; /* Theme color for the month/year header */
+    color: #000000;
+    padding: 10px 0;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.flatpickr-months .flatpickr-month {
+    color: white;
+    fill: white; /* For SVG icons within month display */
+}
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    color: white; /* Year input text color */
+}
+.flatpickr-months .flatpickr-current-month .numInputWrapper {
+    color: white; /* wrapper for year input */
+}
+
+
+.flatpickr-prev-month,
+.flatpickr-next-month {
+    color: #000000 !important; /* Arrow color */
+    fill: #000000 !important; /* SVG arrow fill */
+    padding: 0 10px; /* Add some padding around arrows */
+    display: flex;
+    align-items: center;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg , .flatpickr-months .flatpickr-next-month:hover svg {
+    color: #272727 !important;
+    fill: #272727 !important;
+}
+
+.flatpickr-months .flatpickr-prev-month svg, .flatpickr-months .flatpickr-next-month svg {
+    width: 20px;
+    height: 20px;
+}
+
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+    color: rgb(19, 19, 19) !important; /* Maintain original color from base style */
+    fill: rgb(19, 19, 19) !important;   /* Maintain original fill from base style */
+}
+
+
+/* Weekdays header (Mon, Tue, etc.) */
+.flatpickr-weekdays {
+    background-color: none; /* Light background for weekday header */
+    padding: 5px 2px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+span.flatpickr-weekday {
+    color: #333; /* Dark text for weekdays */
+    font-weight: bold;
+    text-transform: uppercase; /* Optional: MON TUE WED */
+}
+
+/* Days container */
+.dayContainer {
+    padding: 5px 2px; /* Or adjust/remove if gap is preferred for all spacing */
+    background-color: transparent;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+
+    display: grid !important; /* Use grid for 7 columns */
+    grid-template-columns: repeat(7, 1fr); /* Each column takes equal fraction of space */
+    gap: 4px; /* Spacing between day cells, adjust as desired */
+}
+
+/* Individual days */
+.dayContainer .flatpickr-day {
+    display: flex;           /* For centering content (the day number) */
+    align-items: center;     /* Vertically center */
+    justify-content: center; /* Horizontally center */
+    position: relative;      /* In case pseudo-elements are ever needed for styling */
+    box-sizing: border-box;  /* Border & padding included in width/height */
+    border: 1px solid transparent; /* Base border, modified by selected/today states */
+    border-radius: 50%;      /* Makes it a circle if width/height are equal */
+    aspect-ratio: 1 / 1;     /* Modern CSS: makes height equal to width, creating a square cell */
+    border-radius: 50%;      /* The border-radius then makes this square a circle */
+    color: #333;
+    font-weight: normal;
+    margin: 0;               /* Removed margin, using 'gap' in .dayContainer now */
+    padding: 0;              /* No internal padding needed for the cell itself */
+    cursor: pointer;
+    max-width:unset;
+    width: max-content;
+    height:auto;
+}
+
+.flatpickr-day.flatpickr-disabled {
+    color:#cecece;
+}
+
+.flatpickr-day:hover {
+    background-color: #e9e9e9;
+    color: #000;
+}
+
+/* Ensure selected/today styles still work and look good on the responsive circle */
+.flatpickr-day.today {
+    border-color: #f05a28;
+    color: #f05a28;
+    font-weight: bold;
+}
+.flatpickr-day.today:not(.selected):hover {
+     background-color: #fde2d8;
+     color: white;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background-color: #f05a28 !important;
+    color: white !important;
+    border-color: #f05a28 !important;
+    font-weight: bold;
+}
+
+.flatpickr-day.today.selected {
+    background-color: #f05a28 !important;
+    color: white !important;
+    border-color: #f05a28 !important;
+}
+
+.flatpickr-day.disabled,
+.flatpickr-day.disabled:hover {
+    color: #ccc !important;
+    background-color: #f8f8f8 !important;
+    cursor: not-allowed !important;
+    border-color: transparent !important;
+    font-weight: normal; /* Ensure disabled days are not bold if today/selected was also disabled somehow */
+}
+
+/* Hide days not in the current month */
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    visibility: hidden; /* Makes the element invisible but it still occupies space */
+    height:0px;
+}
+
+/* Make sure the month/year input fields in the header are also styled if needed */
+.flatpickr-current-month input.cur-year {
+    font-weight: bold;
+}
+.flatpickr-current-month span.cur-month, .flatpickr-months .flatpickr-current-month input.cur-year {
+    font-weight: 400;
+}
+
+/* Adjust padding/margins if the calendar content feels too cramped or too spaced out */
+.flatpickr-innerContainer {
+    /* background-color: #fff; */ /* Already white from .flatpickr-calendar */
+}
+
+.flatpickr-rContainer {
+    /* background-color: #fff; */
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
+    padding: 0px 6px 4px 6px;
+}
+
+/* This is the direct container for dayContainer usually */
+.flatpickr-days {
+    width: 100% !important; /* Force them to use available width */
+    box-sizing: border-box !important; /* Include padding/border in width calculation */
+}
+
+/* Simplify Flatpickr Header - No Dropdowns/Spinners */
+
+/* Hide the dropdown arrow for months if it appears */
+.flatpickr-months .flatpickr-month .flatpickr-current-month span.flatpickr-monthDropdown-arrow {
+    display: none !important;
+}
+
+/* Hide the up/down arrows for the year input */
+.flatpickr-months .flatpickr-current-month .numInputWrapper span.arrowUp,
+.flatpickr-months .flatpickr-current-month .numInputWrapper span.arrowDown {
+    display: none !important;
+}
+
+/* Optionally, make the year input look like static text if it's still an input field. */
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important; /* Adjust if needed */
+    pointer-events: none !important; /* Makes it non-interactive */
+    /* color: white; /* Should inherit from .flatpickr-months .flatpickr-month */
+}
+
+/* Ensure the month text itself is not styled like a dropdown */
+.flatpickr-months .flatpickr-month .flatpickr-current-month .cur-month {
+    /* Default styling is usually fine if not a dropdown */
+    padding: 0; /* Remove any padding that suggests it's clickable */
+}
+
+/* Adjust spacing for the month/year text if necessary after hiding elements */
+.flatpickr-current-month {
+   display: flex;
+   align-items: center;
+   justify-content: center; /* Center the "Month Year" text */
+   padding: 0; /* Reset padding from flatpickr themes */
+   color:#000;
+}
+
+.flatpickr-months .flatpickr-current-month input.cur-year {
+    color: #000000;
+}
+.flatpickr-current-month .numInputWrapper {
+   margin-left: 0.25em; /* Small space between month and year */
+}
+
+.numInputWrapper:hover, .flatpickr-current-month span.cur-month:hover {
+    background: none;
+}
+
+/* Responsive Styles for Mobile */
+@media (max-width: 768px) {
+    .form-selectors {
+        flex-direction: column; /* Stack columns vertically */
+    }
+
+    .calendar-column {
+        width: 100%; /* Take full width */
+        flex-basis: auto; /* Reset flex-basis */
+        margin-right: 0; /* Remove right margin */
+        margin-bottom: 20px; /* Add bottom margin for spacing when stacked */
+    }
+
+    .details-column {
+        width: 100%; /* Take full width */
+        /* min-width reset is not strictly necessary here as flex-direction is column,
+           but it doesn't hurt if other properties were to interact with it. */
+    }
+
+    /* Adjust calendar container max-width for mobile if it was previously constrained by column */
+    #custom-calendar-container {
+        max-width: 100%; /* Allow calendar to use full width of its column */
+    }
+}
+
+/* Styles for Partially Available Time Slots */
+.time-slot-button.time-slot-partial-area {
+    background-color: var(--particleAvailabilityColor);
+    color: white; /* Or another suitable text color like #FFFFFF */
+    /* If buttons have borders that should also change color: */
+    /* border-color: var(--particleAvailabilityColor); */
+}
+
+/* Styles for Per-Shift Availability Legend */
+.shift-availability-legend {
+    margin-top: 10px;
+    padding: 8px;
+    border: 1px solid #eee; /* Consider using existing border color variables if defined in :root */
+    border-radius: 4px; /* Consider using existing border-radius variables if defined in :root */
+    font-size: 0.9em;
+    /* Add other styling as needed to match overall UI, e.g., background-color if needed */
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px; /* Add a small space between legend items */
+}
+
+.legend-item:last-child {
+    margin-bottom: 0; /* Remove margin from the last item */
+}
+
+.legend-color-box {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border: 1px solid #ccc; /* Consider using existing border color variables */
+    display: inline-block; /* Changed from flex to inline-block for simplicity */
+}
+
+/* Color swatch for 'partial availability' in the legend */
+.legend-color-box.time-slot-partial-area {
+    background-color: var(--particleAvailabilityColor);
+}
+
+/* Color swatch for 'full availability' in the legend */
+.legend-color-box.time-slot-available {
+     background-color: var(--mainThemeColor, #007bff); /* Default to a blue if not defined */
+}
+
+/* --- Customer Details Section & Booking Summary --- */
+
+#customerDetailsSection {
+    padding: 20px; /* Add some padding to the overall section */
+    border-top: 1px solid #eee; /* Optional: a separator from booking selection */
+    margin-top: 20px; /* Optional: space above */
+}
+
+.details-wrapper {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping for mobile */
+    gap: 20px; /* Space between summary and form */
+}
+
+#bookingSummaryDisplay {
+    flex: 1; /* Allows it to take up space */
+    min-width: 280px; /* Minimum width before stacking */
+    padding: 15px;
+    background-color: #f9f9f9; /* Light background for summary */
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+#bookingSummaryDisplay h3 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+#bookingSummaryDisplay p {
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    color: #555;
+}
+
+#bookingSummaryDisplay p strong {
+    color: #333;
+}
+
+#customerDetailsFormSPA {
+    flex: 2; /* Allows it to take more space than summary */
+    min-width: 300px; /* Minimum width before stacking */
+    padding: 15px;
+    /* Optional: if a border is desired around the form too */
+    /* background-color: #fff; */
+    /* border-radius: 8px; */
+    /* border: 1px solid #e0e0e0; */
+}
+
+/* Minimalist styling for form elements within customerDetailsFormSPA */
+#customerDetailsFormSPA div {
+    margin-bottom: 15px;
+}
+
+#customerDetailsFormSPA label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #444;
+}
+
+#customerDetailsFormSPA input[type="text"],
+#customerDetailsFormSPA input[type="tel"],
+#customerDetailsFormSPA input[type="email"],
+#customerDetailsFormSPA textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Important for width: 100% */
+    font-size: 1em;
+}
+
+#customerDetailsFormSPA textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+#customerDetailsFormSPA input[type="checkbox"] {
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+#customerDetailsFormSPA .form-row { /* For the button container */
+    text-align: left; /* Or 'center' / 'right' as preferred */
+    padding-top: 10px; /* Space above buttons */
+}
+
+/* Style for buttons if they don't inherit nicely already */
+#goBackButton,
+#confirmBookingButtonSPA {
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#goBackButton {
+    background-color: #6c757d; /* Greyish */
+    color: white;
+    margin-right: 10px;
+}
+#goBackButton:hover {
+    background-color: #5a6268;
+}
+
+#confirmBookingButtonSPA {
+    background-color: #007bff; /* Primary button color */
+    color: white;
+}
+#confirmBookingButtonSPA:hover {
+    background-color: #0056b3;
+}
+#confirmBookingButtonSPA:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Message Area Styling (already added in a previous step, but good to have here for context) */
+.api-message { padding: 10px; margin-top: 15px; border-radius: 4px; text-align: center; }
+.success-message { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.error-message { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+
+/* --- Responsive Adjustments --- */
+/* Stack columns on smaller screens */
+@media (max-width: 768px) {
+    .details-wrapper {
+        flex-direction: column;
+    }
+
+    #bookingSummaryDisplay,
+    #customerDetailsFormSPA {
+        flex: 1 1 100%; /* Allow them to take full width when stacked */
+        min-width: auto; /* Reset min-width for stacking */
+    }
 }

@@ -1,0 +1,1204 @@
+// --- UI Manager ---
+
+import { getConfig, getLanguageStrings } from './config_manager.js';
+import {
+    getCurrentShiftUsagePolicy,
+    getSelectedAddons,
+    getShowUnavailableSlots,
+    getCurrentSelectedAreaUID,
+    setCurrentSelectedDecimalTime,
+    setCurrentShiftUsagePolicy,
+    getIsInitialRenderCycle,
+    getCurrentSelectedDecimalTime,
+    getCurrentSelectedShiftName,
+    getCurrentAvailabilityData,
+    getRestaurantFullNameFromHold,
+    getSelectedDateForSummary,
+    getSelectedCoversForSummary,
+    getSelectedAreaNameForSummary,
+    getSelectedAddonsForContext  // Added
+    // setCurrentSelectedAreaUID // Removed import
+} from './state_manager.js';
+import { getSelectedRadioValue, formatTime } from './dom_utils.js';
+import { handleShiftChangeClearSelection } from './event_handlers.js'; // Added import
+
+// DOM Element Getters
+const getCoversSelector = () => document.getElementById('covers-display');
+const getTimeSelectorContainer = () => document.getElementById('timeSelectorContainer');
+const getSelectedTimeValueSpan = () => document.getElementById('selectedTimeValue');
+const getTimeSelectionLabel = () => document.getElementById('timeSelectionLabel');
+
+// Module-level cache
+let originalTimeSelectionLabelText = '';
+
+// --- Time Selection UI Mode Toggle ---
+
+export function initializeOriginalLabelText() {
+    const labelEl = getTimeSelectionLabel();
+    if (labelEl) {
+        originalTimeSelectionLabelText = labelEl.innerText;
+    } else {
+        console.warn("Time selection label (#timeSelectionLabel) not found during init.");
+    }
+}
+
+export function showTimeSelectionSummary(shiftName, timeValueFormatted) {
+    const labelEl = getTimeSelectionLabel();
+    const containerEl = getTimeSelectorContainer();
+
+    if (containerEl) containerEl.style.display = 'none';
+    if (labelEl) {
+        labelEl.innerText = `${shiftName} at ${timeValueFormatted}`;
+        labelEl.classList.add('summary-mode-active');
+        labelEl.addEventListener('click', handleSummaryLabelClick, { once: true });
+    }
+}
+
+function handleSummaryLabelClick() {
+    showTimeSelectionAccordion();
+
+    const currentAvailData = getCurrentAvailabilityData();
+    if (currentAvailData) {
+        const timeIsSelected = getCurrentSelectedDecimalTime() !== null;
+        displayTimeSlots(currentAvailData, timeIsSelected); // Pass timeIsSelected as preserveAddons
+    } else {
+        console.warn("No current availability data to re-display slots on summary click. Forcing full refresh.");
+        if (window.handleCoversChangeGlobal) {
+            window.handleCoversChangeGlobal();
+        }
+    }
+}
+
+// --- View Switching Functions ---
+
+export function showBookingSelectionView() {
+    const bookingSelectors = document.querySelector('.form-selectors');
+    const selectionDisplay = document.querySelector('.selection-display');
+    const nextButtonElem = document.getElementById('nextButton'); // Get the button itself
+    const nextButtonRow = nextButtonElem ? nextButtonElem.closest('.form-row') : null; // Then find its parent row
+    const customerDetailsSection = document.getElementById('customerDetailsSection');
+    const confirmationMessageArea = document.getElementById('confirmationMessageArea');
+
+    if (bookingSelectors) bookingSelectors.style.display = ''; // Revert to default (likely flex)
+    if (selectionDisplay) selectionDisplay.style.display = ''; // Revert to default
+    if (nextButtonRow) nextButtonRow.style.display = ''; // Revert to default (likely block or flex based on CSS)
+
+    if (customerDetailsSection) customerDetailsSection.style.display = 'none';
+
+    if (confirmationMessageArea) {
+        confirmationMessageArea.style.display = 'none';
+        confirmationMessageArea.textContent = '';
+    }
+}
+
+export function showCustomerDetailsView() {
+    const bookingSelectors = document.querySelector('.form-selectors');
+    const selectionDisplay = document.querySelector('.selection-display');
+    const nextButtonElem = document.getElementById('nextButton'); // Get the button itself
+    const nextButtonRow = nextButtonElem ? nextButtonElem.closest('.form-row') : null; // Then find its parent row
+    const customerDetailsSection = document.getElementById('customerDetailsSection');
+
+    if (bookingSelectors) bookingSelectors.style.display = 'none';
+    if (selectionDisplay) selectionDisplay.style.display = 'none';
+    if (nextButtonRow) nextButtonRow.style.display = 'none';
+
+    if (customerDetailsSection) customerDetailsSection.style.display = 'block'; // Or '' to revert to stylesheet default
+
+    // Populate the booking summary
+    const restaurantName = getRestaurantFullNameFromHold();
+    const selectedDate = getSelectedDateForSummary();
+    const decimalTime = getCurrentSelectedDecimalTime();
+    const shiftName = getCurrentSelectedShiftName();
+    const covers = getSelectedCoversForSummary();
+    const areaName = getSelectedAreaNameForSummary();
+
+    let formattedTime = '-';
+    if (decimalTime !== null) {
+        formattedTime = formatTime(decimalTime);
+    } else if (shiftName) {
+        formattedTime = shiftName; // Fallback, though ideally decimalTime is always set if a time is selected
+    }
+
+    const summaryRestaurantNameEl = document.getElementById('summaryRestaurantName');
+    const summaryDateEl = document.getElementById('summaryDate');
+    const summaryTimeEl = document.getElementById('summaryTime');
+    const summaryCoversEl = document.getElementById('summaryCovers');
+    const summaryAreaEl = document.getElementById('summaryArea');
+    const summaryAddonsEl = document.getElementById('summaryAddons'); // Added
+
+    if (summaryRestaurantNameEl) summaryRestaurantNameEl.textContent = restaurantName || '-';
+    if (summaryDateEl) summaryDateEl.textContent = selectedDate || '-';
+    if (summaryTimeEl) summaryTimeEl.textContent = formattedTime;
+    if (summaryCoversEl) summaryCoversEl.textContent = covers !== null ? covers.toString() : '-';
+    if (summaryAreaEl) summaryAreaEl.textContent = areaName || '-';
+
+    // Update to use generateDetailedAddonsString for the summary
+    const selectedAddonsCtx = getSelectedAddonsForContext();
+    const coversForSummary = getSelectedCoversForSummary(); // Already retrieved above as 'covers'
+    const config = getConfig();
+    const currencySymbol = config && config.currSym ? config.currSym.replace(/&[^;]+;/g, '') : '$';
+
+    const detailedAddonsString = generateDetailedAddonsString(selectedAddonsCtx, covers, currencySymbol);
+    if (summaryAddonsEl) summaryAddonsEl.textContent = detailedAddonsString;
+}
+
+// New utility function to generate a detailed string with prices for addons
+export function generateDetailedAddonsString(addonsObject, guestCount, currencySymbol) {
+    if (!addonsObject) return '-';
+
+    let displayItems = [];
+    let grandTotal = 0;
+
+    // Process usage1 addons
+    if (addonsObject.usage1 && addonsObject.usage1.uid) {
+        const addon = addonsObject.usage1;
+        const basePrice = (addon.price || 0) / 100;
+        const itemCost = (addon.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
+        grandTotal += itemCost;
+        displayItems.push(`${addon.name} (${currencySymbol}${itemCost.toFixed(2)})`);
+    }
+
+    // Process usage2 addons
+    if (addonsObject.usage2 && addonsObject.usage2.length > 0) {
+        addonsObject.usage2.forEach(addon => {
+            if (addon.uid && (addon.quantity || 0) > 0) {
+                const basePrice = (addon.price || 0) / 100;
+                // Clarified logic: itemCost is total for this line item (basePrice * quantity)
+                const itemCost = basePrice * (addon.quantity || 0);
+                grandTotal += itemCost;
+                displayItems.push(`${addon.name} x${addon.quantity || 0} (${currencySymbol}${itemCost.toFixed(2)})`);
+            }
+        });
+    }
+
+    // Process usage3 addons
+    if (addonsObject.usage3 && addonsObject.usage3.length > 0) {
+        addonsObject.usage3.forEach(addon => {
+            if (addon.uid) {
+                const addonData = addon; // Assuming addon is the full object
+                const basePrice = (addonData.price || 0) / 100;
+                const itemCost = (addonData.per === "Guest" && guestCount > 0) ? basePrice * guestCount : basePrice;
+                grandTotal += itemCost;
+                displayItems.push(`${addonData.name} (${currencySymbol}${itemCost.toFixed(2)})`);
+            }
+        });
+    }
+
+    if (displayItems.length > 0) {
+        let displayText = displayItems.join(', ');
+        displayText += ` --- Total Addons: ${currencySymbol}${grandTotal.toFixed(2)}`;
+        return displayText;
+    } else {
+        return '-';
+    }
+}
+
+// Helper function formatAddonsForDisplay is now removed as it's superseded by generateDetailedAddonsString for all detailed displays.
+// If a simpler, non-priced version is ever needed again, it can be recreated or generateDetailedAddonsString could take a flag.
+
+// --- Loading Overlay ---
+const LOADING_OVERLAY_ID = 'loading-overlay';
+
+export function showLoadingOverlay(message) {
+    let overlay = document.getElementById(LOADING_OVERLAY_ID);
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = LOADING_OVERLAY_ID;
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        overlay.style.color = 'white';
+        overlay.style.display = 'flex';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.zIndex = '10000'; // Ensure it's on top
+        overlay.style.textAlign = 'center';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `<p style="padding: 20px; font-size: 1.2em;">${message}</p>`;
+    overlay.style.display = 'flex'; // Show it if it was hidden
+}
+
+export function hideLoadingOverlay() {
+    const overlay = document.getElementById(LOADING_OVERLAY_ID);
+    if (overlay) {
+        overlay.style.display = 'none'; // Hide it instead of removing, for faster re-show
+    }
+}
+
+export function showTimeSelectionAccordion(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+    const labelEl = getTimeSelectionLabel();
+    const containerEl = getTimeSelectorContainer();
+
+    if (containerEl) containerEl.style.display = '';
+    if (labelEl) {
+        labelEl.innerText = originalTimeSelectionLabelText;
+        labelEl.classList.remove('summary-mode-active');
+    }
+    // When returning to accordion view, hide area selector until a new time is chosen
+    const localConfig = getConfig();
+    if (localConfig.arSelect === "true") {
+        hideAreaSelector();
+    }
+}
+
+// --- Existing DOM Element Getters ---
+const getAreaSelectorContainer = () => document.getElementById('areaSelectorContainer');
+const getAreaRadioGroupContainer = () => document.getElementById('areaRadioGroupContainer');
+const getAreaAvailabilityMessage = () => document.getElementById('areaAvailabilityMessage');
+const getSelectedAreaValueSpan = () => document.getElementById('selectedAreaValue');
+const getAddonsDisplayArea = () => document.getElementById('addonsDisplayArea');
+const getNextButton = () => document.getElementById('nextButton');
+const getSelectedAddonsValueSpan = () => document.getElementById('selectedAddonsValue');
+const getDailyRotaMessageDiv = () => document.getElementById('dailyRotaMessage');
+
+// --- Area Selector Visibility ---
+
+export function showAreaSelector() {
+    const areaSelector = getAreaSelectorContainer();
+    if (areaSelector) {
+        areaSelector.style.display = 'block'; // Or 'flex' if it's a flex container
+    }
+}
+
+export function hideAreaSelector() {
+    const areaSelector = getAreaSelectorContainer();
+    if (areaSelector) {
+        areaSelector.style.display = 'none';
+    }
+}
+
+// --- Addon UI Callbacks & Updates ---
+
+let resetCurrentAddonsUICallback = () => {
+    const addonsDisplayArea = getAddonsDisplayArea();
+    if (addonsDisplayArea) addonsDisplayArea.innerHTML = '';
+    const selectedAddonsValueSpan = getSelectedAddonsValueSpan();
+    if (selectedAddonsValueSpan) selectedAddonsValueSpan.textContent = '-';
+    const coversSelectorEl = getCoversSelector();
+    const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) || 0 : 0;
+    updateAllUsage2ButtonStatesUI(guestCount);
+};
+
+export function _setResetAddonsUICallback(callback) {
+    resetCurrentAddonsUICallback = callback;
+}
+
+function getTotalUsage2AddonQuantity() {
+    let total = 0;
+    const currentAddons = getSelectedAddons();
+    if (currentAddons && currentAddons.usage2) {
+        currentAddons.usage2.forEach(addon => {
+            total += (addon.quantity || 0);
+        });
+    }
+    return total;
+}
+
+export function updateAllUsage2ButtonStatesUI(currentGuestCount) {
+    const totalCurrentUsage2Quantity = getTotalUsage2AddonQuantity();
+    document.querySelectorAll('.usage2-item .addon-quantity-selector').forEach(qtySelector => {
+        const qtyInput = qtySelector.querySelector('.qty-input');
+        const minusButton = qtySelector.querySelector('.minus-btn');
+        const plusButton = qtySelector.querySelector('.plus-btn');
+        if (!qtyInput || !minusButton || !plusButton) return;
+        const itemSpecificCurrentValue = parseInt(qtyInput.value);
+        minusButton.disabled = (itemSpecificCurrentValue === 0);
+        if (currentGuestCount === 0) {
+            plusButton.disabled = true;
+        } else {
+            plusButton.disabled = (totalCurrentUsage2Quantity >= currentGuestCount);
+        }
+    });
+}
+
+export function updateSelectedAddonsDisplay() {
+    const selectedAddonsValueSpan = getSelectedAddonsValueSpan();
+    if (!selectedAddonsValueSpan) return;
+    const coversSelectorEl = getCoversSelector();
+    const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) || 0 : 0;
+
+    const localConfig = getConfig();
+    const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
+
+    const currentAddons = getSelectedAddons(); // From UI interactions state
+
+    const detailedString = generateDetailedAddonsString(currentAddons, guestCount, currencySymbol);
+
+    if (selectedAddonsValueSpan) {
+        selectedAddonsValueSpan.textContent = detailedString;
+    }
+}
+
+export function updateNextButtonState() {
+    const nextButton = getNextButton();
+    if (!nextButton) return;
+    nextButton.disabled = true;
+    const selectedTimeValueEl = getSelectedTimeValueSpan();
+    const selectedTimeText = selectedTimeValueEl ? selectedTimeValueEl.textContent : '-';
+    if (!selectedTimeText || selectedTimeText === '-' || selectedTimeText.includes('N/A')) return;
+    const coversSelectorEl = getCoversSelector();
+    const guestCount = coversSelectorEl ? parseInt(coversSelectorEl.value) : 0;
+    const policy = getCurrentShiftUsagePolicy();
+    const currentAddons = getSelectedAddons();
+    if (policy === null || typeof policy === 'undefined') {
+        nextButton.disabled = false;
+        return;
+    }
+    switch (parseInt(policy)) {
+        case 0: nextButton.disabled = false; break;
+        case 1: nextButton.disabled = !(currentAddons.usage1 && currentAddons.usage1.uid); break;
+        case 2: nextButton.disabled = !(guestCount > 0 && getTotalUsage2AddonQuantity() === guestCount); break;
+        case 3: nextButton.disabled = false; break;
+        default: nextButton.disabled = false; break;
+    }
+}
+
+export function updateSelectedAreaDisplay(textToDisplay) {
+    const selectedAreaValueSpan = getSelectedAreaValueSpan();
+    if (selectedAreaValueSpan) {
+        selectedAreaValueSpan.textContent = textToDisplay || '-';
+    }
+}
+
+function setAllAddonDataAttributes(element, addon) {
+    element.dataset.addonUid = addon.uid;
+    element.dataset.addonName = addon.name;
+    element.dataset.addonPrice = addon.price;
+    element.dataset.addonDesc = addon.desc || '';
+    element.dataset.addonPer = addon.per;
+    element.dataset.addonType = addon.type;
+}
+
+function renderUsage1Addons(filteredAddons, guestCount, shiftName) {
+    const addonsDisplayArea = getAddonsDisplayArea();
+    const localConfig = getConfig();
+    if (!filteredAddons || filteredAddons.length === 0) return;
+    if (filteredAddons.length === 1) {
+        const addon = filteredAddons[0];
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return;
+        }
+        const addonItemDiv = document.createElement('div');
+        addonItemDiv.className = 'addon-item usage1-single';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'addon-checkbox usage1-checkbox';
+        checkbox.value = addon.uid;
+        checkbox.id = `addon-${addon.uid}-${shiftName.replace(/\s+/g, '_')}`;
+        setAllAddonDataAttributes(checkbox, addon);
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        let labelHTML = `<span class="addon-name">${addon.name}</span>`;
+        if (typeof addon.price !== 'undefined' && addon.price !== null) {
+            const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
+            const priceDisplay = (addon.price / 100).toFixed(2);
+            labelHTML += ` <span class="addon-price">(+${currencySymbol}${priceDisplay})</span>`;
+        }
+        if (addon.desc) labelHTML += `<br><small class="addon-desc">${addon.desc}</small>`;
+        label.innerHTML = labelHTML;
+        addonItemDiv.appendChild(checkbox);
+        addonItemDiv.appendChild(label);
+        addonsDisplayArea.appendChild(addonItemDiv);
+    } else {
+        const radioGroupContainer = document.createElement('div');
+        radioGroupContainer.className = 'addon-radio-group';
+        const radioGroupName = `shift_${shiftName.replace(/\s+/g, '_')}_usage1_addons`;
+        filteredAddons.forEach(addon => {
+            if (!addon.uid || !addon.name) {
+                console.warn('Skipping addon due to missing uid or name:', addon);
+                return;
+            }
+            const addonItemDiv = document.createElement('div');
+            addonItemDiv.className = 'addon-item usage1-radio';
+            const radioButton = document.createElement('input');
+            radioButton.type = 'radio';
+            radioButton.className = 'addon-radio usage1-radio-btn';
+            radioButton.name = radioGroupName;
+            radioButton.value = addon.uid;
+            radioButton.id = `addon-${addon.uid}-${shiftName.replace(/\s+/g, '_')}`;
+            setAllAddonDataAttributes(radioButton, addon);
+            const label = document.createElement('label');
+            label.htmlFor = radioButton.id;
+            let labelHTML = `<span class="addon-name">${addon.name}</span>`;
+            if (typeof addon.price !== 'undefined' && addon.price !== null) {
+                const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
+                const priceDisplay = (addon.price / 100).toFixed(2);
+                labelHTML += ` <span class="addon-price">(+${currencySymbol}${priceDisplay})</span>`;
+            }
+            if (addon.desc) labelHTML += `<br><small class="addon-desc">${addon.desc}</small>`;
+            label.innerHTML = labelHTML;
+            addonItemDiv.appendChild(radioButton);
+            addonItemDiv.appendChild(label);
+            radioGroupContainer.appendChild(addonItemDiv);
+        });
+        addonsDisplayArea.appendChild(radioGroupContainer);
+    }
+}
+
+function renderUsage2Addons(filteredAddons, guestCount, shiftName) {
+    const addonsDisplayArea = getAddonsDisplayArea();
+    const localConfig = getConfig();
+    if (!filteredAddons || filteredAddons.length === 0) return;
+    const currentAddons = getSelectedAddons();
+    filteredAddons.forEach(addon => {
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return;
+        }
+        const addonItemDiv = document.createElement('div');
+        addonItemDiv.className = 'addon-item usage2-item';
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'addon-info';
+        let infoHTML = `<span class="addon-name">${addon.name}</span>`;
+        if (typeof addon.price !== 'undefined' && addon.price !== null) {
+            const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
+            const priceDisplay = (addon.price / 100).toFixed(2);
+            infoHTML += ` <span class="addon-price">(+${currencySymbol}${priceDisplay})</span>`;
+        }
+        if (addon.desc) infoHTML += `<br><small class="addon-desc">${addon.desc}</small>`;
+        infoDiv.innerHTML = infoHTML;
+        addonItemDiv.appendChild(infoDiv);
+        const qtyContainer = document.createElement('div');
+        qtyContainer.className = 'addon-quantity-selector';
+        const minusButton = document.createElement('button');
+        minusButton.type = 'button'; minusButton.textContent = '-';
+        minusButton.className = 'qty-btn minus-btn';
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'text'; qtyInput.className = 'qty-input';
+        const existingAddon = currentAddons.usage2.find(a => a.uid === addon.uid);
+        qtyInput.value = existingAddon ? existingAddon.quantity.toString() : '0';
+        qtyInput.readOnly = true;
+        setAllAddonDataAttributes(qtyInput, addon);
+        const plusButton = document.createElement('button');
+        plusButton.type = 'button'; plusButton.textContent = '+';
+        plusButton.className = 'qty-btn plus-btn';
+        minusButton.disabled = (!existingAddon || existingAddon.quantity === 0);
+        const totalUsage2Quantity = getTotalUsage2AddonQuantity();
+        plusButton.disabled = (guestCount > 0 && totalUsage2Quantity >= guestCount && (!existingAddon || existingAddon.quantity === 0));
+        if (guestCount === 0) plusButton.disabled = true;
+        qtyContainer.appendChild(minusButton); qtyContainer.appendChild(qtyInput); qtyContainer.appendChild(plusButton);
+        addonItemDiv.appendChild(qtyContainer);
+        addonsDisplayArea.appendChild(addonItemDiv);
+    });
+}
+
+function renderUsage3Addons(filteredAddons, guestCount, shiftName) {
+    const addonsDisplayArea = getAddonsDisplayArea();
+    const localConfig = getConfig();
+    if (!filteredAddons || filteredAddons.length === 0) return;
+    filteredAddons.forEach(addon => {
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return;
+        }
+        const addonItemDiv = document.createElement('div');
+        addonItemDiv.className = 'addon-item usage3-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'addon-checkbox usage3-checkbox';
+        checkbox.value = addon.uid;
+        checkbox.id = `addon-${addon.uid}-${shiftName.replace(/\s+/g, '_')}`;
+        setAllAddonDataAttributes(checkbox, addon);
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        let labelHTML = `<span class="addon-name">${addon.name}</span>`;
+        if (typeof addon.price !== 'undefined' && addon.price !== null) {
+            const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
+            const priceDisplay = (addon.price / 100).toFixed(2);
+            labelHTML += ` <span class="addon-price">(+${currencySymbol}${priceDisplay})</span>`;
+        }
+        if (addon.desc) labelHTML += `<br><small class="addon-desc">${addon.desc}</small>`;
+        label.innerHTML = labelHTML;
+        addonItemDiv.appendChild(checkbox);
+        addonItemDiv.appendChild(label);
+        addonsDisplayArea.appendChild(addonItemDiv);
+    });
+}
+
+function renderGenericAddons(addonsArray, guestCount, shiftName, usagePolicy) {
+    const addonsDisplayArea = getAddonsDisplayArea();
+    const localConfig = getConfig();
+    addonsArray.forEach(addon => {
+        if (!addon.uid || !addon.name) {
+            console.warn('Skipping addon due to missing uid or name:', addon);
+            return;
+        }
+        const addonItemDiv = document.createElement('div');
+        addonItemDiv.className = 'addon-item generic-addon-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'addon-checkbox generic-addon-checkbox';
+        checkbox.value = addon.uid;
+        checkbox.id = `addon-generic-${addon.uid}-${shiftName.replace(/\s+/g, '_')}`;
+        setAllAddonDataAttributes(checkbox, addon);
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        let labelHTML = `<span class="addon-name">${addon.name}</span>`;
+        if (typeof addon.price !== 'undefined' && addon.price !== null) {
+            const currencySymbol = localConfig.currSym ? localConfig.currSym.replace(/&[^;]+;/g, '') : '$';
+            const priceDisplay = (addon.price / 100).toFixed(2);
+            labelHTML += ` <span class="addon-price">(+${currencySymbol}${priceDisplay})</span>`;
+        }
+        if (addon.desc) labelHTML += `<br><small class="addon-desc">${addon.desc}</small>`;
+        label.innerHTML = labelHTML;
+        addonItemDiv.appendChild(checkbox);
+        addonItemDiv.appendChild(label);
+        addonsDisplayArea.appendChild(addonItemDiv);
+    });
+    if (addonsArray.length === 0 && usagePolicy) {
+        addonsDisplayArea.innerHTML += `<p>No addons for generic rendering (usage ${usagePolicy}) after filtering for shift ${shiftName}.</p>`;
+    }
+}
+
+export function renderAddons(originalAddonsArray, usagePolicy, guestCount, shiftName, areaId = null) { // Added areaId
+    const addonsDisplayArea = getAddonsDisplayArea();
+    const localLanguageStrings = getLanguageStrings();
+    if (!addonsDisplayArea) { console.error('Addons display area not found.'); return; }
+
+    addonsDisplayArea.innerHTML = ''; // Clear previous content in all scenarios at the start
+
+    // Area ID is passed, but current assumption is addons are pre-filtered by API.
+    // If not, filtering logic based on areaId and addon.area_uids (or similar) would go here.
+    // console.log(`Rendering addons for Area ID: ${areaId}, Shift: ${shiftName}, Guests: ${guestCount}`);
+
+    if (!originalAddonsArray || originalAddonsArray.length === 0) {
+        addonsDisplayArea.style.display = 'none'; // Hide if no addons from API
+        return;
+    }
+    const numericGuestCount = parseInt(guestCount);
+    if (isNaN(numericGuestCount)) {
+        console.error("Invalid guestCount provided to renderAddons:", guestCount);
+        // addonsDisplayArea.innerHTML is already cleared
+        addonsDisplayArea.style.display = 'none'; // Hide on error too
+        return;
+    }
+
+    // Existing filtering by min/max covers
+    let addonsToRender = originalAddonsArray.filter(addon => {
+        const minCovers = (typeof addon.min === 'number' && !isNaN(addon.min)) ? addon.min : 1;
+        const maxCovers = (typeof addon.max === 'number' && !isNaN(addon.max)) ? addon.max : Infinity;
+        return numericGuestCount >= minCovers && numericGuestCount <= maxCovers;
+    });
+
+    // Placeholder for additional area-specific filtering if addons are not pre-filtered by API
+    // This would require addons to have properties like `addon.area_uids` or `addon.is_area_specific`
+    if (areaId && areaId !== "any") { // Example: only filter if a specific area is chosen
+        // addonsToRender = addonsToRender.filter(addon => {
+        //    // return !addon.area_uids || addon.area_uids.includes(areaId); // Example logic
+        //    return true; // Assuming API pre-filters for now
+        // });
+    }
+
+
+    if (addonsToRender.length === 0) { // Check after all filtering
+        // addonsDisplayArea.innerHTML is already cleared
+        addonsDisplayArea.style.display = 'none'; // Hide if no addons after filtering
+        return;
+    }
+
+    // If we reach here, means addonsToRender.length > 0
+    addonsDisplayArea.style.display = 'block'; // Or 'flex', or default visible style for the container
+
+    const title = document.createElement('h4');
+    title.textContent = localLanguageStrings.availableAddonsTitle || 'Available Addons:';
+    addonsDisplayArea.appendChild(title);
+
+    switch (parseInt(usagePolicy)) {
+        case 1: renderUsage1Addons(addonsToRender, numericGuestCount, shiftName); break;
+        case 2: renderUsage2Addons(addonsToRender, numericGuestCount, shiftName); break;
+        case 3: renderUsage3Addons(addonsToRender, numericGuestCount, shiftName); break;
+        default:
+            console.warn(`Unknown usagePolicy: ${usagePolicy} for shift "${shiftName}". Rendering all filtered addons generically.`);
+            renderGenericAddons(addonsToRender, numericGuestCount, shiftName, usagePolicy);
+    }
+}
+
+export function createTimeSlotButton(timeValue, shiftObject, status = 'full') { // Changed isActive to status
+    const button = document.createElement('button');
+    button.className = 'time-slot-button'; // Base class
+    const localLanguageStrings = getLanguageStrings();
+    let hasValidIdentifier = false;
+
+    // Set shift identifiers first
+    if (shiftObject && shiftObject.uid != null && String(shiftObject.uid).trim() !== '') {
+        button.dataset.shiftUid = String(shiftObject.uid);
+        hasValidIdentifier = true;
+    } else if (shiftObject && shiftObject.name != null && String(shiftObject.name).trim() !== '') {
+        button.dataset.shiftName = String(shiftObject.name);
+        hasValidIdentifier = true;
+    }
+
+    if (!hasValidIdentifier) {
+        console.warn("Time slot button created without a valid shift identifier (UID or Name):", shiftObject);
+        // Even without identifier, it might be an "unavailable" slot, so continue processing status
+    }
+
+    // Determine button state based on status and timeValue
+    // timeValue < 0 always means 'unavailable' from the perspective of booking, overriding passed status.
+    const effectiveStatus = timeValue < 0 ? 'unavailable' : status;
+
+    if (effectiveStatus === 'unavailable') {
+        if (!getShowUnavailableSlots()) return null; // Do not render if unavailable slots are hidden
+        button.textContent = localLanguageStrings.notAvailableText || 'Not Available';
+        button.classList.add('time-slot-unavailable');
+        button.disabled = true;
+    } else {
+        // For 'full' or 'partial' status
+        button.textContent = formatTime(timeValue);
+        button.dataset.time = timeValue; // Ensure dataset.time is set for active buttons
+
+        button.classList.add('time-slot-available'); // Base class for active/bookable buttons
+        if (effectiveStatus === 'partial') {
+            button.classList.add('time-slot-partial-area');
+        }
+        // If status is 'full', it correctly just has 'time-slot-available'.
+        button.disabled = false;
+    }
+    return button;
+}
+
+export function displayTimeSlots(availabilityData, preserveAddons = false) {
+    const timeSelectorContainer = getTimeSelectorContainer();
+    const areaSelectorContainer = getAreaSelectorContainer();
+    const areaRadioGroupContainer = getAreaRadioGroupContainer();
+    const areaAvailabilityMessage = getAreaAvailabilityMessage();
+    const addonsDisplay = getAddonsDisplayArea(); // Keep reference for potential conditional clearing
+
+    if (!timeSelectorContainer) {
+        console.error("timeSelectorContainer not found in displayTimeSlots");
+        return;
+    }
+    if (!getSelectedTimeValueSpan()) {
+         console.error("selectedTimeValueSpan (from getSelectedTimeValueSpan) not found; this might affect updateNextButtonState.");
+    }
+
+    const localConfig = getConfig();
+    const localLanguageStrings = getLanguageStrings();
+
+    // Visibility of areaSelectorContainer is now handled by:
+    // 1. main.js initial hideAreaSelector()
+    // 2. event_handlers.js timeSlotDelegatedListener -> showAreaSelector() if arSelect is true
+    // 3. resetTimeRelatedUI() / showTimeSelectionAccordion() -> hideAreaSelector()
+    // This function (displayTimeSlots) should only populate it if arSelect is true, not manage its visibility.
+    if (localConfig.arSelect !== "true") {
+        // If area selection is globally disabled, ensure container is definitively hidden
+        // and clear any related elements just in case.
+        if (areaSelectorContainer) areaSelectorContainer.style.display = 'none';
+        if (areaRadioGroupContainer) areaRadioGroupContainer.innerHTML = '';
+        if (areaAvailabilityMessage) {
+            areaAvailabilityMessage.textContent = '';
+            areaAvailabilityMessage.style.display = 'none';
+        }
+    }
+    // If arSelect IS true, we don't touch areaSelectorContainer.style.display here.
+    // We still proceed to populate its contents (radio buttons) further down if areas exist.
+
+    timeSelectorContainer.innerHTML = '';
+
+    if (!preserveAddons) {
+        if (addonsDisplay) addonsDisplay.innerHTML = '';
+        resetCurrentAddonsUICallback();
+    }
+
+    if (areaAvailabilityMessage) {
+        areaAvailabilityMessage.textContent = '';
+        areaAvailabilityMessage.style.display = 'none';
+    }
+
+    let currentSelectedAreaTextInSummary = '-'; // Default for summary
+    const allShiftsForAvailabilityCheck = availabilityData.shifts; // Used for area availability
+
+    if (localConfig.arSelect === "true" && areaRadioGroupContainer) {
+        const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
+        areaRadioGroupContainer.innerHTML = '';
+        const areas = availabilityData.areas;
+        let radiosPopulated = false;
+        let initialUidToSelect = currentSelectedAreaFromState; // Rename to avoid confusion later
+
+        // Validate initialUidToSelect against available areas and "any" option
+        let SPUIDIsValidInNewData = false;
+        if (initialUidToSelect) {
+            if (initialUidToSelect === "any" && localConfig.areaAny === "true") {
+                SPUIDIsValidInNewData = true;
+            } else if (initialUidToSelect !== "any" && areas && Array.isArray(areas)) {
+                SPUIDIsValidInNewData = areas.some(area => area.uid.toString() === initialUidToSelect);
+            }
+        }
+
+        if (!SPUIDIsValidInNewData) {
+            if (localConfig.areaAny === "true" && localConfig.areaAnySelected === "true") { // Prefer "any" if configured to be default
+                initialUidToSelect = "any";
+            } else if (areas && Array.isArray(areas) && areas.length > 0) {
+                initialUidToSelect = areas[0].uid.toString(); // Fallback to first specific area
+            } else if (localConfig.areaAny === "true") { // If no specific areas, but "any" is an option
+                initialUidToSelect = "any";
+            } else {
+                initialUidToSelect = null; // No valid initial selection
+            }
+        }
+
+        // console.log("Populating area radio buttons..."); // Optional: Basic log
+
+        if (localConfig.areaAny === "true") {
+            const radioId = "area-any";
+            const radioItemContainer = document.createElement('div');
+            radioItemContainer.className = 'area-radio-item';
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = 'areaSelection';
+            radio.id = radioId;
+            radio.value = 'any';
+            radio.disabled = false; // Ensure enabled
+            radio.checked = (initialUidToSelect === 'any');
+
+            const label = document.createElement('label');
+            label.htmlFor = radioId;
+            label.textContent = localLanguageStrings.anyAreaText || "Any Area";
+
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'area-availability-message-span';
+            messageSpan.style.display = 'none'; // Initially hidden
+            messageSpan.style.marginLeft = '5px';
+
+            radioItemContainer.appendChild(radio);
+            radioItemContainer.appendChild(label);
+            radioItemContainer.appendChild(messageSpan); // Append new message span
+            areaRadioGroupContainer.appendChild(radioItemContainer);
+            radiosPopulated = true;
+            if (radio.checked) {
+                currentSelectedAreaTextInSummary = label.textContent;
+            }
+        }
+
+        if (areas && Array.isArray(areas) && areas.length > 0) {
+            areas.forEach((area) => {
+                const radioId = `area-${area.uid}`;
+                const radioItemContainer = document.createElement('div');
+                radioItemContainer.className = 'area-radio-item';
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'areaSelection';
+                radio.id = radioId;
+                radio.value = area.uid.toString();
+                radio.disabled = false; // Ensure enabled
+                radio.checked = (initialUidToSelect === area.uid.toString());
+
+                const label = document.createElement('label');
+                label.htmlFor = radioId;
+                label.textContent = area.name;
+
+                const messageSpan = document.createElement('span');
+                messageSpan.className = 'area-availability-message-span';
+                messageSpan.style.display = 'none'; // Initially hidden
+                messageSpan.style.marginLeft = '5px';
+
+                radioItemContainer.appendChild(radio);
+                radioItemContainer.appendChild(label);
+                radioItemContainer.appendChild(messageSpan); // Append new message span
+                areaRadioGroupContainer.appendChild(radioItemContainer);
+                radiosPopulated = true;
+                if (radio.checked) {
+                    currentSelectedAreaTextInSummary = label.textContent;
+                }
+            });
+        }
+
+        // Update display based on the initial simple selection
+        if (!radiosPopulated && localConfig.arSelect === "true") {
+             updateSelectedAreaDisplay(localLanguageStrings.noAreasDefined || "No areas defined.");
+        } else if (radiosPopulated) { // if radios were populated, currentSelectedAreaTextInSummary would have been set if one was checked
+             updateSelectedAreaDisplay(currentSelectedAreaTextInSummary);
+        } else { // No radios populated, and arSelect might be false
+            updateSelectedAreaDisplay(null);
+        }
+
+    } else if (areaRadioGroupContainer) { // arSelect is false, clear display
+         updateSelectedAreaDisplay(null);
+         areaRadioGroupContainer.innerHTML = '';
+    }
+
+    const allShifts = availabilityData.shifts;
+    let foundAnySlotsToShowOverall = false;
+
+    if (!allShifts || !Array.isArray(allShifts) || allShifts.length === 0) {
+        timeSelectorContainer.innerHTML = `<p class="no-times-message">${localLanguageStrings.noTimesAvailable || 'No time slots available.'}</p>`;
+        if (localConfig.arSelect === "true" && getCurrentSelectedAreaUID() && getCurrentSelectedAreaUID() !== "any" && areaAvailabilityMessage) {
+             areaAvailabilityMessage.textContent = localLanguageStrings.noTimesForArea || "This area is not available at this time. Please choose another area.";
+             areaAvailabilityMessage.style.display = 'block';
+        }
+        updateNextButtonState();
+        return;
+    }
+
+    const currentAreaUID = getCurrentSelectedAreaUID();
+
+    if (localConfig.arSelect === "true" && currentAreaUID && currentAreaUID !== "any") {
+        const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUID);
+        if (!selectedAreaObject) {
+            console.error(`Selected area UID ${currentAreaUID} not found in availabilityData.areas.`);
+            timeSelectorContainer.innerHTML = `<p class="error-message">${localLanguageStrings.errorGeneric || "An error occurred displaying area times."}</p>`;
+            updateNextButtonState();
+            return;
+        }
+        const selectedAreaGeneralTimes = selectedAreaObject.times;
+        if (!selectedAreaGeneralTimes || selectedAreaGeneralTimes.length === 0) {
+            if (areaAvailabilityMessage) {
+                 areaAvailabilityMessage.textContent = (localLanguageStrings.noTimesForArea || "This area has no available times on this date.").replace('{areaName}', selectedAreaObject.name);
+                 areaAvailabilityMessage.style.display = 'block';
+            }
+            timeSelectorContainer.innerHTML = '';
+            updateNextButtonState();
+            return;
+        }
+        allShifts.forEach(shift => {
+            if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+
+            const currentShiftSessionTimes = shift.times;
+            const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
+                areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
+            );
+
+            if (actualBookableTimesForShiftInArea.length > 0) {
+                const panelDiv = document.createElement('div');
+                panelDiv.className = 'shift-accordion-panel';
+
+                const shiftTitle = document.createElement('h3');
+                shiftTitle.textContent = shift.name;
+                panelDiv.appendChild(shiftTitle);
+
+                if (shift.message && shift.message.trim() !== '') {
+                    const shiftMessageDiv = document.createElement('div');
+                    shiftMessageDiv.className = 'api-message shift-message';
+                    shiftMessageDiv.textContent = shift.message;
+                    panelDiv.appendChild(shiftMessageDiv);
+                }
+
+                const shiftButtonContainer = document.createElement('div');
+                shiftButtonContainer.className = 'shift-times-wrapper';
+
+                currentShiftSessionTimes.forEach(timeValueFromShift => {
+                    if (timeValueFromShift < 0 && !getShowUnavailableSlots()) return;
+
+                    let status = 'full';
+                    if (timeValueFromShift < 0) {
+                        status = 'unavailable';
+                    } else if (!actualBookableTimesForShiftInArea.includes(timeValueFromShift)) {
+                        // Time is in the shift's general list, but not in the selected specific area's times.
+                        status = 'partial';
+                    } // Else, it's in the area and shift, so status remains 'full'.
+
+                    const button = createTimeSlotButton(timeValueFromShift, shift, status);
+                    if (button) {
+                        shiftButtonContainer.appendChild(button);
+                        foundAnySlotsToShowOverall = true;
+                    }
+                });
+                panelDiv.appendChild(shiftButtonContainer);
+
+                // Per-Shift Legend Logic (for specific area selected context)
+                const shiftLegendDiv = document.createElement('div');
+                shiftLegendDiv.className = 'shift-availability-legend'; // New class
+                shiftLegendDiv.style.display = 'none'; // Initially hidden
+                panelDiv.appendChild(shiftLegendDiv);
+
+                let partialSlotsInThisShiftCount = 0;
+                shiftButtonContainer.querySelectorAll('.time-slot-button.time-slot-partial-area').forEach(() => partialSlotsInThisShiftCount++);
+
+                if (partialSlotsInThisShiftCount > 0) {
+                    shiftLegendDiv.innerHTML = ''; // Clear previous items
+                    const currentAreaUIDFromState = getCurrentSelectedAreaUID(); // Already in scope as currentAreaUID
+
+                    let legendFullText = localLanguageStrings.legendFull || "Available";
+                    if (currentAreaUID && currentAreaUID !== "any") { // currentAreaUID is the specific selected one here
+                        const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUID);
+                        const areaName = selectedAreaObject ? selectedAreaObject.name : currentAreaUID;
+                        legendFullText = (localLanguageStrings.legendFullForArea || "Available for {areaName}").replace('{areaName}', areaName);
+                    } else { // Should not happen in this loop, but as fallback
+                        legendFullText = localLanguageStrings.legendFullAnyArea || "Available (matches selection)";
+                    }
+
+                    const itemFull = document.createElement('div');
+                    itemFull.className = 'legend-item';
+                    const boxFull = document.createElement('span');
+                    boxFull.className = 'legend-color-box time-slot-available';
+                    const textFull = document.createElement('span');
+                    textFull.textContent = legendFullText;
+                    itemFull.appendChild(boxFull); itemFull.appendChild(textFull);
+                    shiftLegendDiv.appendChild(itemFull);
+
+                    const itemPartial = document.createElement('div');
+                    itemPartial.className = 'legend-item';
+                    const boxPartial = document.createElement('span');
+                    boxPartial.className = 'legend-color-box time-slot-partial-area';
+                    const textPartial = document.createElement('span');
+                    textPartial.textContent = localLanguageStrings.legendPartial || "Available (other areas/times)";
+                    itemPartial.appendChild(boxPartial); itemPartial.appendChild(textPartial);
+                    shiftLegendDiv.appendChild(itemPartial);
+
+                    shiftLegendDiv.style.display = 'block';
+                } else {
+                    shiftLegendDiv.innerHTML = '';
+                    shiftLegendDiv.style.display = 'none';
+                }
+                timeSelectorContainer.appendChild(panelDiv);
+            }
+        });
+    } else { // "Any Area" selected or no area selection mode
+        allShifts.forEach(shift => {
+            if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+
+            const displayableTimes = shift.times ? shift.times.filter(timeValue => timeValue >= 0 || getShowUnavailableSlots()) : [];
+
+            if (displayableTimes.length > 0) {
+                const panelDiv = document.createElement('div');
+                panelDiv.className = 'shift-accordion-panel';
+
+                const shiftTitle = document.createElement('h3');
+                shiftTitle.textContent = shift.name;
+                panelDiv.appendChild(shiftTitle);
+
+                if (shift.message && shift.message.trim() !== '') {
+                    const shiftMessageDiv = document.createElement('div');
+                    shiftMessageDiv.className = 'api-message shift-message';
+                    shiftMessageDiv.textContent = shift.message;
+                    panelDiv.appendChild(shiftMessageDiv);
+                }
+
+                const shiftButtonContainer = document.createElement('div');
+                shiftButtonContainer.className = 'shift-times-wrapper';
+
+                displayableTimes.forEach(timeValue => { // displayableTimes are already >= 0 or conform to showUnavailableSlots
+                    let status;
+                    // currentAreaUID is implicitly "any" or null, or arSelect is false in this block.
+                    if (timeValue < 0) {
+                        status = 'unavailable';
+                    } else {
+                        // For "Any Area" or no specific area selection, all bookable times are 'full'.
+                        // The concept of 'partial' does not apply here as per new requirement.
+                        status = 'full';
+                    }
+                    const button = createTimeSlotButton(timeValue, shift, status);
+                    if (button) {
+                        shiftButtonContainer.appendChild(button);
+                        foundAnySlotsToShowOverall = true;
+                    }
+                });
+                panelDiv.appendChild(shiftButtonContainer);
+
+                // Per-Shift Legend Logic (for "Any Area" or no area selection context)
+                const shiftLegendDiv = document.createElement('div');
+                shiftLegendDiv.className = 'shift-availability-legend';
+                shiftLegendDiv.style.display = 'none';
+                panelDiv.appendChild(shiftLegendDiv);
+
+                let partialSlotsInThisShiftCount = 0;
+                shiftButtonContainer.querySelectorAll('.time-slot-button.time-slot-partial-area').forEach(() => partialSlotsInThisShiftCount++);
+
+                if (partialSlotsInThisShiftCount > 0) {
+                    shiftLegendDiv.innerHTML = '';
+                    // In "Any Area" context, "full" means available in the shift (potentially across multiple areas or as a general slot)
+                    // "partial" means available in some specific areas but not all (if areas are defined).
+                    const legendFullText = localLanguageStrings.legendFullAnyContext || (localLanguageStrings.legendFull || "Available");
+
+                    const itemFull = document.createElement('div');
+                    itemFull.className = 'legend-item';
+                    const boxFull = document.createElement('span');
+                    boxFull.className = 'legend-color-box time-slot-available';
+                    const textFull = document.createElement('span');
+                    textFull.textContent = legendFullText;
+                    itemFull.appendChild(boxFull); itemFull.appendChild(textFull);
+                    shiftLegendDiv.appendChild(itemFull);
+
+                    const itemPartial = document.createElement('div');
+                    itemPartial.className = 'legend-item';
+                    const boxPartial = document.createElement('span');
+                    boxPartial.className = 'legend-color-box time-slot-partial-area';
+                    const textPartial = document.createElement('span');
+                    textPartial.textContent = localLanguageStrings.legendPartial || "Available (some areas)"; // Slightly adjusted text for clarity in "Any" mode
+                    itemPartial.appendChild(boxPartial); itemPartial.appendChild(textPartial);
+                    shiftLegendDiv.appendChild(itemPartial);
+
+                    shiftLegendDiv.style.display = 'block';
+                } else {
+                    shiftLegendDiv.innerHTML = '';
+                    shiftLegendDiv.style.display = 'none';
+                }
+                timeSelectorContainer.appendChild(panelDiv);
+            }
+        });
+    }
+
+    if (!foundAnySlotsToShowOverall) {
+         timeSelectorContainer.innerHTML = `<p class="no-times-message">${localLanguageStrings.noTimesAvailable || 'No specific time slots found for available shifts.'}</p>`;
+    }
+
+    const allAccordionPanels = timeSelectorContainer.querySelectorAll('.shift-accordion-panel');
+    if (allAccordionPanels.length > 0) {
+        allAccordionPanels.forEach(panel => {
+            const h3El = panel.querySelector('h3');
+            const msgEl = panel.querySelector('.shift-message');
+            const wrapEl = panel.querySelector('.shift-times-wrapper');
+
+            if (h3El) h3El.classList.remove('active-shift-title');
+            if (msgEl) msgEl.classList.add('shift-content-hidden');
+            if (wrapEl) wrapEl.classList.add('shift-content-hidden');
+
+            if (h3El) {
+                h3El.addEventListener('click', () => {
+                    const clickedPanel = h3El.closest('.shift-accordion-panel'); // Correct single declaration
+                    if (!clickedPanel) return;
+
+                    // --- NEW LOGIC ---
+                    const selectedButton = document.querySelector('.time-slot-button.time-slot-button-selected');
+                    if (selectedButton) {
+                        const selectedButtonPanel = selectedButton.closest('.shift-accordion-panel');
+                        if (selectedButtonPanel && clickedPanel !== selectedButtonPanel) {
+                            selectedButton.classList.remove('time-slot-button-selected');
+                            handleShiftChangeClearSelection();
+                        }
+                    }
+                    // --- END OF NEW LOGIC ---
+
+                    // Existing accordion expand/collapse logic:
+                    const clickedMsg = clickedPanel.querySelector('.shift-message');
+                    const clickedWrap = clickedPanel.querySelector('.shift-times-wrapper');
+
+                    const isAlreadyActive = h3El.classList.contains('active-shift-title');
+
+                    // First, reset all panels
+                    allAccordionPanels.forEach(otherPanel => {
+                        const otherH3 = otherPanel.querySelector('h3');
+                        const otherMsg = otherPanel.querySelector('.shift-message');
+                        const otherWrap = otherPanel.querySelector('.shift-times-wrapper');
+
+                        if (otherH3) otherH3.classList.remove('active-shift-title');
+                        if (otherMsg) otherMsg.classList.add('shift-content-hidden');
+                        if (otherWrap) otherWrap.classList.add('shift-content-hidden');
+                    });
+
+                    // Then, if the clicked panel was not already active, activate it
+                    if (!isAlreadyActive) {
+                        if (clickedMsg) clickedMsg.classList.remove('shift-content-hidden');
+                        if (clickedWrap) clickedWrap.classList.remove('shift-content-hidden');
+                        h3El.classList.add('active-shift-title');
+                    }
+                    // If it was active, it's now closed by the reset loop above, achieving toggle behavior.
+                });
+            }
+        });
+    }
+
+    const currentSelectedTime = getCurrentSelectedDecimalTime();
+    const currentSelectedShiftName = getCurrentSelectedShiftName();
+
+    let stateBasedSelectionMade = false;
+    if (currentSelectedTime !== null && currentSelectedShiftName && allAccordionPanels.length > 0) {
+        let targetButtonElement = null;
+        let targetH3ForSelection = null;
+        let targetPanelForSelection = null;
+
+        allAccordionPanels.forEach(panel => {
+            const h3 = panel.querySelector('h3');
+            if (h3 && h3.textContent && h3.textContent === currentSelectedShiftName) {
+                targetH3ForSelection = h3;
+                targetPanelForSelection = panel;
+                const timesWrapper = panel.querySelector('.shift-times-wrapper');
+                if (timesWrapper) {
+                    const button = Array.from(timesWrapper.querySelectorAll('.time-slot-button.time-slot-available'))
+                        .find(btn => btn.dataset.time && parseFloat(btn.dataset.time) === currentSelectedTime);
+                    if (button) {
+                        targetButtonElement = button;
+                    }
+                }
+            }
+        });
+
+        if (targetButtonElement && targetH3ForSelection && targetPanelForSelection) {
+            allAccordionPanels.forEach(otherPanel => {
+                if (otherPanel !== targetPanelForSelection) {
+                    const otherH3 = otherPanel.querySelector('h3');
+                    const otherMsg = otherPanel.querySelector('.shift-message');
+                    const otherWrap = otherPanel.querySelector('.shift-times-wrapper');
+                    if (otherH3) otherH3.classList.remove('active-shift-title');
+                    if (otherMsg) otherMsg.classList.add('shift-content-hidden');
+                    if (otherWrap) otherWrap.classList.add('shift-content-hidden');
+                }
+            });
+
+            const msgEl = targetPanelForSelection.querySelector('.shift-message');
+            const wrapEl = targetPanelForSelection.querySelector('.shift-times-wrapper');
+            if (msgEl) msgEl.classList.remove('shift-content-hidden');
+            if (wrapEl) wrapEl.classList.remove('shift-content-hidden');
+            targetH3ForSelection.classList.add('active-shift-title');
+            stateBasedSelectionMade = true;
+
+            timeSelectorContainer.querySelectorAll('.time-slot-button-selected').forEach(btn => btn.classList.remove('time-slot-button-selected'));
+            targetButtonElement.classList.add('time-slot-button-selected');
+        }
+    }
+
+    if (!stateBasedSelectionMade && allAccordionPanels.length === 1) {
+        const singlePanelH3 = allAccordionPanels[0].querySelector('h3');
+        if (singlePanelH3) {
+            singlePanelH3.click();
+        }
+    }
+
+    updateNextButtonState();
+}
+
+export function resetTimeRelatedUI() {
+    const timeSelectorContainer = getTimeSelectorContainer();
+    const selectedTimeValueSpan = getSelectedTimeValueSpan();
+    const addonsDisplay = getAddonsDisplayArea();
+
+    if (timeSelectorContainer) timeSelectorContainer.innerHTML = '';
+    if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+    if (addonsDisplay) addonsDisplay.innerHTML = '';
+
+    resetCurrentAddonsUICallback();
+    updateNextButtonState();
+    showTimeSelectionAccordion(); // This will also hide the area selector if arSelect is true
+    updateSelectedAreaDisplay(null); // Clear area display
+
+    // Explicitly hide area selector during full reset, regardless of arSelect state in showTimeSelectionAccordion
+    // This ensures it's hidden if resetTimeRelatedUI is called directly for other reasons.
+    hideAreaSelector();
+}
+
+export function showLoadingTimes() {
+    const timeSelectorContainer = getTimeSelectorContainer();
+    const lang = getLanguageStrings();
+    if (timeSelectorContainer) {
+        timeSelectorContainer.innerHTML = `<p class="loading-message">${lang.loadingTimes || 'Loading times...'}</p>`;
+    }
+}
+
+export function displayErrorMessageInTimesContainer(messageKey, defaultMessage) {
+    const timeSelectorContainer = getTimeSelectorContainer();
+    const lang = getLanguageStrings();
+    if (timeSelectorContainer) {
+        timeSelectorContainer.innerHTML = `<p class="error-message">${lang[messageKey] || defaultMessage}</p>`;
+    }
+}
+
+export function updateDailyRotaMessage(message) {
+    const dailyRotaMessageDiv = getDailyRotaMessageDiv();
+    if (dailyRotaMessageDiv) {
+        if (message && message.trim() !== '') {
+            dailyRotaMessageDiv.textContent = message;
+            dailyRotaMessageDiv.style.display = 'block';
+        } else {
+            dailyRotaMessageDiv.textContent = '';
+            dailyRotaMessageDiv.style.display = 'none';
+        }
+    }
+}
