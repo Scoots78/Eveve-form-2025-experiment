@@ -921,13 +921,22 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 } else {
                     allShifts.forEach(shift => {
                         if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+
+                        // Check if this shift is actually an event that will be rendered by the activeEvents loop
+                        const isShiftAlsoAnActiveEvent = activeEvents.some(activeEvent =>
+                            shift.uid && activeEvent.uid && shift.uid.toString() === activeEvent.uid.toString()
+                        );
+                        if (isShiftAlsoAnActiveEvent) {
+                            return; // Skip rendering this as a shift, it will be rendered as an event
+                        }
+
                         const currentShiftSessionTimes = shift.times;
                         const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
                             areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
                         );
                         if (actualBookableTimesForShiftInArea.length > 0) {
                             const panelDiv = document.createElement('div');
-                            panelDiv.className = 'shift-accordion-panel'; // Existing class for shifts
+                            panelDiv.className = 'shift-accordion-panel';
                             const shiftTitle = document.createElement('h3');
                             shiftTitle.textContent = shift.name;
                             panelDiv.appendChild(shiftTitle);
@@ -974,10 +983,19 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
         } else { // "Any Area" selected or no area selection mode for SHIFTS
             allShifts.forEach(shift => {
                 if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+
+                // Check if this shift is actually an event that will be rendered by the activeEvents loop
+                const isShiftAlsoAnActiveEvent = activeEvents.some(activeEvent =>
+                    shift.uid && activeEvent.uid && shift.uid.toString() === activeEvent.uid.toString()
+                );
+                if (isShiftAlsoAnActiveEvent) {
+                    return; // Skip rendering this as a shift, it will be rendered as an event
+                }
+
                 const displayableTimes = shift.times ? shift.times.filter(timeValue => timeValue >= 0 || getShowUnavailableSlots()) : [];
                 if (displayableTimes.length > 0) {
                     const panelDiv = document.createElement('div');
-                    panelDiv.className = 'shift-accordion-panel'; // Existing class for shifts
+                    panelDiv.className = 'shift-accordion-panel';
                     const shiftTitle = document.createElement('h3');
                     shiftTitle.textContent = shift.name;
                     panelDiv.appendChild(shiftTitle);
