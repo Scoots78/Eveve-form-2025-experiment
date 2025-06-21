@@ -31,7 +31,8 @@ import {
     setActiveEvents, // Added for events
     setSelectedEventDetails // Added for events
 } from './state_manager.js';
-import { eventsB, showEventsFeature } from './event_data.js'; // Added for events
+// Removed: import { eventsB, showEventsFeature } from './event_data.js';
+import { getEventsB, getShowEventsFlag, getEventMessages } from './config_manager.js'; // Added
 import {
     displayTimeSlots,
     renderAddons,
@@ -281,9 +282,16 @@ export async function handleDateOrCoversChange() {
         setIsInitialRenderCycle(true);
 
         // Filter and set active events
-        if (showEventsFeature && eventsB && selectedDateStr) {
+        const showEvents = getShowEventsFlag();
+        const allEvents = getEventsB();
+
+        if (showEvents && allEvents && allEvents.length > 0 && selectedDateStr) {
             const selectedDay = new Date(selectedDateStr).getDay(); // 0 for Sunday, 1 for Monday, etc.
-            const filteredEvents = eventsB.filter(event => {
+            const filteredEvents = allEvents.filter(event => {
+                // Ensure event times are present, otherwise it's not bookable
+                if (typeof event.early !== 'number' || typeof event.late !== 'number') {
+                    return false;
+                }
                 if (event.specificDate) {
                     return event.specificDate === selectedDateStr;
                 }

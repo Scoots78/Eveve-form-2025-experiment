@@ -4,6 +4,9 @@
 let config = {};
 let languageStrings = {};
 let initialShiftsConfig = [];
+let eventsBConfig = []; // For 'eventsB'
+let eventMessagesConfig = {}; // For 'eventMessages'
+let showEventsFeatureFlag = false; // For 'showEvents'
 let currentEstName = '';
 let configLoaded = false;
 let configLoadError = null;
@@ -77,6 +80,14 @@ async function loadConfig() {
 
         initialShiftsConfig = parseJsObjectString(config.allShifts) || [];
 
+        // Parse event-related configurations
+        // Assuming config.showEvents is a string like "true" or "false" from the extracted JS
+        const showEventsStr = typeof config.showEvents === 'string' ? config.showEvents.toLowerCase() : '';
+        showEventsFeatureFlag = showEventsStr === 'true' || showEventsStr === '1';
+
+        eventsBConfig = parseJsObjectString(config.eventsB) || [];
+        eventMessagesConfig = parseJsObjectString(config.eventMessages) || {};
+
         configLoaded = true;
         configLoadError = null; // Clear any previous error
         // console.log('Configuration loaded and parsed successfully in config_manager.'); // For debugging
@@ -89,6 +100,9 @@ async function loadConfig() {
         config = {};
         languageStrings = {}; // Reset to default empty or provide minimal fallbacks if necessary
         initialShiftsConfig = [];
+        eventsBConfig = [];
+        eventMessagesConfig = {};
+        showEventsFeatureFlag = false;
         throw error; // Re-throw to allow calling code to handle it
     }
 }
@@ -127,6 +141,21 @@ export function getLanguageStrings() {
 export function getInitialShiftsConfig() {
     if (configLoadError) return [];
     return initialShiftsConfig;
+}
+
+export function getEventsB() {
+    if (configLoadError) return []; // Return empty array on error
+    return eventsBConfig;
+}
+
+export function getEventMessages() {
+    if (configLoadError) return {}; // Return empty object on error
+    return eventMessagesConfig;
+}
+
+export function getShowEventsFlag() {
+    if (configLoadError) return false; // Default to false on error
+    return showEventsFeatureFlag;
 }
 
 export function getCurrentEstName() {
