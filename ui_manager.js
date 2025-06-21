@@ -43,6 +43,22 @@ export function initializeOriginalLabelText() {
     } else {
         console.warn("Time selection label (#timeSelectionLabel) not found during init.");
     }
+
+    // Initialize modal close event listeners
+    const modalOverlay = document.getElementById('eventDescriptionModalOverlay');
+    const modalCloseButton = document.getElementById('modalCloseButton');
+
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', function(event) {
+            // Close if the overlay itself (not content within it) is clicked
+            if (event.target === modalOverlay) {
+                hideEventDescriptionModal();
+            }
+        });
+    }
+    if (modalCloseButton) {
+        modalCloseButton.addEventListener('click', hideEventDescriptionModal);
+    }
 }
 
 export function showTimeSelectionSummary(shiftName, timeValueFormatted) {
@@ -716,26 +732,40 @@ export function createEventTimeButton(event, timeValue) {
     return button;
 }
 
-// Function to toggle event description visibility
-export function toggleEventDescription(eventUid) {
-    const descriptionDiv = document.getElementById(`event-desc-${eventUid}`);
-    const showMoreLink = document.getElementById(`event-show-more-${eventUid}`);
-    const allEvents = getActiveEvents(); // Assumes getActiveEvents returns full event objects including 'desc'
-    const eventObject = allEvents.find(e => e.uid.toString() === eventUid.toString());
+// Function to show event description in a modal
+export function showEventDescriptionModal(eventUid) {
+    const modalOverlay = document.getElementById('eventDescriptionModalOverlay');
+    const modalTitleEl = document.getElementById('eventModalTitle');
+    const modalDescriptionArea = document.getElementById('modalDescriptionArea');
 
-    if (descriptionDiv && eventObject) {
-        if (descriptionDiv.style.display === 'none' || descriptionDiv.innerHTML === '') {
-            descriptionDiv.innerHTML = eventObject.desc; // Set HTML description
-            descriptionDiv.style.display = 'block';
-            if (showMoreLink) showMoreLink.textContent = getLanguageStrings().showLessLink || 'Show Less';
-        } else {
-            descriptionDiv.style.display = 'none';
-            // descriptionDiv.innerHTML = ''; // Optional: clear content when hiding
-            if (showMoreLink) showMoreLink.textContent = getLanguageStrings().showMoreLink || 'Show More...';
-        }
+    if (!modalOverlay || !modalDescriptionArea || !modalTitleEl) {
+        console.error('Modal elements not found in showEventDescriptionModal.');
+        return;
+    }
+
+    const allActiveEvents = getActiveEvents();
+    const eventObject = allActiveEvents.find(e => e.uid.toString() === eventUid.toString());
+
+    if (eventObject && eventObject.desc) {
+        modalTitleEl.textContent = eventObject.name || 'Event Details'; // Set modal title to event name
+        modalDescriptionArea.innerHTML = eventObject.desc;
+        modalOverlay.style.display = 'flex'; // Show the modal overlay (which contains the modal)
+    } else {
+        console.error(`Event object or description not found for UID: ${eventUid}`);
+        // Optionally show a generic error in the modal
+        modalTitleEl.textContent = 'Error';
+        modalDescriptionArea.innerHTML = '<p>Event details could not be loaded.</p>';
+        modalOverlay.style.display = 'flex';
     }
 }
 
+// Function to hide the event description modal
+export function hideEventDescriptionModal() {
+    const modalOverlay = document.getElementById('eventDescriptionModalOverlay');
+    if (modalOverlay) {
+        modalOverlay.style.display = 'none';
+    }
+}
 
 export function displayTimeSlots(availabilityData, preserveAddons = false) {
     const timeSelectorContainer = getTimeSelectorContainer();
@@ -1071,19 +1101,20 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                 showMoreLink.href = '#';
                 showMoreLink.id = `event-show-more-${event.uid}`;
                 showMoreLink.className = 'event-show-more-link shift-content-hidden'; // Start hidden
-                showMoreLink.textContent = localLanguageStrings.showMoreLink || 'Show More...';
+                showMoreLink.textContent = localLanguageStrings.showMoreLink || 'Show More...'; // Text can remain "Show More..."
                 showMoreLink.dataset.eventUid = event.uid;
                 showMoreLink.addEventListener('click', (e) => {
                     e.preventDefault();
-                    toggleEventDescription(event.uid);
+                    showEventDescriptionModal(event.uid); // Call new modal function
                 });
                 panelDiv.appendChild(showMoreLink);
 
-                const descriptionDiv = document.createElement('div');
-                descriptionDiv.id = `event-desc-${event.uid}`;
-                descriptionDiv.className = 'event-description shift-content-hidden'; // Start hidden & for styling
-                descriptionDiv.style.display = 'none'; // Explicitly hide
-                panelDiv.appendChild(descriptionDiv);
+                // The description div within the panel is no longer needed as content goes to modal
+                // const descriptionDiv = document.createElement('div');
+                // descriptionDiv.id = `event-desc-${event.uid}`;
+                // descriptionDiv.className = 'event-description shift-content-hidden';
+                // descriptionDiv.style.display = 'none';
+                // panelDiv.appendChild(descriptionDiv);
             }
             // Placeholder for event-specific addons (if any)
             // const eventAddonsDiv = document.createElement('div');
