@@ -20,10 +20,29 @@ let state = {
     selectedDateForSummary: null,
     selectedCoversForSummary: null,
     selectedAreaNameForSummary: null,
-    selectedAddonsForContext: null
+    selectedAddonsForContext: null,
+    // Event related state
+    activeEvents: [],
+    selectedEventDetails: null // Stores { uid, name, time, desc, card, etc. } of the selected event
 };
 
 // --- Getter and Setter Functions ---
+
+// Event related getters and setters
+export function getActiveEvents() {
+    return state.activeEvents; // Typically return a copy if mutable: JSON.parse(JSON.stringify(state.activeEvents));
+}
+export function setActiveEvents(events) {
+    state.activeEvents = events;
+}
+
+export function getSelectedEventDetails() {
+    return state.selectedEventDetails; // Return a copy if mutable: state.selectedEventDetails ? JSON.parse(JSON.stringify(state.selectedEventDetails)) : null;
+}
+export function setSelectedEventDetails(eventDetails) {
+    state.selectedEventDetails = eventDetails;
+}
+// End of event related getters and setters
 
 export function getCurrentShiftUsagePolicy() {
     return state.currentShiftUsagePolicy;

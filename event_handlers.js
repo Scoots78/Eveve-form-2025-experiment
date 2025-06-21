@@ -27,8 +27,11 @@ import {
     setSelectedCoversForSummary,
     setSelectedAreaNameForSummary,
     setSelectedAddonsForContext, // Existing import
-    getSelectedAddonsForContext // Added import
+    getSelectedAddonsForContext, // Added import
+    setActiveEvents, // Added for events
+    setSelectedEventDetails // Added for events
 } from './state_manager.js';
+import { eventsB, showEventsFeature } from './event_data.js'; // Added for events
 import {
     displayTimeSlots,
     renderAddons,
@@ -72,6 +75,7 @@ export function toggleTimeSelectionVisibility(coversValueStr) {
 export function handleShiftChangeClearSelection() {
     // 1. Reset selected time and shift name in state
     setCurrentSelectedDecimalTime(null); // This should also clear the shift name in state_manager
+    setSelectedEventDetails(null); // Clear any selected event details
 
     // 2. Update selected time display in summary
     const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
@@ -214,6 +218,8 @@ export async function handleDateOrCoversChange() {
         if (selectedCoversValueSpan) selectedCoversValueSpan.textContent = '-';
         setCurrentShiftUsagePolicy(null);
         setCurrentSelectedDecimalTime(null);
+        setSelectedEventDetails(null); // Clear selected event
+        setActiveEvents([]); // Clear active events
         updateDailyRotaMessage('');
         updateNextBtnUI();
         return;
@@ -225,6 +231,8 @@ export async function handleDateOrCoversChange() {
     updateDailyRotaMessage('');
     resetTimeRelatedUI();
     setCurrentShiftUsagePolicy(null);
+    setSelectedEventDetails(null); // Clear selected event details when date/covers change
+    setActiveEvents([]); // Reset active events before filtering
 
     if (!selectedDateStr || selectedDateStr < getTodayDateString()) {
         const messageKey = !selectedDateStr ? 'errorInvalidInput' : 'errorDateInPast';
@@ -272,13 +280,35 @@ export async function handleDateOrCoversChange() {
         setCurrentAvailabilityData(availabilityData);
         setIsInitialRenderCycle(true);
 
+        // Filter and set active events
+        if (showEventsFeature && eventsB && selectedDateStr) {
+            const selectedDay = new Date(selectedDateStr).getDay(); // 0 for Sunday, 1 for Monday, etc.
+            const filteredEvents = eventsB.filter(event => {
+                if (event.specificDate) {
+                    return event.specificDate === selectedDateStr;
+                }
+                if (typeof event.dayOfWeek === 'number') {
+                    return event.dayOfWeek === selectedDay;
+                }
+                // Add dateRange logic if needed:
+                // if (event.dateRange) {
+                //   return selectedDateStr >= event.dateRange.start && selectedDateStr <= event.dateRange.end;
+                // }
+                return true; // If no specific date/day, assume it's generally available
+            });
+            setActiveEvents(filteredEvents);
+        } else {
+            setActiveEvents([]);
+        }
+
         const currentAvailData = getCurrentAvailabilityData();
         updateDailyRotaMessage(currentAvailData ? currentAvailData.message : '');
 
-        if (currentAvailData) {
-            displayTimeSlots(currentAvailData);
+        // displayTimeSlots will now also need to access activeEvents from state
+        if (currentAvailData || getActiveEvents().length > 0) { // Check if shifts or events to display
+            displayTimeSlots(currentAvailData); // Pass shift data; events will be read from state by displayTimeSlots
         } else {
-            displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times. Please try again.');
+            displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times or events. Please try again.');
             setCurrentShiftUsagePolicy(null);
             updateNextBtnUI();
         }
@@ -286,6 +316,7 @@ export async function handleDateOrCoversChange() {
         console.error('Error during availability fetch/processing in handleDateOrCoversChange:', error);
         displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times. Please try again.');
         setCurrentShiftUsagePolicy(null);
+        setActiveEvents([]);
         updateNextBtnUI();
     }
 }
@@ -348,23 +379,48 @@ export async function handleNextButtonClick() {
     const est = localCurrentEstName;
     const language = (localConfig && localConfig.usrLang) ? localConfig.usrLang.replace(/['"]/g, '') : 'en';
     const numCovers = coversDisplay ? coversDisplay.value : null;
-    const timeToSubmit = getCurrentSelectedDecimalTime();
+    const timeToSubmit = getCurrentSelectedDecimalTime(); // This will be event time if event is selected
+    const selectedEvent = getSelectedEventDetails();
+
     let areaToSubmit = null;
-    if (localConfig.arSelect === "true" && getCurrentSelectedAreaUID() && getCurrentSelectedAreaUID() !== "any") {
-        areaToSubmit = getCurrentSelectedAreaUID();
+    let loadingMessage = `One moment, we're holding your spot at ${localCurrentEstName}...`;
+
+    const holdApiData = {
+        est,
+        lng: language,
+        covers: parseInt(numCovers, 10),
+        date: selectedDate,
+        time: timeToSubmit
+        // Addons will be added later if they exist
+    };
+
+    if (selectedEvent) {
+        holdApiData.eventId = selectedEvent.uid;
+        holdApiData.eventName = selectedEvent.name; // For backend logging or direct use
+        // Area is typically null for events, unless specific event logic dictates otherwise
+        holdApiData.area = null;
+        loadingMessage = `One moment, we're holding your spot for ${selectedEvent.name}...`;
+    } else {
+        // Only set area if it's a shift booking and area selection is active
+        if (localConfig.arSelect === "true" && getCurrentSelectedAreaUID() && getCurrentSelectedAreaUID() !== "any") {
+            areaToSubmit = getCurrentSelectedAreaUID();
+        }
+        holdApiData.area = areaToSubmit;
     }
+
     const addonsString = formatSelectedAddonsForApi(getSelectedAddons());
+    if (addonsString && addonsString.trim() !== "") {
+        holdApiData.addons = addonsString;
+    }
 
     if (!selectedDate || timeToSubmit === null || !numCovers || !est) {
-        console.error("Missing required data for hold call:", { selectedDate, timeToSubmit, numCovers, est, areaToSubmit, addonsString });
+        console.error("Missing required data for hold call:", { selectedDate, timeToSubmit, numCovers, est, event: selectedEvent, area: holdApiData.area, addons: addonsString });
         return;
     }
 
-    const loadingMessage = `One moment, we're holding your spot at ${localCurrentEstName}...`;
     showLoadingOverlay(loadingMessage);
-
-    const holdApiData = { est, lng: language, covers: parseInt(numCovers, 10), date: selectedDate, time: timeToSubmit, area: areaToSubmit };
     console.log("Event Handlers - Hold API Call Data to be sent:", holdApiData);
+
     try {
         const holdResponse = await holdBooking(holdApiData);
         console.log("Event Handlers - Hold API Response:", holdResponse);
@@ -434,211 +490,221 @@ export async function handleNextButtonClick() {
 }
 
 function timeSlotDelegatedListener(event) {
-    const button = event.target.closest('.time-slot-button.time-slot-available');
+    // Target both shift and event time buttons that are available
+    const button = event.target.closest('.time-slot-button.time-slot-available, .event-time-button.time-slot-available');
+
     if (button && !button.disabled) {
         const timeSelectorContainer = document.getElementById('timeSelectorContainer');
         if (timeSelectorContainer) {
-            timeSelectorContainer.querySelectorAll('.time-slot-button').forEach(btn => btn.classList.remove('time-slot-button-selected'));
+            // Clear selection from all potentially selected buttons (shifts or events)
+            timeSelectorContainer.querySelectorAll('.time-slot-button-selected, .event-time-button-selected').forEach(btn => {
+                btn.classList.remove('time-slot-button-selected');
+                btn.classList.remove('event-time-button-selected');
+            });
         }
-        button.classList.add('time-slot-button-selected');
+        // Add the appropriate selection class based on button type
+        const isEventButton = button.classList.contains('event-time-button');
+        button.classList.add(isEventButton ? 'event-time-button-selected' : 'time-slot-button-selected');
 
         const timeValue = parseFloat(button.dataset.time);
-        const shiftUidFromDataset = button.dataset.shiftUid;
-        const shiftNameFromDataset = button.dataset.shiftName;
-        const availabilityData = getCurrentAvailabilityData(); // Keep this for use in auto-switch and later
-        let shiftObject = null;
+        const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
 
-        if (shiftUidFromDataset && shiftUidFromDataset !== 'undefined') {
-            shiftObject = availabilityData?.shifts?.find(s => s && s.uid != null && s.uid.toString() === shiftUidFromDataset);
-        }
+        if (isEventButton) {
+            const eventUid = button.dataset.eventUid;
+            const allActiveEvents = getActiveEvents();
+            const eventObject = allActiveEvents.find(e => e.uid.toString() === eventUid);
 
-        if (!shiftObject && shiftNameFromDataset) {
-            shiftObject = availabilityData?.shifts?.find(s => s && s.name != null && String(s.name).trim() !== '' && s.name === shiftNameFromDataset);
-        }
+            if (eventObject) {
+                setSelectedEventDetails({ ...eventObject, selectedTime: timeValue });
+                setCurrentSelectedDecimalTime(timeValue, null); // Set time, clear shift name
+                setCurrentShiftUsagePolicy(null); // Events might have their own addon policies later
+                resetStateAddons();
+                updateAddonsDisplayUI();
 
-        // --- NEW LOGIC FOR AREA AUTO-SWITCH ---
-        if (shiftObject && button.classList.contains('time-slot-partial-area')) {
-            let newAreaUidToSelect = null;
-            const localConfig = getConfig(); // Needed for localConfig.areaAny
-            const selectedTime = timeValue; // Already parsed
+                if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = formatTime(timeValue);
+                showTimeSelectionSummary(eventObject.name, formatTime(timeValue));
 
-            if (localConfig.areaAny === "true") {
-                const anyAreaRadio = document.getElementById('area-any');
-                if (anyAreaRadio) { // Check if "Any Area" UI element exists
-                    // If a partial button is clicked, "Any Area" becomes a prime candidate
-                    // assuming the time itself is valid for the shift (which it is, as button was clickable)
-                    newAreaUidToSelect = "any";
-                }
-            }
-
-            if (newAreaUidToSelect === null) { // If "Any Area" was not selected (e.g. not configured or UI element missing)
-                if (availabilityData && availabilityData.areas && Array.isArray(availabilityData.areas)) {
-                    for (const area of availabilityData.areas) {
-                        if (area.times && area.times.includes(selectedTime)) {
-                            newAreaUidToSelect = area.uid.toString();
-                            break; // Found the first available specific area
-                        }
-                    }
-                }
-            }
-
-            // If newAreaUidToSelect is still null here, it implies that the time slot marked 'partial'
-            // (meaning it wasn't available in the *previously* selected specific area)
-            // is also not available in "Any Area" (if applicable) and not in any *other* specific area.
-            // This state should ideally not occur if 'partial' is set correctly by displayTimeSlots.
-            // The subsequent area UI update will correctly show no area as available if this happens.
-
-            if (newAreaUidToSelect !== null) {
-                setCurrentSelectedAreaUID(newAreaUidToSelect);
-                // The existing area update logic later in this function will use this new UID.
-            }
-        }
-        // --- END OF NEW LOGIC ---
-
-        if (shiftObject) {
-            const selectedTimeValueSpan = document.getElementById('selectedTimeValue');
-            if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = formatTime(timeValue);
-
-            setCurrentSelectedDecimalTime(timeValue, shiftObject.name);
-            setCurrentShiftUsagePolicy((shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null);
-
-            resetStateAddons();
-            updateAddonsDisplayUI();
-            const coversDisplay = document.getElementById('covers-display');
-            const guestCount = parseInt(coversDisplay.value);
-            updateAllUsage2ButtonStatesUI(guestCount);
-            const currentAreaUID = getCurrentSelectedAreaUID(); // Get current area for addon rendering context
-
-            // addonsDisplayArea is cleared by renderAddons itself.
-            // if (addonsDisplayArea) addonsDisplayArea.innerHTML = ''; // No longer needed here
-
-            if (shiftObject.addons && Array.isArray(shiftObject.addons)) { // Check if addons array exists
-                renderAddons(shiftObject.addons, shiftObject.usage, guestCount, shiftObject.name, currentAreaUID);
-            } else {
-                const addonsDisplayArea = document.getElementById('addonsDisplayArea');
-                const lang = getLanguageStrings();
-                if (addonsDisplayArea) {
-                    addonsDisplayArea.innerHTML = `<p>${lang.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
-                    addonsDisplayArea.style.display = 'block'; // Ensure visible
-                }
-            }
-            updateNextBtnUI();
-
-            const formattedTime = formatTime(timeValue);
-            showTimeSelectionSummary(shiftObject.name, formattedTime);
-
-            const localConfig = getConfig();
-            const localLanguageStrings = getLanguageStrings(); // Get language strings
-            const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
-
-            if (localConfig.arSelect === "true" && areaRadioGroupContainer) {
-                const selectedTime = timeValue; // Already available as timeValue
-                // const availabilityData = getCurrentAvailabilityData(); // Already available
-
-                const allAreaRadioItems = areaRadioGroupContainer.querySelectorAll('.area-radio-item');
-                let areaWasSelectedThisCycle = false; // To track if any radio gets selected
-
-                allAreaRadioItems.forEach(item => {
-                    const radio = item.querySelector('input[type="radio"]');
-                    const messageSpan = item.querySelector('.area-availability-message-span');
-                    if (!radio || !messageSpan) return;
-
-                    let isAvailable = false;
-                    let areaNameForMessage = '';
-
-                    if (radio.value === 'any') {
-                        isAvailable = shiftObject?.times?.includes(selectedTime) ?? false;
-                        areaNameForMessage = localLanguageStrings.anyAreaText || "Any Area";
-                    } else {
-                        const areaUid = radio.value;
-                        const areaObject = availabilityData.areas?.find(a => a.uid.toString() === areaUid);
-                        isAvailable = areaObject?.times?.includes(selectedTime) ?? false;
-                        areaNameForMessage = areaObject?.name || areaUid;
-                    }
-
-                    radio.disabled = !isAvailable;
-                    if (isAvailable) {
-                        messageSpan.textContent = '';
-                        messageSpan.style.display = 'none';
-                    } else {
-                        const msgTemplate = localLanguageStrings.noAvailabilityForAreaAtTime || "No availability for {0} for this time";
-                        messageSpan.textContent = msgTemplate.replace('{0}', areaNameForMessage);
-                        messageSpan.style.display = 'inline';
-                    }
-                });
-
-                // New Default Area Selection Logic
-                let uidToSelect = null;
-                const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
-                const anyAreaRadioElement = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
-                const anyAreaIsEnabled = anyAreaRadioElement && !anyAreaRadioElement.disabled;
-
-                // 1. Preserve Previous Valid Selection:
-                if (currentSelectedAreaFromState) {
-                    const currentRadio = areaRadioGroupContainer.querySelector(`input[name="areaSelection"][value="${currentSelectedAreaFromState}"]`);
-                    if (currentRadio && !currentRadio.disabled) {
-                        uidToSelect = currentSelectedAreaFromState;
-                    }
-                }
-
-                // 2. Default to "Any Area" (if available and no prior valid choice):
-                if (uidToSelect === null && anyAreaIsEnabled) {
-                    uidToSelect = "any";
-                }
-
-                // 3. Fallback to First Available Specific Area (if no prior valid choice and "Any Area" not chosen/available):
-                if (uidToSelect === null) {
-                    // Query all specific radio buttons directly
-                    const specificAreaRadios = areaRadioGroupContainer.querySelectorAll('input[name="areaSelection"]:not([value="any"])');
-                    for (const specificRadio of specificAreaRadios) {
-                        if (!specificRadio.disabled) {
-                            uidToSelect = specificRadio.value;
-                            break;
-                        }
-                    }
-                }
-                // Step 4 (No selection) is implicit if uidToSelect remains null.
-
-                // Apply Selection and Update Summary Display (this part remains mostly the same)
-                let selectedLabelText = null;
-                allAreaRadioItems.forEach(item => {
-                    const radio = item.querySelector('input[type="radio"]');
-                    if (radio) {
-                        radio.checked = (radio.value === uidToSelect);
-                        if (radio.checked) {
-                            areaWasSelectedThisCycle = true;
-                            const label = item.querySelector('label');
-                            selectedLabelText = label ? label.textContent : radio.value; // Fallback to value if label missing
-                        }
-                    }
-                });
-
-                setCurrentSelectedAreaUID(uidToSelect); // Update state with the final selection
-
-                if (areaWasSelectedThisCycle && selectedLabelText) {
-                    // Remove message from label if it was part of it (it's now in its own span)
-                    const mainLabelText = selectedLabelText.split(" (")[0]; // Get text before any potential old message
-                    updateSelectedAreaDisplay(mainLabelText);
-                } else {
-                    updateSelectedAreaDisplay(localLanguageStrings.noAreaAvailableForTimeSlot || "No areas available for this time.");
-                }
-
-                showAreaSelector(); // Show the updated area selector
-            } else if (localConfig.arSelect !== "true") {
-                // If area selection is not active, ensure area specific things are cleared from state/UI
+                hideAreaSelector();
                 setCurrentSelectedAreaUID(null);
                 updateSelectedAreaDisplay(null);
-                hideAreaSelector(); // Ensure it's hidden
+
+                const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+                if (addonsDisplayArea) {
+                    addonsDisplayArea.innerHTML = '';
+                    addonsDisplayArea.style.display = 'none';
+                }
+            } else {
+                console.error(`Event object not found for UID: ${eventUid} in active events list.`);
+                updateNextBtnUI(); // Update button state even on error
+                return;
+            }
+        } else { // It's a shift button
+            setSelectedEventDetails(null); // Clear any selected event
+
+            const shiftUidFromDataset = button.dataset.shiftUid;
+            const shiftNameFromDataset = button.dataset.shiftName;
+            const availabilityData = getCurrentAvailabilityData();
+            let shiftObject = null;
+
+            if (shiftUidFromDataset && shiftUidFromDataset !== 'undefined') {
+                shiftObject = availabilityData?.shifts?.find(s => s && s.uid != null && s.uid.toString() === shiftUidFromDataset);
+            }
+            if (!shiftObject && shiftNameFromDataset) {
+                shiftObject = availabilityData?.shifts?.find(s => s && s.name != null && String(s.name).trim() !== '' && s.name === shiftNameFromDataset);
             }
 
+            // --- EXISTING SHIFT AREA AUTO-SWITCH LOGIC ---
+            if (shiftObject && button.classList.contains('time-slot-partial-area')) {
+                let newAreaUidToSelect = null;
+                const localConfig = getConfig();
+                const selectedTime = timeValue;
 
-        } else {
-            console.warn(`Shift object not found for time slot button. Attempted UID: ${shiftUidFromDataset}, Attempted Name: ${shiftNameFromDataset}`, button);
-            // If shift object not found, perhaps hide area selector and clear relevant state
-            hideAreaSelector();
-            setCurrentSelectedAreaUID(null);
-            updateSelectedAreaDisplay(null);
+                if (localConfig.areaAny === "true") {
+                    const anyAreaRadio = document.getElementById('area-any');
+                    if (anyAreaRadio) {
+                        newAreaUidToSelect = "any";
+                    }
+                }
+
+                if (newAreaUidToSelect === null) {
+                    if (availabilityData && availabilityData.areas && Array.isArray(availabilityData.areas)) {
+                        for (const area of availabilityData.areas) {
+                            if (area.times && area.times.includes(selectedTime)) {
+                                newAreaUidToSelect = area.uid.toString();
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (newAreaUidToSelect !== null) {
+                    setCurrentSelectedAreaUID(newAreaUidToSelect);
+                }
+            }
+            // --- END OF EXISTING SHIFT AREA AUTO-SWITCH LOGIC ---
+
+            if (shiftObject) {
+                if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = formatTime(timeValue);
+                setCurrentSelectedDecimalTime(timeValue, shiftObject.name);
+                setCurrentShiftUsagePolicy((shiftObject && typeof shiftObject.usage !== 'undefined') ? shiftObject.usage : null);
+                resetStateAddons();
+                updateAddonsDisplayUI();
+                const coversDisplay = document.getElementById('covers-display');
+                const guestCount = parseInt(coversDisplay.value);
+                updateAllUsage2ButtonStatesUI(guestCount);
+                const currentAreaUID = getCurrentSelectedAreaUID();
+
+                if (shiftObject.addons && Array.isArray(shiftObject.addons)) {
+                    renderAddons(shiftObject.addons, shiftObject.usage, guestCount, shiftObject.name, currentAreaUID);
+                } else {
+                    const addonsDisplayArea = document.getElementById('addonsDisplayArea');
+                    const lang = getLanguageStrings();
+                    if (addonsDisplayArea) {
+                        addonsDisplayArea.innerHTML = `<p>${lang.noAddonsAvailableTime || 'No addons available for this time.'}</p>`;
+                        addonsDisplayArea.style.display = 'block';
+                    }
+                }
+                showTimeSelectionSummary(shiftObject.name, formatTime(timeValue));
+
+                const localConfig = getConfig();
+                const localLanguageStrings = getLanguageStrings();
+                const areaRadioGroupContainer = document.getElementById('areaRadioGroupContainer');
+
+                if (localConfig.arSelect === "true" && areaRadioGroupContainer) {
+                    const selectedTime = timeValue;
+                    const allAreaRadioItems = areaRadioGroupContainer.querySelectorAll('.area-radio-item');
+                    let areaWasSelectedThisCycle = false;
+
+                    allAreaRadioItems.forEach(item => {
+                        const radio = item.querySelector('input[type="radio"]');
+                        const messageSpan = item.querySelector('.area-availability-message-span');
+                        if (!radio || !messageSpan) return;
+
+                        let isAvailable = false;
+                        let areaNameForMessage = '';
+
+                        if (radio.value === 'any') {
+                            isAvailable = shiftObject?.times?.includes(selectedTime) ?? false;
+                            areaNameForMessage = localLanguageStrings.anyAreaText || "Any Area";
+                        } else {
+                            const areaUidRadio = radio.value; // Renamed to avoid conflict with outer scope areaUid
+                            const areaObject = availabilityData.areas?.find(a => a.uid.toString() === areaUidRadio);
+                            isAvailable = areaObject?.times?.includes(selectedTime) ?? false;
+                            areaNameForMessage = areaObject?.name || areaUidRadio;
+                        }
+
+                        radio.disabled = !isAvailable;
+                        if (isAvailable) {
+                            messageSpan.textContent = '';
+                            messageSpan.style.display = 'none';
+                        } else {
+                            const msgTemplate = localLanguageStrings.noAvailabilityForAreaAtTime || "No availability for {0} for this time";
+                            messageSpan.textContent = msgTemplate.replace('{0}', areaNameForMessage);
+                            messageSpan.style.display = 'inline';
+                        }
+                    });
+
+                    let uidToSelect = null;
+                    const currentSelectedAreaFromState = getCurrentSelectedAreaUID();
+                    const anyAreaRadioElement = areaRadioGroupContainer.querySelector('input[name="areaSelection"][value="any"]');
+                    const anyAreaIsEnabled = anyAreaRadioElement && !anyAreaRadioElement.disabled;
+
+                    if (currentSelectedAreaFromState) {
+                        const currentRadio = areaRadioGroupContainer.querySelector(`input[name="areaSelection"][value="${currentSelectedAreaFromState}"]`);
+                        if (currentRadio && !currentRadio.disabled) {
+                            uidToSelect = currentSelectedAreaFromState;
+                        }
+                    }
+
+                    if (uidToSelect === null && anyAreaIsEnabled) {
+                        uidToSelect = "any";
+                    }
+
+                    if (uidToSelect === null) {
+                        const specificAreaRadios = areaRadioGroupContainer.querySelectorAll('input[name="areaSelection"]:not([value="any"])');
+                        for (const specificRadio of specificAreaRadios) {
+                            if (!specificRadio.disabled) {
+                                uidToSelect = specificRadio.value;
+                                break;
+                            }
+                        }
+                    }
+
+                    let selectedLabelText = null;
+                    allAreaRadioItems.forEach(item => {
+                        const radio = item.querySelector('input[type="radio"]');
+                        if (radio) {
+                            radio.checked = (radio.value === uidToSelect);
+                            if (radio.checked) {
+                                areaWasSelectedThisCycle = true;
+                                const label = item.querySelector('label');
+                                selectedLabelText = label ? label.textContent : radio.value;
+                            }
+                        }
+                    });
+
+                    setCurrentSelectedAreaUID(uidToSelect);
+
+                    if (areaWasSelectedThisCycle && selectedLabelText) {
+                        const mainLabelText = selectedLabelText.split(" (")[0];
+                        updateSelectedAreaDisplay(mainLabelText);
+                    } else {
+                        updateSelectedAreaDisplay(localLanguageStrings.noAreaAvailableForTimeSlot || "No areas available for this time.");
+                    }
+
+                    showAreaSelector();
+                } else if (localConfig.arSelect !== "true") {
+                    setCurrentSelectedAreaUID(null);
+                    updateSelectedAreaDisplay(null);
+                    hideAreaSelector();
+                }
+            } else {
+                console.warn(`Shift object not found for time slot button. Attempted UID: ${shiftUidFromDataset}, Attempted Name: ${shiftNameFromDataset}`, button);
+                hideAreaSelector();
+                setCurrentSelectedAreaUID(null);
+                updateSelectedAreaDisplay(null);
+            }
         }
+        updateNextBtnUI(); // Update next button state for both event and shift selections
     }
 }
 
