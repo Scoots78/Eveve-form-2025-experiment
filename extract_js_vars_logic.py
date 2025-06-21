@@ -89,7 +89,8 @@ def _extract_single_variable(script_content: str, var_name: str) -> str | None:
     # \s*=\s*              - Matches '=' surrounded by optional whitespace.
     # ([\s\S]+?)           - Capturing group 1: Matches any character (non-greedy). This is the value.
     # ;                    - Matches the terminating semicolon.
-    regex_str = r"(?:var|let|const)\s+" + re.escape(var_name) + r"\s*=\s*([\s\S]+?);"
+    # Made (?:var|let|const)\s+ optional to catch assignments like `variableName = value;`
+    regex_str = r"(?:(?:var|let|const)\s+)?" + re.escape(var_name) + r"\s*=\s*([\s\S]+?);"
     match = re.search(regex_str, script_content)
     
     if match:
