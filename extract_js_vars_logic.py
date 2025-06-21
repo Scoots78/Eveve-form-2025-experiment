@@ -2,6 +2,7 @@
 import re
 import requests
 import json # Though not directly used for output in this module, good to keep if any internal debugging needs it.
+import os # Added for path operations
 
 # Global list of variables to extract
 VARIABLES_TO_EXTRACT = [
@@ -146,7 +147,23 @@ def get_config_for_establishment(est_name: str) -> dict | None:
                 variables_dict["currSym"] = "$"  # Store as a clean '$'
 
     # print(f"Extracted {len(variables_dict)} variables for {est_name}.", flush=True) # Optional logging
-    
+
+    if not variables_dict:
+        print(f"WARNING: No variables extracted for {est_name} from {target_url}.", flush=True)
+        try:
+            debug_dir = "debug_config_fetch"
+            os.makedirs(debug_dir, exist_ok=True)
+            if html_content:
+                with open(os.path.join(debug_dir, f"{est_name}_fetched.html"), "w", encoding="utf-8") as f_html:
+                    f_html.write(html_content)
+                print(f"Saved fetched HTML for {est_name} to {debug_dir}/{est_name}_fetched.html", flush=True)
+            if script_tag_content:
+                with open(os.path.join(debug_dir, f"{est_name}_extracted_script.js"), "w", encoding="utf-8") as f_script:
+                    f_script.write(script_tag_content)
+                print(f"Saved extracted script for {est_name} to {debug_dir}/{est_name}_extracted_script.js", flush=True)
+        except Exception as e:
+            print(f"Error while saving debug files for {est_name}: {e}", flush=True)
+
     return variables_dict
 
 # Example usage (for testing this module directly, not for Flask app)

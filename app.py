@@ -24,8 +24,29 @@ def get_config_api():
     
     if not config_data: # Checks if the dictionary is empty
         # This means HTML/script was fetched, but no variables from our list were found
-        print(f"API: No variables extracted for {est_name}. Check external source structure or content.", flush=True)
-        return jsonify({"error": "No variables extracted, check external source structure or content"}), 404
+        print(f"API WARNING: No variables extracted for {est_name} from its source. Providing default fallback configuration.", flush=True)
+        # Provide a minimal, default configuration
+        default_config = {
+            "estName": f"{est_name} (Default Config)",
+            "currSym": "$",
+            "country": "NZ", # Assuming NZ as a default if not specified
+            "lng": "{'errorGeneric': 'Default config: Language data not found.'}", # Basic language string
+            "allShifts": "[]", # Empty shifts array
+            "partyMin": "1",
+            "partyMax": "10",
+            "horizon": "90", # Default booking horizon
+            "timeStep": "30",
+            "arSelect": "false",
+            "showEvents": "false", # Disable events if main config fails
+            "eventsB": "[]",
+            # Add other critical keys with sensible defaults if the frontend expects them
+            # For example, if `config.usrLang` is critical in main.js or elsewhere before full parsing.
+            "usrLang": "'en'", # Default language
+            "minGuests": "1" # Default minimum guests for booking_page.js
+        }
+        # Log that we are returning a default config
+        print(f"API: For {est_name}, returning a minimal default configuration due to extraction failure.", flush=True)
+        return jsonify(default_config), 200 # Return 200 OK with defaults
         
     print(f"API: Successfully retrieved {len(config_data)} variables for {est_name}.", flush=True)
     return jsonify(config_data)
