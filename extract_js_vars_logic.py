@@ -53,19 +53,27 @@ def extract_script_tag_content(html_content: str) -> str | None:
     if not html_content:
         return None
 
-    # Pattern 1: Look for a script tag containing 'var estName ='.
-    match = re.search(r"<script[^>]*>([\s\S]*?var\s+estName\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
+    # Pattern 1: Look for a script tag containing 'const allShifts ='. This is often a large, unique array.
+    # This regex tries to capture the entire script content from its beginning up to the end of the allShifts array and beyond to </script>.
+    match = re.search(r"<script[^>]*>([\s\S]*?const\s+allShifts\s*=\s*\[[\s\S]*?\];[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
-        # print("Found script block using 'var estName' pattern.", flush=True) # Optional: for server-side logging
+        # print("Found script block using 'const allShifts' pattern.", flush=True)
         return match.group(1)
 
-    # Pattern 2: Look for a script tag containing 'var dapi ='.
+    # Pattern 2: Look for a script tag containing 'var estName ='. (Original Pattern 1)
+    # This is a fallback if allShifts isn't found in the expected structure.
+    match = re.search(r"<script[^>]*>([\s\S]*?var\s+estName\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
+    if match:
+        # print("Found script block using 'var estName' pattern.", flush=True)
+        return match.group(1)
+
+    # Pattern 3: Look for a script tag containing 'var dapi ='. (Original Pattern 2)
     match = re.search(r"<script[^>]*>([\s\S]*?var\s+dapi\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
-        # print("Found script block using 'var dapi' pattern.", flush=True) # Optional: for server-side logging
+        # print("Found script block using 'var dapi' pattern.", flush=True)
         return match.group(1)
     
-    # Pattern 3: Fallback to a general pattern for inline scripts (no 'src' attribute).
+    # Pattern 4: Fallback to a general pattern for inline scripts (no 'src' attribute). (Original Pattern 3)
     match = re.search(r"<script(?![^>]*src=)[^>]*>([\s\S]+?)<\/script>", html_content, re.DOTALL)
     if match:
         # print("Found script block using general inline script pattern (no src attribute).", flush=True) # Optional
