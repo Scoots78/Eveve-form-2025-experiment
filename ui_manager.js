@@ -18,9 +18,10 @@ import {
     getSelectedAreaNameForSummary,
     getSelectedAddonsForContext,  // Added
     // setCurrentSelectedAreaUID // Removed import
-    getActiveEvents, // Added for events
+    // getActiveEvents, // Removed: No longer using separate activeEvents from state for display
     getSelectedEventDetails // Added for events
 } from './state_manager.js';
+import { getEventsB } from './config_manager.js'; // Added for fetching canonical event details
 import { getSelectedRadioValue, formatTime } from './dom_utils.js';
 import { handleShiftChangeClearSelection } from './event_handlers.js'; // Added import
 // import { eventsB } from './event_data.js'; // Not strictly needed if getActiveEvents returns full objects
@@ -92,19 +93,15 @@ export function showTimeSelectionSummary(shiftName, timeValueFormatted) {
 function handleSummaryLabelClick() {
     showTimeSelectionAccordion();
     const selectedEvent = getSelectedEventDetails();
-    const currentAvailData = getCurrentAvailabilityData(); // For shifts
-    const activeEvents = getActiveEvents(); // For events
+    const currentAvailData = getCurrentAvailabilityData(); // This contains .shifts array which includes events
 
-    // Determine if we need to re-render based on either shifts or events being present
-    // and a time previously selected (either shift or event)
     const timeIsSelected = getCurrentSelectedDecimalTime() !== null || (selectedEvent && selectedEvent.time !== null);
 
-    if (currentAvailData || (activeEvents && activeEvents.length > 0)) {
-        // displayTimeSlots now handles both shifts (via currentAvailData)
-        // and events (by fetching from getActiveEvents() internally)
+    // currentAvailData.shifts is the unified list.
+    if (currentAvailData && currentAvailData.shifts && currentAvailData.shifts.length > 0) {
         displayTimeSlots(currentAvailData, timeIsSelected);
     } else {
-        console.warn("No current availability/event data to re-display slots on summary click. Forcing full refresh.");
+        console.warn("No current availability data (shifts/events) to re-display slots on summary click. Forcing full refresh.");
         if (window.handleCoversChangeGlobal) {
             window.handleCoversChangeGlobal(); // This should re-fetch and then call displayTimeSlots
         }
@@ -739,20 +736,23 @@ export function showEventDescriptionModal(eventUid) {
     const modalDescriptionArea = document.getElementById('modalDescriptionArea');
 
     if (!modalOverlay || !modalDescriptionArea || !modalTitleEl) {
-        console.error('Modal elements not found in showEventDescriptionModal.');
+        console.error('Modal elements not found for event description.');
         return;
     }
 
-    const allActiveEvents = getActiveEvents();
-    const eventObject = allActiveEvents.find(e => e.uid.toString() === eventUid.toString());
+    // Fetch the canonical event details from config_manager
+    const allPossibleEvents = getEventsB(); // From config_manager
+    const canonicalEventObject = allPossibleEvents.find(e => e.uid.toString() === eventUid.toString());
 
-    if (eventObject && eventObject.desc) {
-        modalTitleEl.textContent = eventObject.name || 'Event Details'; // Set modal title to event name
-        modalDescriptionArea.innerHTML = eventObject.desc;
-        modalOverlay.style.display = 'flex'; // Show the modal overlay (which contains the modal)
+    if (canonicalEventObject) {
+        modalTitleEl.textContent = canonicalEventObject.name || 'Event Details';
+        modalDescriptionArea.innerHTML = canonicalEventObject.desc || '<p>No description available.</p>';
+        modalOverlay.style.display = 'flex';
     } else {
-        console.error(`Event object or description not found for UID: ${eventUid}`);
-        // Optionally show a generic error in the modal
+        // Fallback if event details are not in config.eventsB (should ideally not happen if UIDs are consistent)
+        // Or if the event item from API had the description directly (as per API example)
+        // For now, let's assume we always fetch from config.eventsB for the modal.
+        console.error(`Canonical event details not found for UID: ${eventUid} in config.eventsB.`);
         modalTitleEl.textContent = 'Error';
         modalDescriptionArea.innerHTML = '<p>Event details could not be loaded.</p>';
         modalOverlay.style.display = 'flex';
@@ -927,65 +927,98 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
          areaRadioGroupContainer.innerHTML = '';
     }
 
-    const allShifts = availabilityData ? availabilityData.shifts : []; // Handle null availabilityData
-    const activeEvents = getActiveEvents();
+    const itemsToDisplay = availabilityData ? availabilityData.shifts : []; // API's shifts array is the source
+    const canonicalEventsList = getEventsB(); // Full event definitions from config
     let foundAnySlotsToShowOverall = false;
 
-    // --- Render Shifts ---
-    if (allShifts && Array.isArray(allShifts) && allShifts.length > 0) {
-        const currentAreaUID = getCurrentSelectedAreaUID();
-        if (localConfig.arSelect === "true" && currentAreaUID && currentAreaUID !== "any") {
-            // ... (existing shift rendering logic for specific area)
-            const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUID);
-            if (!selectedAreaObject) {
-                console.error(`Selected area UID ${currentAreaUID} not found in availabilityData.areas.`);
-                // timeSelectorContainer.innerHTML already cleared, maybe add a specific message for this error
-            } else {
-                const selectedAreaGeneralTimes = selectedAreaObject.times;
-                if (!selectedAreaGeneralTimes || selectedAreaGeneralTimes.length === 0) {
-                    if (areaAvailabilityMessage) {
-                         areaAvailabilityMessage.textContent = (localLanguageStrings.noTimesForArea || "This area has no available times on this date.").replace('{areaName}', selectedAreaObject.name);
-                         areaAvailabilityMessage.style.display = 'block';
-                    }
-                    // timeSelectorContainer.innerHTML = ''; // Already cleared
-                } else {
-                    allShifts.forEach(shift => {
-                        if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
+    if (!itemsToDisplay || itemsToDisplay.length === 0) {
+        timeSelectorContainer.innerHTML = `<p class="no-times-message">${localLanguageStrings.noTimesAvailable || 'No time slots or events available.'}</p>`;
+    } else {
+        itemsToDisplay.forEach(item => {
+            const isEvent = item.type === "Event" && item.uid;
+            let panelDiv;
 
-                        // Check if this shift is actually an event that will be rendered by the activeEvents loop
-                        const isShiftAlsoAnActiveEvent = activeEvents.some(activeEvent =>
-                            shift.uid && activeEvent.uid && shift.uid.toString() === activeEvent.uid.toString()
-                        );
-                        if (isShiftAlsoAnActiveEvent) {
-                            return; // Skip rendering this as a shift, it will be rendered as an event
-                        }
+            if (isEvent) {
+                // Ensure the event has times available for the day from the API response
+                if (!item.times || item.times.length === 0) {
+                    return; // Skip rendering this event if no times are available for it today
+                }
 
-                        const currentShiftSessionTimes = shift.times;
-                        const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
-                            areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
-                        );
-                        if (actualBookableTimesForShiftInArea.length > 0) {
-                            const panelDiv = document.createElement('div');
+                panelDiv = document.createElement('div');
+                panelDiv.className = 'shift-accordion-panel event-accordion-panel';
+                const eventTitle = document.createElement('h3');
+                eventTitle.textContent = item.name; // Name from API
+                eventTitle.dataset.panelType = 'event';
+                panelDiv.appendChild(eventTitle);
+
+                const eventButtonContainer = document.createElement('div');
+                eventButtonContainer.className = 'shift-times-wrapper event-times-wrapper shift-content-hidden';
+
+                item.times.forEach(timeVal => { // Use times from API item
+                    // Pass the API 'item' as the event object to createEventTimeButton
+                    // as it contains uid and name. The full desc will be fetched by modal.
+                    const button = createEventTimeButton(item, timeVal);
+                    eventButtonContainer.appendChild(button);
+                    foundAnySlotsToShowOverall = true;
+                });
+                panelDiv.appendChild(eventButtonContainer);
+
+                // "Show More" link for description
+                // The description itself for the modal will be fetched from canonicalEventsList using item.uid
+                // The API item's 'description' field could be a summary, but modal should show canonical.
+                const canonicalEvent = canonicalEventsList.find(e => e.uid.toString() === item.uid.toString());
+                if (canonicalEvent && canonicalEvent.desc) { // Check if canonical event has a description
+                    const showMoreLink = document.createElement('a');
+                    showMoreLink.href = '#';
+                    showMoreLink.id = `event-show-more-${item.uid}`;
+                    showMoreLink.className = 'event-show-more-link shift-content-hidden';
+                    showMoreLink.textContent = localLanguageStrings.showMoreLink || 'Show More...';
+                    showMoreLink.dataset.eventUid = item.uid;
+                    showMoreLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        showEventDescriptionModal(item.uid);
+                    });
+                    panelDiv.appendChild(showMoreLink);
+                }
+                timeSelectorContainer.appendChild(panelDiv);
+
+            } else { // It's a regular shift
+                // --- Shift Rendering Logic (adapted from previous structure) ---
+                const shift = item; // For clarity, rename item to shift
+                const currentAreaUID = getCurrentSelectedAreaUID(); // Need this for area-specific logic
+
+                if (localConfig.arSelect === "true" && currentAreaUID && currentAreaUID !== "any") {
+                    const selectedAreaObject = availabilityData.areas?.find(a => a.uid.toString() === currentAreaUID);
+                    if (selectedAreaObject) {
+                        const selectedAreaGeneralTimes = selectedAreaObject.times;
+                        if (selectedAreaGeneralTimes && selectedAreaGeneralTimes.length > 0) {
+                            const currentShiftSessionTimes = shift.hours || shift.times; // API uses 'hours' or 'times'
+                            const actualBookableTimesForShiftInArea = selectedAreaGeneralTimes.filter(
+                                areaTime => currentShiftSessionTimes && currentShiftSessionTimes.includes(areaTime) && areaTime >= 0
+                            );
+                            if (actualBookableTimesForShiftInArea.length === 0 && (!shift.times || shift.times.length === 0)) {
+                                return; // Skip if no bookable times in this area for this shift
+                            }
+                            // Proceed to build shift panel (panelDiv, shiftTitle, etc.)
+                            // This part reuses the existing detailed shift rendering logic
+                            panelDiv = document.createElement('div');
                             panelDiv.className = 'shift-accordion-panel';
                             const shiftTitle = document.createElement('h3');
                             shiftTitle.textContent = shift.name;
                             panelDiv.appendChild(shiftTitle);
-                            if (shift.message && shift.message.trim() !== '') {
+                            if (shift.message && shift.message.trim() !== '') { /* ... add shift message ... */
                                 const shiftMessageDiv = document.createElement('div');
-                                shiftMessageDiv.className = 'api-message shift-message shift-content-hidden'; // Start hidden
+                                shiftMessageDiv.className = 'api-message shift-message shift-content-hidden';
                                 shiftMessageDiv.textContent = shift.message;
                                 panelDiv.appendChild(shiftMessageDiv);
                             }
                             const shiftButtonContainer = document.createElement('div');
-                            shiftButtonContainer.className = 'shift-times-wrapper shift-content-hidden'; // Start hidden
-                            currentShiftSessionTimes.forEach(timeValueFromShift => {
+                            shiftButtonContainer.className = 'shift-times-wrapper shift-content-hidden';
+                            (currentShiftSessionTimes || []).forEach(timeValueFromShift => {
                                 if (timeValueFromShift < 0 && !getShowUnavailableSlots()) return;
                                 let status = 'full';
-                                if (timeValueFromShift < 0) {
-                                    status = 'unavailable';
-                                } else if (!actualBookableTimesForShiftInArea.includes(timeValueFromShift)) {
-                                    status = 'partial';
-                                }
+                                if (timeValueFromShift < 0) status = 'unavailable';
+                                else if (!actualBookableTimesForShiftInArea.includes(timeValueFromShift)) status = 'partial';
                                 const button = createTimeSlotButton(timeValueFromShift, shift, status);
                                 if (button) {
                                     shiftButtonContainer.appendChild(button);
@@ -993,50 +1026,33 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                                 }
                             });
                             panelDiv.appendChild(shiftButtonContainer);
-                            // Per-Shift Legend Logic (for specific area selected context)
-                            // ... (rest of the legend logic as it was)
+                             // ... (legend logic) ...
                             const shiftLegendDiv = document.createElement('div');
                             shiftLegendDiv.className = 'shift-availability-legend';
                             shiftLegendDiv.style.display = 'none';
+                            // ... (populate legend based on partialSlotsInThisShiftCount) ...
                             panelDiv.appendChild(shiftLegendDiv);
-                            let partialSlotsInThisShiftCount = 0;
-                            shiftButtonContainer.querySelectorAll('.time-slot-button.time-slot-partial-area').forEach(() => partialSlotsInThisShiftCount++);
-                            if (partialSlotsInThisShiftCount > 0) {
-                                // ... (legend items as before)
-                                shiftLegendDiv.style.display = 'block';
-                            }
                             timeSelectorContainer.appendChild(panelDiv);
-                        }
-                    });
-                }
-            }
-        } else { // "Any Area" selected or no area selection mode for SHIFTS
-            allShifts.forEach(shift => {
-                if (!shift || typeof shift.name !== 'string') { console.warn("Invalid shift object:", shift); return; }
-
-                // Check if this shift is actually an event that will be rendered by the activeEvents loop
-                const isShiftAlsoAnActiveEvent = activeEvents.some(activeEvent =>
-                    shift.uid && activeEvent.uid && shift.uid.toString() === activeEvent.uid.toString()
-                );
-                if (isShiftAlsoAnActiveEvent) {
-                    return; // Skip rendering this as a shift, it will be rendered as an event
-                }
-
-                const displayableTimes = shift.times ? shift.times.filter(timeValue => timeValue >= 0 || getShowUnavailableSlots()) : [];
-                if (displayableTimes.length > 0) {
-                    const panelDiv = document.createElement('div');
+                        } else { return; /* No times for this shift in this area */ }
+                    } else { return; /* Selected area object not found */ }
+                } else { // "Any Area" or no area selection for this shift
+                    const displayableTimes = (shift.times || shift.hours || []).filter(timeValue => timeValue >= 0 || getShowUnavailableSlots());
+                    if (displayableTimes.length === 0) {
+                        return; // Skip if no displayable times
+                    }
+                    panelDiv = document.createElement('div');
                     panelDiv.className = 'shift-accordion-panel';
                     const shiftTitle = document.createElement('h3');
                     shiftTitle.textContent = shift.name;
                     panelDiv.appendChild(shiftTitle);
-                    if (shift.message && shift.message.trim() !== '') {
+                     if (shift.message && shift.message.trim() !== '') { /* ... add shift message ... */
                         const shiftMessageDiv = document.createElement('div');
-                        shiftMessageDiv.className = 'api-message shift-message shift-content-hidden'; // Start hidden
+                        shiftMessageDiv.className = 'api-message shift-message shift-content-hidden';
                         shiftMessageDiv.textContent = shift.message;
                         panelDiv.appendChild(shiftMessageDiv);
-                    }
+                     }
                     const shiftButtonContainer = document.createElement('div');
-                    shiftButtonContainer.className = 'shift-times-wrapper shift-content-hidden'; // Start hidden
+                    shiftButtonContainer.className = 'shift-times-wrapper shift-content-hidden';
                     displayableTimes.forEach(timeValue => {
                         let status = (timeValue < 0) ? 'unavailable' : 'full';
                         const button = createTimeSlotButton(timeValue, shift, status);
@@ -1046,89 +1062,19 @@ export function displayTimeSlots(availabilityData, preserveAddons = false) {
                         }
                     });
                     panelDiv.appendChild(shiftButtonContainer);
-                    // Per-Shift Legend Logic (for "Any Area" or no area selection context)
-                    // ... (rest of the legend logic as it was)
+                    // ... (legend logic for "any area") ...
                     const shiftLegendDiv = document.createElement('div');
                     shiftLegendDiv.className = 'shift-availability-legend';
                     shiftLegendDiv.style.display = 'none';
+                    // ... (populate legend) ...
                     panelDiv.appendChild(shiftLegendDiv);
-                    let partialSlotsInThisShiftCount = 0;
-                    shiftButtonContainer.querySelectorAll('.time-slot-button.time-slot-partial-area').forEach(() => partialSlotsInThisShiftCount++);
-                    if (partialSlotsInThisShiftCount > 0) {
-                        // ... (legend items as before)
-                        shiftLegendDiv.style.display = 'block';
-                    }
                     timeSelectorContainer.appendChild(panelDiv);
                 }
-            });
-        }
-    }
-    // --- End of Render Shifts ---
-
-    // --- Render Events ---
-    if (activeEvents && activeEvents.length > 0) {
-        activeEvents.forEach(event => {
-            const panelDiv = document.createElement('div');
-            // Use a distinct class or add to existing if styling is shared
-            panelDiv.className = 'shift-accordion-panel event-accordion-panel';
-            const eventTitle = document.createElement('h3');
-            eventTitle.textContent = event.name;
-            eventTitle.dataset.panelType = 'event'; // Differentiate for accordion logic
-            panelDiv.appendChild(eventTitle);
-
-            const eventButtonContainer = document.createElement('div');
-            eventButtonContainer.className = 'shift-times-wrapper event-times-wrapper shift-content-hidden'; // Start hidden
-
-            // Create time buttons for the event
-            // Assuming event.early and event.late are decimal times
-            if (typeof event.early === 'number') {
-                const earlyButton = createEventTimeButton(event, event.early);
-                eventButtonContainer.appendChild(earlyButton);
-                foundAnySlotsToShowOverall = true;
             }
-            if (typeof event.late === 'number' && event.late !== event.early) {
-                const lateButton = createEventTimeButton(event, event.late);
-                eventButtonContainer.appendChild(lateButton);
-                foundAnySlotsToShowOverall = true; // Should already be true if early was added
-            }
-            // If no times, maybe show a message or don't render the event.
-            // For now, assuming valid events have at least 'early' time.
-            panelDiv.appendChild(eventButtonContainer);
-
-            // "Show More" link for description
-            if (event.desc) {
-                const showMoreLink = document.createElement('a');
-                showMoreLink.href = '#';
-                showMoreLink.id = `event-show-more-${event.uid}`;
-                showMoreLink.className = 'event-show-more-link shift-content-hidden'; // Start hidden
-                showMoreLink.textContent = localLanguageStrings.showMoreLink || 'Show More...'; // Text can remain "Show More..."
-                showMoreLink.dataset.eventUid = event.uid;
-                showMoreLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    showEventDescriptionModal(event.uid); // Call new modal function
-                });
-                panelDiv.appendChild(showMoreLink);
-
-                // The description div within the panel is no longer needed as content goes to modal
-                // const descriptionDiv = document.createElement('div');
-                // descriptionDiv.id = `event-desc-${event.uid}`;
-                // descriptionDiv.className = 'event-description shift-content-hidden';
-                // descriptionDiv.style.display = 'none';
-                // panelDiv.appendChild(descriptionDiv);
-            }
-            // Placeholder for event-specific addons (if any)
-            // const eventAddonsDiv = document.createElement('div');
-            // eventAddonsDiv.id = `event-addons-${event.uid}`;
-            // eventAddonsDiv.className = 'event-addons-wrapper shift-content-hidden';
-            // panelDiv.appendChild(eventAddonsDiv);
-
-            timeSelectorContainer.appendChild(panelDiv);
         });
     }
-    // --- End of Render Events ---
 
-
-    if (!foundAnySlotsToShowOverall && (!allShifts || allShifts.length === 0) && (!activeEvents || activeEvents.length === 0) ) {
+    if (!foundAnySlotsToShowOverall) { // Adjusted condition
         timeSelectorContainer.innerHTML = `<p class="no-times-message">${localLanguageStrings.noTimesAvailable || 'No time slots or events available.'}</p>`;
         if (localConfig.arSelect === "true" && getCurrentSelectedAreaUID() && getCurrentSelectedAreaUID() !== "any" && areaAvailabilityMessage) {
              areaAvailabilityMessage.textContent = localLanguageStrings.noTimesForArea || "This area is not available at this time. Please choose another area.";

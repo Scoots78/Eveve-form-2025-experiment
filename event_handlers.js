@@ -281,42 +281,21 @@ export async function handleDateOrCoversChange() {
         setCurrentAvailabilityData(availabilityData);
         setIsInitialRenderCycle(true);
 
-        // Filter and set active events
-        const showEvents = getShowEventsFlag();
-        const allEvents = getEventsB();
+        // The API response (availabilityData.shifts) is now the source of truth for what to display.
+        // No need to separately filter/set activeEvents from config.eventsB here for display purposes.
+        // setActiveEvents([]) was already called during resetTimeRelatedUI or if covers are 0.
+        // If activeEvents state is to be removed, this call might not be strictly necessary
+        // but harmless for now if it's just clearing.
+        // setActiveEvents([]); // Let's remove this to avoid confusion, as its role is changing.
 
-        if (showEvents && allEvents && allEvents.length > 0 && selectedDateStr) {
-            const selectedDay = new Date(selectedDateStr).getDay(); // 0 for Sunday, 1 for Monday, etc.
-            const filteredEvents = allEvents.filter(event => {
-                // Ensure event times are present, otherwise it's not bookable
-                if (typeof event.early !== 'number' || typeof event.late !== 'number') {
-                    return false;
-                }
-                if (event.specificDate) {
-                    return event.specificDate === selectedDateStr;
-                }
-                if (typeof event.dayOfWeek === 'number') {
-                    return event.dayOfWeek === selectedDay;
-                }
-                // Add dateRange logic if needed:
-                // if (event.dateRange) {
-                //   return selectedDateStr >= event.dateRange.start && selectedDateStr <= event.dateRange.end;
-                // }
-                return true; // If no specific date/day, assume it's generally available
-            });
-            setActiveEvents(filteredEvents);
-        } else {
-            setActiveEvents([]);
-        }
-
-        const currentAvailData = getCurrentAvailabilityData();
+        const currentAvailData = getCurrentAvailabilityData(); // This contains the .shifts array from API
         updateDailyRotaMessage(currentAvailData ? currentAvailData.message : '');
 
-        // displayTimeSlots will now also need to access activeEvents from state
-        if (currentAvailData || getActiveEvents().length > 0) { // Check if shifts or events to display
-            displayTimeSlots(currentAvailData); // Pass shift data; events will be read from state by displayTimeSlots
+        if (currentAvailData && currentAvailData.shifts && currentAvailData.shifts.length > 0) {
+            displayTimeSlots(currentAvailData); // Pass the whole availabilityData
         } else {
-            displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times or events. Please try again.');
+            // If currentAvailData is null or has no shifts/events from API
+            displayErrorMessageInTimesContainer('errorLoadingTimes', 'No shifts or events available for this selection.');
             setCurrentShiftUsagePolicy(null);
             updateNextBtnUI();
         }
@@ -324,7 +303,7 @@ export async function handleDateOrCoversChange() {
         console.error('Error during availability fetch/processing in handleDateOrCoversChange:', error);
         displayErrorMessageInTimesContainer('errorLoadingTimes', 'Could not load times. Please try again.');
         setCurrentShiftUsagePolicy(null);
-        setActiveEvents([]);
+        // setActiveEvents([]); // If activeEvents state is being removed.
         updateNextBtnUI();
     }
 }
@@ -519,18 +498,30 @@ function timeSlotDelegatedListener(event) {
 
         if (isEventButton) {
             const eventUid = button.dataset.eventUid;
-            const allActiveEvents = getActiveEvents();
-            const eventObject = allActiveEvents.find(e => e.uid.toString() === eventUid);
+            // Fetch canonical event details from config_manager
+            const canonicalEvents = getEventsB();
+            const canonicalEventObject = canonicalEvents.find(e => e.uid.toString() === eventUid);
 
-            if (eventObject) {
-                setSelectedEventDetails({ ...eventObject, selectedTime: timeValue });
-                setCurrentSelectedDecimalTime(timeValue, null); // Set time, clear shift name
-                setCurrentShiftUsagePolicy(null); // Events might have their own addon policies later
+            if (canonicalEventObject) {
+                // The event item from the API (`availabilityData.shifts`) might have day-specific details
+                // like a modified name or specific times. For `setSelectedEventDetails`, we want the
+                // canonical details from `config.eventsB` primarily, plus the selected time.
+                // The API's event item name was used for panel title.
+                // The API's event item times were used for buttons.
+                // The modal uses canonical desc.
+                setSelectedEventDetails({
+                    ...canonicalEventObject, // Use all details from canonical definition
+                    selectedTime: timeValue  // Add the specific time slot that was clicked
+                });
+
+                setCurrentSelectedDecimalTime(timeValue, null); // Set global time, clear shift name
+                setCurrentShiftUsagePolicy(null); // Events might have different addon logic if implemented
                 resetStateAddons();
                 updateAddonsDisplayUI();
 
                 if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = formatTime(timeValue);
-                showTimeSelectionSummary(eventObject.name, formatTime(timeValue));
+                // Use canonicalEventObject.name for the summary, as it's the full, official name
+                showTimeSelectionSummary(canonicalEventObject.name, formatTime(timeValue));
 
                 hideAreaSelector();
                 setCurrentSelectedAreaUID(null);
@@ -542,9 +533,11 @@ function timeSlotDelegatedListener(event) {
                     addonsDisplayArea.style.display = 'none';
                 }
             } else {
-                console.error(`Event object not found for UID: ${eventUid} in active events list.`);
-                updateNextBtnUI(); // Update button state even on error
-                return;
+                console.error(`Canonical event details not found for UID: ${eventUid} in config.eventsB.`);
+                setSelectedEventDetails(null); // Clear if we can't find details
+                setCurrentSelectedDecimalTime(null, null); // Clear time
+                if (selectedTimeValueSpan) selectedTimeValueSpan.textContent = '-';
+                // Consider resetting showTimeSelectionSummary or showing an error
             }
         } else { // It's a shift button
             setSelectedEventDetails(null); // Clear any selected event

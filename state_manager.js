@@ -22,25 +22,27 @@ let state = {
     selectedAreaNameForSummary: null,
     selectedAddonsForContext: null,
     // Event related state
-    activeEvents: [],
+    // activeEvents: [], // Removed, as API's day-avail response is now the source of truth for daily items
     selectedEventDetails: null // Stores { uid, name, time, desc, card, etc. } of the selected event
 };
 
 // --- Getter and Setter Functions ---
 
 // Event related getters and setters
-export function getActiveEvents() {
-    return state.activeEvents; // Typically return a copy if mutable: JSON.parse(JSON.stringify(state.activeEvents));
-}
-export function setActiveEvents(events) {
-    state.activeEvents = events;
-}
+// export function getActiveEvents() { // Removed
+//     return state.activeEvents;
+// }
+// export function setActiveEvents(events) { // Removed
+//     state.activeEvents = events;
+// }
 
 export function getSelectedEventDetails() {
-    return state.selectedEventDetails; // Return a copy if mutable: state.selectedEventDetails ? JSON.parse(JSON.stringify(state.selectedEventDetails)) : null;
+    // Return a deep copy if mutable, or if the object structure is complex.
+    // For now, assuming the event object from API is suitable for direct use or simple copying.
+    return state.selectedEventDetails ? { ...state.selectedEventDetails } : null;
 }
 export function setSelectedEventDetails(eventDetails) {
-    state.selectedEventDetails = eventDetails;
+    state.selectedEventDetails = eventDetails ? { ...eventDetails } : null;
 }
 // End of event related getters and setters
 
