@@ -644,8 +644,8 @@ span.flatpickr-weekday {
     padding: 0;              /* No internal padding needed for the cell itself */
     cursor: pointer;
     max-width:unset;
-    width: max-content;
-    height:auto;
+    width: 100%;
+    height:100%;
 }
 
 .flatpickr-day.flatpickr-disabled {
@@ -774,31 +774,6 @@ span.flatpickr-weekday {
     background: none;
 }
 
-/* Responsive Styles for Mobile */
-@media (max-width: 768px) {
-    .form-selectors {
-        flex-direction: column; /* Stack columns vertically */
-    }
-
-    .calendar-column {
-        width: 100%; /* Take full width */
-        flex-basis: auto; /* Reset flex-basis */
-        margin-right: 0; /* Remove right margin */
-        margin-bottom: 20px; /* Add bottom margin for spacing when stacked */
-    }
-
-    .details-column {
-        width: 100%; /* Take full width */
-        /* min-width reset is not strictly necessary here as flex-direction is column,
-           but it doesn't hurt if other properties were to interact with it. */
-    }
-
-    /* Adjust calendar container max-width for mobile if it was previously constrained by column */
-    #custom-calendar-container {
-        max-width: 100%; /* Allow calendar to use full width of its column */
-    }
-}
-
 /* Styles for Partially Available Time Slots */
 .time-slot-button.time-slot-partial-area {
     background-color: var(--particleAvailabilityColor);
@@ -855,7 +830,7 @@ span.flatpickr-weekday {
 
 .details-wrapper {
     display: flex;
-    flex-wrap: wrap; /* Allow wrapping for mobile */
+    flex-wrap: row-reverse; /* Allow wrapping for desktop */
     gap: 20px; /* Space between summary and form */
 }
 
@@ -974,17 +949,53 @@ span.flatpickr-weekday {
 .success-message { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
 .error-message { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 
-
-/* --- Responsive Adjustments --- */
-/* Stack columns on smaller screens */
+/* Responsive Styles for Mobile */
 @media (max-width: 768px) {
+    body{ 
+        padding: 20px 6px;
+    }
+    .form-container{
+        padding:12px
+    }
+
+
+    .form-selectors {
+        flex-direction: column; /* Stack columns vertically */
+    }
+
+    .calendar-column {
+        width: 100%; /* Take full width */
+        flex-basis: auto; /* Reset flex-basis */
+        margin-right: 0; /* Remove right margin */
+        margin-bottom: 20px; /* Add bottom margin for spacing when stacked */
+    }
+
+    .details-column {
+        width: 100%; /* Take full width */
+        /* min-width reset is not strictly necessary here as flex-direction is column,
+           but it doesn't hurt if other properties were to interact with it. */
+    }
+
+    /* Adjust calendar container max-width for mobile if it was previously constrained by column */
+    #custom-calendar-container {
+        max-width: 100%; /* Allow calendar to use full width of its column */
+    }
+    /* Booking details page mobile styling */
+    /* Stack columns on smaller screens */
     .details-wrapper {
         flex-direction: column;
     }
+
+    #customerDetailsSection {
+    padding: 0px;
+}
 
     #bookingSummaryDisplay,
     #customerDetailsFormSPA {
         flex: 1 1 100%; /* Allow them to take full width when stacked */
         min-width: auto; /* Reset min-width for stacking */
+    }
+    #customerDetailsFormSPA {
+        padding:10px 0;
     }
 }
