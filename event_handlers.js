@@ -28,7 +28,7 @@ import {
     setSelectedAreaNameForSummary,
     setSelectedAddonsForContext, // Existing import
     getSelectedAddonsForContext, // Added import
-    setActiveEvents, // Added for events
+    // setActiveEvents, // Removed as activeEvents state is removed
     setSelectedEventDetails // Added for events
 } from './state_manager.js';
 // Removed: import { eventsB, showEventsFeature } from './event_data.js';
@@ -220,7 +220,7 @@ export async function handleDateOrCoversChange() {
         setCurrentShiftUsagePolicy(null);
         setCurrentSelectedDecimalTime(null);
         setSelectedEventDetails(null); // Clear selected event
-        setActiveEvents([]); // Clear active events
+        // setActiveEvents([]); // No longer needed, activeEvents state removed
         updateDailyRotaMessage('');
         updateNextBtnUI();
         return;
@@ -233,7 +233,7 @@ export async function handleDateOrCoversChange() {
     resetTimeRelatedUI();
     setCurrentShiftUsagePolicy(null);
     setSelectedEventDetails(null); // Clear selected event details when date/covers change
-    setActiveEvents([]); // Reset active events before filtering
+    // setActiveEvents([]); // No longer needed
 
     if (!selectedDateStr || selectedDateStr < getTodayDateString()) {
         const messageKey = !selectedDateStr ? 'errorInvalidInput' : 'errorDateInPast';
