@@ -29,7 +29,8 @@ import {
     setSelectedAddonsForContext, // Existing import
     getSelectedAddonsForContext, // Added import
     // setActiveEvents, // Removed as activeEvents state is removed
-    setSelectedEventDetails // Added for events
+    setSelectedEventDetails, // Existing import
+    getSelectedEventDetails // Added back for event handling
 } from './state_manager.js';
 // Removed: import { eventsB, showEventsFeature } from './event_data.js';
 import { getEventsB, getShowEventsFlag, getEventMessages } from './config_manager.js'; // Added
