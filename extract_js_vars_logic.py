@@ -52,16 +52,16 @@ def extract_script_tag_content(html_content: str) -> str | None:
     if not html_content:
         return None
 
-    # Pattern 1: Look for a script tag containing 'var estName ='.
-    match = re.search(r"<script[^>]*>([\s\S]*?var\s+estName\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
+    # Pattern 1: Look for a script tag containing 'var estName =', 'let estName =', or 'const estName ='.
+    match = re.search(r"<script[^>]*>([\s\S]*?(?:var|let|const)\s+estName\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
-        # print("Found script block using 'var estName' pattern.", flush=True) # Optional: for server-side logging
+        # print("Found script block using 'estName' pattern (var/let/const).", flush=True) # Optional: for server-side logging
         return match.group(1)
 
-    # Pattern 2: Look for a script tag containing 'var dapi ='.
-    match = re.search(r"<script[^>]*>([\s\S]*?var\s+dapi\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
+    # Pattern 2: Look for a script tag containing 'var dapi =', 'let dapi =', or 'const dapi ='.
+    match = re.search(r"<script[^>]*>([\s\S]*?(?:var|let|const)\s+dapi\s*=\s*[\s\S]*?)<\/script>", html_content, re.DOTALL)
     if match:
-        # print("Found script block using 'var dapi' pattern.", flush=True) # Optional: for server-side logging
+        # print("Found script block using 'dapi' pattern (var/let/const).", flush=True) # Optional: for server-side logging
         return match.group(1)
     
     # Pattern 3: Fallback to a general pattern for inline scripts (no 'src' attribute).
