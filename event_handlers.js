@@ -1,6 +1,6 @@
 // --- Event Handlers ---
 
-import { getConfig, getLanguageStrings, getCurrentEstName } from './config_manager.js';
+import { getConfig, getLanguageStrings, getCurrentEstName, getProcessedUsrLang } from './config_manager.js'; // Added getProcessedUsrLang
 import { fetchAvailableTimes, holdBooking } from './api_service.js';
 import {
     setCurrentShiftUsagePolicy,
@@ -365,7 +365,7 @@ export async function handleNextButtonClick() {
     const selectedDate = calendarTopBar ? calendarTopBar.dataset.selectedDate : null;
 
     const est = localCurrentEstName;
-    const language = (localConfig && localConfig.usrLang) ? localConfig.usrLang.replace(/['"]/g, '') : 'en';
+    const language = getProcessedUsrLang(); // Use the new getter for a clean language code
     const numCovers = coversDisplay ? coversDisplay.value : null;
     const timeToSubmit = getCurrentSelectedDecimalTime(); // This will be event time if event is selected
     const selectedEvent = getSelectedEventDetails();

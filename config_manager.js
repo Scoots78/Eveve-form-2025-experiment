@@ -7,6 +7,7 @@ let initialShiftsConfig = [];
 let eventsBConfig = []; // For 'eventsB'
 let eventMessagesConfig = {}; // For 'eventMessages'
 let showEventsFeatureFlag = false; // For 'showEvents'
+let processedUsrLang = 'en'; // Default language, will be updated
 let currentEstName = '';
 let configLoaded = false;
 let configLoadError = null;
@@ -88,6 +89,31 @@ async function loadConfig() {
         eventsBConfig = parseJsObjectString(config.eventsB) || [];
         eventMessagesConfig = parseJsObjectString(config.eventMessages) || {};
 
+        // Process usrLang
+        let rawUsrLang = config.usrLang;
+        if (typeof rawUsrLang === 'string') {
+            try {
+                // Attempt to parse it as a JS string literal (e.g., "'en'" -> "en")
+                let parsed = parseJsObjectString(rawUsrLang);
+                if (typeof parsed === 'string' && /^[a-zA-Z]{2,3}(?:-[a-zA-Z]{2,4})?$/.test(parsed)) {
+                    processedUsrLang = parsed;
+                } else if (rawUsrLang.length <= 5 && /^[a-zA-Z]{2,3}(?:-[a-zA-Z]{2,4})?$/.test(rawUsrLang.replace(/['"]/g, ''))) {
+                    // If it was a simple string like "en" (without extra quotes from JS)
+                    // or "'en'" and parseJsObjectString failed but simple replace works
+                    processedUsrLang = rawUsrLang.replace(/['"]/g, '');
+                } else {
+                    console.warn(`Parsed usrLang ('${parsed}' from raw '${rawUsrLang}') is not a typical lang code, defaulting to 'en'.`);
+                    processedUsrLang = 'en';
+                }
+            } catch (e) {
+                console.warn(`Error parsing usrLang ('${rawUsrLang}'), defaulting to 'en'.`, e);
+                processedUsrLang = 'en';
+            }
+        } else {
+            // If config.usrLang is not present or not a string, default to 'en'
+            processedUsrLang = 'en';
+        }
+
         configLoaded = true;
         configLoadError = null; // Clear any previous error
         // console.log('Configuration loaded and parsed successfully in config_manager.'); // For debugging
@@ -156,6 +182,11 @@ export function getEventMessages() {
 export function getShowEventsFlag() {
     if (configLoadError) return false; // Default to false on error
     return showEventsFeatureFlag;
+}
+
+export function getProcessedUsrLang() {
+    if (configLoadError) return 'en'; // Default to 'en' on error
+    return processedUsrLang;
 }
 
 export function getCurrentEstName() {
