@@ -20,10 +20,31 @@ let state = {
     selectedDateForSummary: null,
     selectedCoversForSummary: null,
     selectedAreaNameForSummary: null,
-    selectedAddonsForContext: null
+    selectedAddonsForContext: null,
+    // Event related state
+    // activeEvents: [], // Removed, as API's day-avail response is now the source of truth for daily items
+    selectedEventDetails: null // Stores { uid, name, time, desc, card, etc. } of the selected event
 };
 
 // --- Getter and Setter Functions ---
+
+// Event related getters and setters
+// export function getActiveEvents() { // Removed
+//     return state.activeEvents;
+// }
+// export function setActiveEvents(events) { // Removed
+//     state.activeEvents = events;
+// }
+
+export function getSelectedEventDetails() {
+    // Return a deep copy if mutable, or if the object structure is complex.
+    // For now, assuming the event object from API is suitable for direct use or simple copying.
+    return state.selectedEventDetails ? { ...state.selectedEventDetails } : null;
+}
+export function setSelectedEventDetails(eventDetails) {
+    state.selectedEventDetails = eventDetails ? { ...eventDetails } : null;
+}
+// End of event related getters and setters
 
 export function getCurrentShiftUsagePolicy() {
     return state.currentShiftUsagePolicy;
