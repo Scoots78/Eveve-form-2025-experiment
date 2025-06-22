@@ -23,17 +23,33 @@ This project is a web application designed to enable users to initiate a restaur
     - `/api/get-config`: This endpoint takes an establishment identifier (`est`) as a query parameter. It then uses `extract_js_vars_logic.py` to fetch and parse configuration data from the external restaurant's booking page on `nz.eveve.com`. This configuration is then returned as JSON to the frontend.
 - **`booking_page.html`**: The single HTML page that structures the booking form and user interface.
 - **JavaScript Modules (formerly `form_logic.js`)**: The frontend logic is now modularized into several JavaScript files:
-    - **`main.js`**: The main entry point for the frontend application. It orchestrates the initialization of other modules and manages the overall application flow.
-    - **`config_manager.js`**: Responsible for fetching the initial restaurant configuration (via `/api/get-config`) and storing it.
-    - **`api_service.js`**: Handles all API calls to the external `nz.eveve.com` service, such as fetching day-specific availability (time slots, areas).
-    - **`event_handlers.js`**: Manages user interactions (e.g., date selection, guest number changes) and coordinates the application's response to these events.
-    - **`ui_manager.js`**: Handles updates to the DOM, including rendering dynamic content like time slots, areas, and addons based on fetched data and user selections.
-    - **`state_manager.js`**: Manages the shared application state, such as current selections for date, covers, time, area, and addons.
-    - **`dom_utils.js`**: Provides utility functions for common DOM manipulation tasks and formatting.
+    - **`main.js`**: The main entry point for the frontend application. It orchestrates the initialization of other modules, sets up global handlers, and manages the overall application flow.
+    - **`config_manager.js`**: Responsible for fetching the initial restaurant configuration (via `/api/get-config`) and storing it. This configuration includes crucial data like `eventsB` (array of event definitions) and `showEventsFeature` (flag for enabling event display), addon details, and area settings. Provides getters for other modules to access this configuration.
+    - **`api_service.js`**:
+        - Manages direct API interactions with the external `nz.eveve.com` service.
+        - `fetchAvailableTimes(est, date, covers)`: Fetches day-specific availability. The response can include standard shifts, special *events* (within the `shifts` array of the response), and area information.
+        - `holdBooking(holdApiData)`: Sends a GET request to `nz.eveve.com/web/hold` to attempt a temporary booking. `holdApiData` includes `est`, `lng`, `covers`, `date`, `time`, and conditionally `area` (for shift bookings with specific area), `addons` (comma-separated string of selected addon UIDs/quantities), and `eventId` (if an event is selected).
+    - **`event_handlers.js`**:
+        - Manages user interactions (e.g., date selection, guest number changes, time/event selection, addon choices, area selection) and coordinates the application's response.
+        - `handleDateOrCoversChange()`: Initiates fetching of availability data (which can include events) from `api_service.js` and triggers UI updates via `ui_manager.js`.
+        - `timeSlotDelegatedListener()`: Handles clicks on both regular time slot buttons (shifts) and special event buttons.
+            - For *event clicks*: Retrieves canonical event details from `config_manager.js` (using `eventsB`), updates `state_manager.js` with selected event details (including UID and selected time), typically resets/hides addons and area selection as they may not apply or differ for events.
+            - For *shift clicks*: Sets selected shift details, triggers rendering of relevant addons (via `ui_manager.js`) based on the shift's configuration and potentially selected area, and updates area selector states.
+        - `handleAddonUsage1Selection()`, `handleAddonUsage2Selection()`, `handleAddonUsage3Selection()`: Implement the logic for selecting/deselecting addons based on their `usage` type (e.g., radio, checkbox, quantity input), updating `state_manager.js`.
+        - `handleAreaChange()`: Responds to area selection changes, re-evaluating and re-rendering addons if necessary for the new area context.
+        - `handleNextButtonClick()`: Constructs the `holdApiData` object (including `area`, `addons`, `eventId` as appropriate) and calls `api_service.js.holdBooking()`. Manages UI transitions to the customer details form upon successful hold.
+        - `handleConfirmBookingSubmit()`: Makes a direct `fetch` PATCH request to `nz.eveve.com/web/update` to finalize the booking, sending customer details and the selected `addons` string.
+    - **`ui_manager.js`**:
+        - Handles all direct DOM manipulations for updating the user interface.
+        - `displayTimeSlots(availabilityData)`: Renders buttons for available time slots. Critically, this function now also handles rendering special "event" buttons if events are present in `availabilityData.shifts`, distinguishing them visually or by metadata from regular shift time slots.
+        - `renderAddons(addonsArray, usagePolicy, covers, shiftName, areaUID)`: Dynamically creates and displays addon selection UI elements (checkboxes, radio buttons, quantity selectors with plus/minus buttons) based on the `addons` array provided for a selected shift/event and its `usage` policy. It considers the number of covers for `usage2` addons and filters addons by area if applicable.
+        - Manages visibility and content of summary sections, loading indicators, error messages, and area selectors.
+    - **`state_manager.js`**: Manages the shared application state, such as current selections for date, covers, time (decimal format), selected shift name, selected area UID, selected event details (including UID and time), and selected addons (categorized by `usage` type).
+    - **`dom_utils.js`**: Provides utility functions for common DOM manipulation tasks, string formatting (e.g., `formatTime`), and formatting selected addons into a comma-separated string for API calls (`formatSelectedAddonsForApi`).
     - **`calendar_control.js`**: Manages the Flatpickr calendar instance, including its initialization, event handling for date selection, and integration with the rest of the application.
-    - **`booking_page.js`**: Contains specific logic related to the covers input on the booking page, potentially handling validation or specific UI interactions for guest number selection.
-- **`extract_js_vars_logic.py`**: A Python module dedicated to fetching the HTML content of a specific restaurant's booking page from `nz.eveve.com`. It then uses regular expressions to find and extract the values of predefined JavaScript variables from inline script tags within that HTML. These variables constitute the configuration data for the application.
-- **`style.css`**: The CSS file providing all styling for `booking_page.html`, including styles for the Flatpickr calendar.
+    - **`booking_page.js`**: Contains specific UI logic for the "number of guests" (covers) input, including increment/decrement buttons and debounced calls to update availability.
+- **`extract_js_vars_logic.py`**: A Python module dedicated to fetching the HTML content of a specific restaurant's booking page from `nz.eveve.com`. It then uses regular expressions to find and extract the values of predefined JavaScript variables (like `eventsB`, `addonMassage`, `areas`, etc.) from inline script tags within that HTML. These variables constitute the initial configuration data for the application.
+- **`style.css`**: The CSS file providing all styling for `booking_page.html`, including styles for the Flatpickr calendar, time slots, event buttons, and addon elements.
 
 ## Setup and Installation
 1.  **Clone the repository:**
@@ -65,16 +81,38 @@ This project is a web application designed to enable users to initiate a restaur
 ## API Endpoint
 -   **`/api/get-config?est=<establishment_name>`**
     -   **Method:** GET
-    -   **Description:** Retrieves essential configuration variables for the specified restaurant establishment. This data is scraped from the live booking page of the restaurant on `nz.eveve.com`.
+    -   **Description:** Retrieves essential configuration variables for the specified restaurant establishment. This data is scraped by the Python backend (`extract_js_vars_logic.py`) from the live booking page of the restaurant on `nz.eveve.com` (specifically, from `https://nz.eveve.com/web/form?est=<est_name>`).
     -   **Parameters:**
         -   `est` (string, required): The unique identifier for the restaurant establishment.
-    -   **Returns:** JSON object containing key-value pairs of configuration data (e.g., restaurant name, language strings, shift details, addon information, area selection policy).
+    -   **Returns:** JSON object containing key-value pairs of configuration data. This includes, but is not limited to:
+        -   Restaurant operational details (name, hours, etc.).
+        -   Language strings for UI elements.
+        -   Shift definitions and their properties.
+        -   Area configuration (e.g., `arSelect` flag, list of areas).
+        -   Addon definitions, including their types, pricing, and usage rules (`usage1`, `usage2`, `usage3`).
+        -   Event definitions (`eventsB` array), including their UIDs, names, descriptions, and other properties.
+        -   Flags like `showEventsFeature` to control event visibility.
 
 ## External Dependencies
--   **`nz.eveve.com`**: The application is critically dependent on this external service for:
-    1.  Initial configuration data (scraped from its HTML).
-    2.  Real-time availability data (fetched via its `day-avail` API endpoint).
-    The structure, content, and availability of this external site directly and significantly impact the application's functionality.
+-   **`nz.eveve.com`**: The application is critically dependent on this external third-party service for all its core booking data and operations. Any changes to their API endpoints or data structures can break this application. Key interactions include:
+    1.  **Initial Configuration (`app.py` via `extract_js_vars_logic.py`):**
+        *   Endpoint: `https://nz.eveve.com/web/form?est=<est_name>`
+        *   Method: GET
+        *   Purpose: The Python backend scrapes this page's HTML to extract JavaScript variables. These variables provide essential setup information, including restaurant details, language strings, shift definitions, area configurations, addon details, and event definitions (`eventsB`).
+    2.  **Real-time Availability (`api_service.js`):**
+        *   Endpoint: `https://nz.eveve.com/web/day-avail?est=<est_name>&covers=<covers>&date=<date>`
+        *   Method: GET
+        *   Purpose: Fetches available time slots, area details, and information about specific events or shifts for the selected date and number of guests. The response's `shifts` array can contain both regular shifts and special event objects.
+    3.  **Temporary Booking Hold (`api_service.js`):**
+        *   Endpoint: `https://nz.eveve.com/web/hold`
+        *   Method: GET
+        *   Purpose: Attempts to place a temporary hold on a selected time slot or event.
+        *   Key Parameters: `est`, `lng`, `covers`, `date`, `time`. Conditionally includes `area` (for non-event bookings with area selection), `addons` (formatted string of selected addon UIDs and quantities), and `eventId` (if an event is selected instead of a regular time slot).
+    4.  **Booking Confirmation/Update (`event_handlers.js` directly using `fetch`):**
+        *   Endpoint: `https://nz.eveve.com/web/update`
+        *   Method: PATCH
+        *   Purpose: Confirms the booking by providing customer details and associating them with the previously acquired booking hold (`uid`).
+        *   Key Parameters: `est`, `uid` (from hold response), `lng`, `firstName`, `lastName`, `phone`, `email`, `notes`, `optem` (opt-in marketing). Critically, it also includes the `addons` parameter if addons were selected.
 -   **Flatpickr**: A lightweight, powerful datetime picker used for the calendar interface. (Loaded via CDN in `booking_page.html`)
 
 ## How it Works
@@ -87,12 +125,27 @@ This project is a web application designed to enable users to initiate a restaur
 7.  It then parses this HTML to extract values from inline JavaScript variables (configuration).
 8.  This configuration JSON is sent back to `config_manager.js`, which stores it and makes it available to other modules via `state_manager.js`.
 9.  `main.js` initializes the UI elements using `ui_manager.js` and sets up event listeners using `event_handlers.js`. The calendar is initialized by `calendar_control.js`.
-10. When the user selects a date using the Flatpickr calendar, `calendar_control.js` captures the selection. `event_handlers.js` responds to this change (and changes to guest numbers via `booking_page.js` logic).
-11. `event_handlers.js` instructs `api_service.js` to make an asynchronous GET request to `https://nz.eveve.com/web/day-avail?est=<est_name>&covers=<covers>&date=<date>` to fetch available time slots, areas, and specific shift details.
-12. The response data is processed, and `ui_manager.js` dynamically updates the UI to display available time slots, areas, and addons.
-13. If addons are associated with the selected time/shift, `ui_manager.js` renders them for user selection.
-14. A summary of the user's selections (date, time, guests, area, addons) is continuously updated on the page by `ui_manager.js`, based on data held in `state_manager.js`.
-15. The "Next" button currently gathers all selected data (managed by `event_handlers.js` and `state_manager.js`) but does not yet perform a booking/hold action.
+10. When the user selects a date (via `calendar_control.js`) or changes the number of guests (via `booking_page.js`), `event_handlers.js` triggers an update.
+11. `event_handlers.js` then calls `api_service.js` to make an asynchronous GET request to `https://nz.eveve.com/web/day-avail?est=<est_name>&covers=<covers>&date=<date>`. This API call fetches:
+    *   Available time slots.
+    *   Area information (if applicable to the restaurant).
+    *   Details about specific *events* or *shifts* available for the selected date and party size. The API response's `shifts` array can contain both regular shift objects and special event objects.
+12. The response data from `day-avail` is processed. `ui_manager.js` dynamically updates the UI to display:
+    *   Regular time slot buttons for standard shifts.
+    *   Special "event" buttons if any events are returned by the API for the selected day. These are derived from the `shifts` array in the API response but may be cross-referenced with canonical event data from the initial configuration (`eventsB`).
+    *   Area selection options (e.g., radio buttons) if the restaurant is configured for area selection (`arSelect` is true) and areas are available.
+13. If a user selects a time slot (for a shift) or an event button:
+    *   If it's a shift, and addons are associated with that shift (and potentially the selected area), `ui_manager.js` renders the addon selection interface. Addons can have different behaviors based on their `usage` type (e.g., `usage1` for single-choice radio/checkbox, `usage2` for quantity selection, `usage3` for multiple-choice checkboxes).
+    *   If it's an event, addon availability depends on the event's configuration. Often, events may not have separate addons, or they might be intrinsic to the event package.
+14. A summary of the user's selections (date, time, guests, area, selected addons) is continuously updated on the page by `ui_manager.js` based on data held in `state_manager.js`.
+15. When the user clicks the "Next" button, `event_handlers.js` gathers all selected data and calls `api_service.js`'s `holdBooking` function. This makes a GET request to `https://nz.eveve.com/web/hold`.
+    *   The data sent includes `est`, `lng` (language), `covers`, `date`, and `time`.
+    *   Crucially, it also conditionally includes:
+        *   `area`: The UID of the selected area, if area selection is active and an area is chosen (not applicable for "any" area or if an event is selected).
+        *   `addons`: A comma-separated string of selected addon UIDs (and quantities for `usage2` addons), formatted by `dom_utils.js`.
+        *   `eventId`: The UID of the selected event, if an event was chosen instead of a regular time slot. If `eventId` is present, `area` is typically not sent.
+    *   If the hold is successful, the application transitions to a view for collecting customer details. Otherwise, an error is shown.
+16. After a successful hold, the user enters their details. Submitting this form triggers `event_handlers.js` to make a PATCH request (directly via `fetch`) to `https://nz.eveve.com/web/update`. This call includes the customer's information, the `uid` from the successful hold response, and again, the selected `addons` string. This finalizes the booking.
 
 ## Current Status Assessment (as of May 2024)
 -   The application successfully provides a user interface for the initial stages of creating a restaurant booking, now featuring an interactive calendar.
@@ -124,8 +177,52 @@ This project is a web application designed to enable users to initiate a restaur
     -   The list `VARIABLES_TO_EXTRACT` in `extract_js_vars_logic.py` is fundamental. If `nz.eveve.com` alters its frontend JavaScript variable names or structure, the scraping mechanism will break. Consider adding a post-extraction check for the presence of essential variables and logging warnings or errors if they are missing.
     -   Explore ways to make the configuration extraction less brittle, though this is challenging with web scraping.
 
+## Event Selection Flow
+The application supports booking special events if they are configured for the restaurant and made available through the `nz.eveve.com` API.
+
+1.  **Configuration:** Event definitions (including UIDs, names, descriptions, times, etc.) are initially scraped from the restaurant's booking page HTML (from a JavaScript variable, typically `eventsB`) by `extract_js_vars_logic.py` and passed to the frontend via the `/api/get-config` endpoint. This canonical event data is stored by `config_manager.js`. A flag like `showEventsFeature` may also control overall event visibility.
+2.  **Availability Check:** When a user selects a date and number of guests, the `fetchAvailableTimes` function in `api_service.js` calls the `nz.eveve.com/web/day-avail` API. The response's `shifts` array can contain objects that represent these pre-defined events, alongside regular shifts.
+3.  **Display:** `ui_manager.js`, specifically in its `displayTimeSlots` function, checks the items in the `shifts` array from the API. If an item corresponds to an event (e.g., by matching an ID or a specific property), it's rendered as a distinct "event button" in the time selection area, often visually differentiated from standard time slots. The button will typically display the event's name and specific start time.
+4.  **Selection:**
+    *   When a user clicks an event button, the `timeSlotDelegatedListener` in `event_handlers.js` identifies it as an event selection.
+    *   It retrieves the full canonical details of the event from `config_manager.js` (using the event's UID).
+    *   The selected event's details (including its UID and the specific time slot chosen, if the event has multiple sittings) are stored in `state_manager.js`.
+    *   Typically, selecting an event will:
+        *   Bypass regular shift-based area selection (area selection is usually hidden or disabled).
+        *   Reset or hide any previously displayed addons, as addons are generally tied to shifts or might be included intrinsically with the event package. Addon availability for events depends on the specific configuration.
+5.  **Booking Process (Hold Call):**
+    *   When proceeding to the "Next" step (hold call), if an event is selected, `event_handlers.js` includes an `eventId` parameter (with the event's UID) in the `holdApiData` sent to `nz.eveve.com/web/hold`.
+    *   The `area` parameter is usually omitted when `eventId` is present.
+    *   Addons might be sent if they are specifically applicable and selected for that event.
+
+This flow allows the system to dynamically offer and process bookings for special events alongside regular table reservations.
+
+## Addon Selection Flow
+Addons (extras like set menus, special offers, or pre-ordered items) can be selected by the user if they are available for the chosen time slot/event and area.
+
+1.  **Configuration:** Addon definitions (UID, name, price, description, type, usage policy, area/shift applicability) are part of the initial configuration scraped by `extract_js_vars_logic.py` and provided to the frontend. `config_manager.js` stores this.
+2.  **Availability and Display:**
+    *   After a user selects a time slot (for a regular shift) and, if applicable, an area, `event_handlers.js` (often triggered by `timeSlotDelegatedListener` or `handleAreaChange`) determines which addons are relevant.
+    *   `ui_manager.js` (specifically `renderAddons`) then dynamically generates the UI elements for these available addons.
+    *   The rendering depends on the addon's `usage` policy:
+        *   **`usage: 0` or `usage: 1` (Single Choice):** Often rendered as radio buttons (if multiple `usage: 1` addons are grouped) or a single checkbox. The user can select one. `usage: 0` might imply an addon is informational or automatically included.
+        *   **`usage: 2` (Quantity Choice):** Rendered with a quantity input field and plus/minus buttons, allowing the user to specify how many of the addon they want (often up to the number of guests).
+        *   **`usage: 3` (Multiple Choice):** Rendered as checkboxes, allowing the user to select multiple addons from a list.
+    *   Addons can also be filtered based on whether they are applicable to the selected area (`areaUID` parameter in `renderAddons`).
+3.  **Selection Logic:**
+    *   User interactions with addon UI elements (clicks on checkboxes, radios, quantity buttons) are handled by delegated listeners in `event_handlers.js` (e.g., `addonsDelegatedListener` which calls specific handlers like `handleAddonUsage1Selection`, `handleAddonUsage2Selection`, `handleAddonUsage3Selection`).
+    *   These handlers update the `selectedAddons` object in `state_manager.js`, which keeps track of chosen addons and their quantities.
+    *   The UI summary of selected addons is updated by `ui_manager.js`.
+4.  **Booking Process (Hold and Update Calls):**
+    *   When the user proceeds to the "Next" step (hold call), `event_handlers.js` retrieves the selected addons from `state_manager.js`.
+    *   `dom_utils.js.formatSelectedAddonsForApi()` formats this data into a comma-separated string (e.g., `addonUID1,addonUID2:qty2,addonUID3`).
+    *   This `addons` string is included as a query parameter in the GET request to `nz.eveve.com/web/hold`.
+    *   Similarly, for the final booking confirmation, this `addons` string is also included in the PATCH request to `nz.eveve.com/web/update`.
+
+This system allows for flexible addon offerings tailored to specific shifts, events, and areas, enhancing the booking customisation.
+
 ## Known Issues/Limitations
 -   **Critical Dependency on External Site:** The entire application hinges on the consistent structure and availability of `nz.eveve.com`. Any significant changes to their frontend HTML (specifically, the inline JavaScript variables) or API endpoints will likely break this application. This is a common risk with web scraping-based integrations.
--   **No Booking Finalization:** The application currently only allows the user to select booking parameters. It does not actually make or confirm a booking with the restaurant.
--   **Area Selection Stickiness (Deferred):** The user's selected area is not reliably remembered if they change the date or number of guests. This was identified for improvement but deferred from the current scope of work.
--   **Limited `est` Parameter Discovery:** Users need to know a valid `est` (establishment) identifier to use the form. There's no built-in way to discover these.
+-   **Area Selection Stickiness (Deferred):** The user's selected area is not reliably remembered if they change the date or number of guests. This was identified for improvement but deferred from the current scope of work. This primarily affects the user experience if they go back and forth changing parameters after an initial area selection.
+-   **Limited `est` Parameter Discovery:** Users need to know a valid `est` (establishment) identifier to use the application. There's no built-in mechanism to browse or search for available establishments.
+-   **Error Handling Granularity:** While error handling exists, particularly for API calls, further refinement could provide more specific feedback to users for different failure scenarios (e.g., specific business logic errors from Eveve vs. network issues).
